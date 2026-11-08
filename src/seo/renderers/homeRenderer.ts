@@ -32,7 +32,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     const ratingRaw = getField(app, 'rating', '5.0');
     const ratingVal = typeof ratingRaw === 'number' ? ratingRaw : (parseFloat(String(ratingRaw)) || 5.0);
     const rating = ratingVal.toFixed(1);
-    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
+    const rawIcon = getField(app, 'icon_url') || '/logo.png';
     const icon = optimizeImageUrl(rawIcon, 120);
     const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
     const isHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
@@ -330,45 +330,57 @@ export function renderCategory(categoryName: string, _categorySlug: string, cate
     const name = getField(app, 'name');
     const slug = getField(app, 'slug');
     const category = getField(app, 'category');
-    const rating = getField(app, 'rating', '5.0');
-    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
-    const icon = optimizeImageUrl(rawIcon, 128);
+    const ratingRaw = getField(app, 'rating', '5.0');
+    const ratingVal = typeof ratingRaw === 'number' ? ratingRaw : (parseFloat(String(ratingRaw)) || 5.0);
+    const rating = ratingVal.toFixed(1);
+    const rawIcon = getField(app, 'icon_url') || '/logo.png';
+    const icon = optimizeImageUrl(rawIcon, 120);
     const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
-    const isTopItem = i < 4;
+    const isHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
+    const isVerified = getField(app, 'safety_status', 'Verified') === 'Verified';
+    const isTopItem = i < 6;
     
     appsHtml += `
-      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5 text-left" title="${escapeHtml(name)} review and details">
-        <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
-        <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
-        <div class="flex-1 min-w-0">
-          <h3 class="font-bold text-base text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(name)}</h3>
-          <p class="text-xs text-zinc-500 truncate">${escapeHtml(category)}</p>
-          <div class="flex items-center gap-1.5 text-xs text-zinc-500 mt-1">
-            <span>${escapeHtml(rating)}</span><span class="text-amber-500 font-bold">★</span>
-            ${isNew ? `<span class="bg-blue-500/10 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>` : ''}
+      <div class="relative group z-1">
+        <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-1.5 xxs:gap-2 xs:gap-2.5 sm:gap-4 py-1.5 xxs:py-2 pl-1 pr-8 xxs:pr-9 xs:py-2.5 xs:pl-2 xs:pr-12 sm:pl-4 sm:pr-14 sm:py-3.5 mb-0 sm:mb-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 rounded-xl sm:rounded-2xl relative active:bg-black/5 dark:active:bg-white/5 w-full" title="${escapeHtml(name)}">
+          <div class="w-3.5 xxs:w-4 xs:w-5 sm:w-7 text-[11px] xxs:text-xs xs:text-[14px] sm:text-[17px] font-black text-zinc-400 dark:text-zinc-500 text-center shrink-0">
+            ${i + 1}
           </div>
-        </div>
-        <span class="bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 px-4 py-1 text-xs font-bold rounded-full select-none">DETAILS</span>
-      </a>
+          <div class="relative w-[52px] h-[52px] xxs:w-[60px] xxs:h-[60px] xs:w-[72px] xs:h-[72px] sm:w-[88px] sm:h-[88px] shrink-0">
+            <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[18px] sm:rounded-[22px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm border border-black/5 dark:border-white/10 relative z-10">
+              <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" fetchpriority="low"'} decoding="async" width="88" height="88" class="w-full h-full object-cover block" alt="${escapeHtml(name)} app icon"/>
+            </div>
+            ${isHot && isNew ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="inline-flex items-center rounded-[6px] xs:rounded-[8px] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.18)] font-black text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] uppercase tracking-wider block"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span></div>` : isHot ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#d32f2f] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">HOT</span></div>` : isNew ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>` : ''}
+          </div>
+          <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+            <h3 class="font-semibold text-xs xxs:text-sm xs:text-base sm:text-[17px] tracking-tight text-zinc-900 dark:text-zinc-100 truncate w-full">${escapeHtml(name)}</h3>
+            <div class="text-[10px] xxs:text-[11px] xs:text-xs sm:text-[13px] font-normal text-zinc-500 dark:text-zinc-400 truncate">${escapeHtml(category)}</div>
+            <div class="flex items-center gap-1 text-[9px] xxs:text-[10px] xs:text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 mt-0.5">
+              <span>${rating}</span>
+              <svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 fill-current text-zinc-400" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              ${isVerified ? `<svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 text-blue-500 shrink-0 ml-0.5 xs:ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>` : ''}
+            </div>
+          </div>
+          <div class="absolute bottom-0 right-4 left-[70px] xxs:left-[80px] xs:left-[96px] sm:left-[144px] border-b border-black/5 dark:border-white/5 opacity-50"></div>
+        </a>
+      </div>
     `;
   });
 
   return `
-    <div class="max-w-4xl mx-auto py-6 px-2 sm:px-4">
-      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6">
-        <a href="/" class="hover:text-blue-600">Home</a>
-        <span>/</span>
-        <a href="/categories" class="hover:text-blue-600">Categories</a>
-        <span>/</span>
-        <span class="font-bold text-zinc-800 dark:text-zinc-200">${escapeHtml(categoryName)}</span>
-      </nav>
-      <div class="text-center py-8 mb-6 bg-white dark:bg-zinc-900 rounded-[28px] border border-black/5 p-6 shadow-sm">
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">${escapeHtml(categoryName)} Apps & Reviews</h1>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Explore all ${categoryApps.length} verified ${escapeHtml(categoryName)} applications, ratings, download specifications, and reviews on ${escapeHtml(siteTitle)}.</p>
+    <div class="select-none min-h-screen">
+      <div class="pt-2 pb-3 px-1 text-left">
+        <nav aria-label="Breadcrumb" class="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+          <a href="/" class="hover:text-blue-600 transition-colors">Home</a>
+          <span>/</span>
+          <a href="/categories" class="hover:text-blue-600 transition-colors">Categories</a>
+          <span>/</span>
+          <span class="font-semibold text-zinc-800 dark:text-zinc-200">${escapeHtml(categoryName)}</span>
+        </nav>
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">${escapeHtml(categoryName)} Apps & Reviews</h1>
+        <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Explore all ${categoryApps.length} verified ${escapeHtml(categoryName)} applications, ratings, download specifications, and reviews on ${escapeHtml(siteTitle)}.</p>
       </div>
-      <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-        <div class="flex flex-col">${appsHtml || '<p class="text-center text-zinc-400 py-10">No applications listed under this category.</p>'}</div>
-      </div>
+      <div class="space-y-2 px-0 sm:px-1">${appsHtml || '<p class="text-center text-zinc-400 py-10">No applications listed under this category.</p>'}</div>
     </div>
   `;
 }
@@ -381,42 +393,53 @@ export function renderNewApps(newApps: any[], settings: any): string {
     const name = getField(app, 'name');
     const slug = getField(app, 'slug');
     const category = getField(app, 'category');
-    const rating = getField(app, 'rating', '5.0');
-    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
-    const icon = optimizeImageUrl(rawIcon, 128);
-    const isTopItem = i < 4;
+    const ratingRaw = getField(app, 'rating', '5.0');
+    const ratingVal = typeof ratingRaw === 'number' ? ratingRaw : (parseFloat(String(ratingRaw)) || 5.0);
+    const rating = ratingVal.toFixed(1);
+    const rawIcon = getField(app, 'icon_url') || '/logo.png';
+    const icon = optimizeImageUrl(rawIcon, 120);
+    const isVerified = getField(app, 'safety_status', 'Verified') === 'Verified';
+    const isTopItem = i < 6;
     
     appsHtml += `
-      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5 text-left" title="${escapeHtml(name)} review and details">
-        <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
-        <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
-        <div class="flex-1 min-w-0">
-          <h3 class="font-bold text-base text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(name)}</h3>
-          <p class="text-xs text-zinc-500 truncate">${escapeHtml(category)}</p>
-          <div class="flex items-center gap-1.5 text-xs text-zinc-500 mt-1">
-            <span>${escapeHtml(rating)}</span><span class="text-amber-500 font-bold">★</span>
-            <span class="bg-blue-500/10 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>
+      <div class="relative group z-1">
+        <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-1.5 xxs:gap-2 xs:gap-2.5 sm:gap-4 py-1.5 xxs:py-2 pl-1 pr-8 xxs:pr-9 xs:py-2.5 xs:pl-2 xs:pr-12 sm:pl-4 sm:pr-14 sm:py-3.5 mb-0 sm:mb-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 rounded-xl sm:rounded-2xl relative active:bg-black/5 dark:active:bg-white/5 w-full" title="${escapeHtml(name)}">
+          <div class="w-3.5 xxs:w-4 xs:w-5 sm:w-7 text-[11px] xxs:text-xs xs:text-[14px] sm:text-[17px] font-black text-zinc-400 dark:text-zinc-500 text-center shrink-0">
+            ${i + 1}
           </div>
-        </div>
-        <span class="bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 px-4 py-1 text-xs font-bold rounded-full select-none">DETAILS</span>
-      </a>
+          <div class="relative w-[52px] h-[52px] xxs:w-[60px] xxs:h-[60px] xs:w-[72px] xs:h-[72px] sm:w-[88px] sm:h-[88px] shrink-0">
+            <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[18px] sm:rounded-[22px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm border border-black/5 dark:border-white/10 relative z-10">
+              <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" fetchpriority="low"'} decoding="async" width="88" height="88" class="w-full h-full object-cover block" alt="${escapeHtml(name)} app icon"/>
+            </div>
+            <div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>
+          </div>
+          <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+            <h3 class="font-semibold text-xs xxs:text-sm xs:text-base sm:text-[17px] tracking-tight text-zinc-900 dark:text-zinc-100 truncate w-full">${escapeHtml(name)}</h3>
+            <div class="text-[10px] xxs:text-[11px] xs:text-xs sm:text-[13px] font-normal text-zinc-500 dark:text-zinc-400 truncate">${escapeHtml(category)}</div>
+            <div class="flex items-center gap-1 text-[9px] xxs:text-[10px] xs:text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 mt-0.5">
+              <span>${rating}</span>
+              <svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 fill-current text-zinc-400" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              ${isVerified ? `<svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 text-blue-500 shrink-0 ml-0.5 xs:ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>` : ''}
+            </div>
+          </div>
+          <div class="absolute bottom-0 right-4 left-[70px] xxs:left-[80px] xs:left-[96px] sm:left-[144px] border-b border-black/5 dark:border-white/5 opacity-50"></div>
+        </a>
+      </div>
     `;
   });
 
   return `
-    <div class="max-w-4xl mx-auto py-6 px-2 sm:px-4">
-      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6">
-        <a href="/" class="hover:text-blue-600">Home</a>
-        <span>/</span>
-        <span class="font-bold text-zinc-800 dark:text-zinc-200">New Apps</span>
-      </nav>
-      <div class="text-center py-8 mb-6 bg-white dark:bg-zinc-900 rounded-[28px] border border-black/5 p-6 shadow-sm">
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">Newly Added & Updated Applications</h1>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Discover the latest verified card, arcade, and gaming applications added to ${escapeHtml(siteTitle)}.</p>
+    <div class="select-none min-h-screen">
+      <div class="pt-2 pb-3 px-1 text-left">
+        <nav aria-label="Breadcrumb" class="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+          <a href="/" class="hover:text-blue-600 transition-colors">Home</a>
+          <span>/</span>
+          <span class="font-semibold text-zinc-800 dark:text-zinc-200">New Apps</span>
+        </nav>
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">Newly Added & Updated Applications</h1>
+        <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Discover the latest verified card, arcade, and gaming applications added to ${escapeHtml(siteTitle)}.</p>
       </div>
-      <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-        <div class="flex flex-col">${appsHtml || '<p class="text-center text-zinc-400 py-10">No new applications available.</p>'}</div>
-      </div>
+      <div class="space-y-2 px-0 sm:px-1">${appsHtml || '<p class="text-center text-zinc-400 py-10">No new applications available.</p>'}</div>
     </div>
   `;
 }

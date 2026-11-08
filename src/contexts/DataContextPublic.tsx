@@ -185,7 +185,13 @@ const getInitialCache = () => {
   try {
     if (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__) {
       const initData = (window as any).__INITIAL_DATA__;
-      if (initData && ((Array.isArray(initData.apps) && initData.apps.length > 0) || (Array.isArray(initData.news) && initData.news.length > 0))) {
+      if (
+        initData &&
+        ((Array.isArray(initData.apps) && initData.apps.length > 0) ||
+          (Array.isArray(initData.news) && initData.news.length > 0) ||
+          (Array.isArray(initData.videos) && initData.videos.length > 0) ||
+          (initData.settings && Object.keys(initData.settings).length > 0))
+      ) {
         return initData;
       }
     }
@@ -222,8 +228,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return mockVideos;
   });
 
-  const [loading, setLoading] = useState(() => apps.length === 0);
-  const [loadedFromServer, setLoadedFromServer] = useState(() => apps.length > 0);
+  const [loading, setLoading] = useState(() => apps.length === 0 && !initialCache);
+  const [loadedFromServer, setLoadedFromServer] = useState(() => apps.length > 0 || Boolean(initialCache));
   const [isLive, setIsLive] = useState(true);
 
   // Dedicated lightweight fetchers for each section on-demand when URL/route changes
@@ -370,36 +376,43 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [apps.length]);
 
   useEffect(() => {
-    // Only fetch backup data if initial SSR cache was completely empty or has a trimmed route slice (< 50 apps on catalog route)
-    const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
-    const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category');
-    if (apps.length === 0) {
+    // Only fetch full catalog backup data on catalog routes or if SSR cache was completely absent
+    const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/' : '';
+    const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category') || p.startsWith('/safety');
+    if (isCatalog && apps.length < 50) {
       loadFullStaticDataset().then(full => {
         if (full?.apps && full.apps.length > 0) {
           setApps(prev => mergeUniqueApps(prev, full.apps));
         }
-        if (full?.news && full.news.length > 0) {
-          setNews(prev => mergeUniqueNews(prev, full.news));
-        }
       }).catch(() => {});
       fetchBackupData(false);
-    } else if (isCatalog && apps.length < 50) {
-      fetchBackupData(false);
+    } else if (!initialCache && apps.length === 0) {
+      loadFullStaticDataset().then(full => {
+        if (full?.apps && full.apps.length > 0) {
+          setApps(prev => mergeUniqueApps(prev, full.apps));
+        }
+      }).catch(() => {});
+      fetchBackupData(true);
     }
-  }, [apps.length, fetchBackupData]);
+  }, [apps.length, fetchBackupData, initialCache]);
 
   // Ensure full catalog is loaded if user navigates to catalog listing routes or opens search
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const checkCatalogRoute = () => {
-      const p = window.location.pathname.toLowerCase();
-      const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category');
-      if (isCatalog && apps.length > 0 && apps.length < 50) {
+      const p = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+      const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category') || p.startsWith('/safety');
+      if (isCatalog && apps.length < 50) {
         fetchBackupData(true);
       }
     };
     const handleSearchOpen = () => {
-      if (apps.length > 0 && apps.length < 50) {
+      if (apps.length < 50) {
+        loadFullStaticDataset().then(full => {
+          if (full?.apps && full.apps.length > 0) {
+            setApps(prev => mergeUniqueApps(prev, full.apps));
+          }
+        }).catch(() => {});
         fetchBackupData(true);
       }
     };

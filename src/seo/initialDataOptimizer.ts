@@ -1,6 +1,6 @@
 import { getField } from './utils';
 import { structureHtmlFragment } from '../lib/safeHtmlPublic';
-import { getNextNewsChain, calculateReadingTime, resolveVideoRelatedApp } from '../lib/newsUtils';
+import { getNextNewsChain, calculateReadingTime, resolveVideoRelatedApp, resolveNewsRelatedApp } from '../lib/newsUtils';
 
 export function optimizeInitialDataForRoute(
   data: any,
@@ -239,8 +239,10 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
       reviews: realReviews,
       short_description: targetApp.short_description || '',
       seo_title: targetApp.seo_title || '',
+      meta_title: targetApp.meta_title || '',
       seo_description: targetApp.seo_description || '',
       meta_description: targetApp.meta_description || '',
+      seo_keywords: targetApp.seo_keywords || '',
       og_image_url: targetApp.og_image_url || '',
       canonical_url: targetApp.canonical_url || '',
       description_html: targetApp.description_html ? structureHtmlFragment(String(targetApp.description_html)) : '',
@@ -300,17 +302,8 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     optimizedApps = [fullTargetApp, ...trimmedSimilar];
   } else if (isNewsDetailPage || isNewsIndexPage || isVideoDetailPage || isVideoIndexPage || isStaticInfoPage) {
     let relatedApp: any = null;
-    if (isNewsDetailPage && targetNews) {
-      const relId = getField(targetNews, 'related_app_id');
-      if (relId && Array.isArray(baseApps)) {
-        relatedApp = baseApps.find((a: any) => (getField(a, 'id') || '').toLowerCase() === String(relId).toLowerCase() || (getField(a, 'slug') || '').toLowerCase() === String(relId).toLowerCase());
-      }
-      if (!relatedApp && getField(targetNews, 'link') && Array.isArray(baseApps)) {
-        const linkSlug = getField(targetNews, 'link').replace(/^.*\/app\//, '').replace(/\/$/, '').split(/[?#]/)[0].toLowerCase();
-        if (linkSlug) {
-          relatedApp = baseApps.find((a: any) => (getField(a, 'slug') || '').toLowerCase() === linkSlug || (getField(a, 'id') || '').toLowerCase() === linkSlug);
-        }
-      }
+    if (isNewsDetailPage && targetNews && Array.isArray(baseApps)) {
+      relatedApp = resolveNewsRelatedApp(targetNews, baseApps);
     } else if (isVideoDetailPage && targetVideo && Array.isArray(baseApps)) {
       relatedApp = resolveVideoRelatedApp(targetVideo, baseApps);
     }
@@ -345,8 +338,7 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
       };
     };
 
-    const singleStub = relatedApp || baseApps[0];
-    optimizedApps = singleStub ? [trimStubApp(singleStub)].filter(Boolean) : [];
+    optimizedApps = relatedApp ? [trimStubApp(relatedApp)].filter(Boolean) : [];
   } else {
     optimizedApps = baseApps.map((app: any) => {
       if (!app || app.sync_to_public === false) return null;
@@ -628,9 +620,11 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
   } else if (isAppDetailPage && targetApp) {
     const appNameLower = String(getField(targetApp, 'name') || '').toLowerCase().trim();
     const appIdStr = String(getField(targetApp, 'id') || '');
+    const appSlugStr = String(getField(targetApp, 'slug') || targetAppSlug || '').toLowerCase();
     optimizedNews = rawNews
       .filter((n: any) => {
-        if (appIdStr && n.related_app_id === appIdStr) return true;
+        if (appIdStr && String(n.related_app_id) === appIdStr) return true;
+        if (appSlugStr && String(n.related_app_id || '').toLowerCase() === appSlugStr) return true;
         if (!appNameLower) return false;
         return (
           n.title?.toLowerCase().includes(appNameLower) ||
@@ -677,7 +671,7 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     };
   }).filter(Boolean);
 
-  // Public Settings: On App Details, News, Video, and Catalog pages, omit heavy legal HTML blobs and developer bios
+  // Public Settings: Strictly isolate per route so no page leaks unrelated legal HTML blobs, developer lists, or banners
   const rawSettings = data.settings || data.mockSettings || {};
   const optimizedSettings: any = {};
   const appDetailKeys = [
@@ -685,46 +679,55 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     'ticker_text', 'support_email', 'last_updated', 'animations_enabled',
     'quick_links', 'turnstile_site_key', 'helpline_whatsapp', 'helpline_telegram'
   ];
-  const detailPageKeys = [
-    ...appDetailKeys,
-    'site_title', 'seo_title', 'seo_description', 'seo_keywords',
-    'meta_title', 'meta_description',
-    'news_meta_title', 'news_meta_description',
-    'videos_meta_title', 'videos_meta_description'
-  ];
-  const catalogPageKeys = [
-    ...detailPageKeys,
-    'hero_title_text', 'hero_title_subtitle', 'hero_title_color', 'hero_title_animation',
-    'hero_title_visible', 'hero_title_style', 'portal_heading', 'secure_index_title',
-    'secure_index_subtitle', 'banners',
-    'website_faqs', 'faq_meta_title', 'faq_meta_description',
-    'new_apps_meta_title', 'new_apps_meta_description',
-    'categories_meta_title', 'categories_meta_description'
-  ];
-  const fullAllowedKeys = [
-    ...catalogPageKeys,
-    'about_meta_title', 'about_meta_description', 'about_content', 'about_us',
-    'contact_meta_title', 'contact_meta_description', 'contact_content',
-    'privacy_meta_title', 'privacy_meta_description', 'privacy_content',
-    'terms_meta_title', 'terms_meta_description', 'terms_content',
-    'responsibility_meta_title', 'responsibility_meta_description', 'responsibility_content',
-    'report_removal_meta_title', 'report_removal_meta_description', 'report_removal_content',
-    'notice_meta_title', 'notice_meta_description', 'important_notice', 'important_notice_heading',
-    'ethics_meta_title', 'ethics_meta_description', 'ethics_discrimination_text', 'ethics_heading',
-    'disclaimer_meta_title', 'disclaimer_meta_description', 'disclaimer_text', 'disclaimer_heading',
-    'developers_meta_title', 'developers_meta_description', 'developers',
-    'safety_meta_title', 'safety_meta_description'
-  ];
 
-  const isLeanMediaPage = isNewsDetailPage || isNewsIndexPage || isVideoDetailPage || isVideoIndexPage;
-  const isCatalogPage = isHomePage || cleanPathLower === '/new-apps' || cleanPathLower === '/categories' || cleanPathLower.startsWith('/category/');
-  const allowedKeys = isAppDetailPage
-    ? appDetailKeys
-    : isLeanMediaPage
-    ? detailPageKeys
-    : isCatalogPage
-    ? catalogPageKeys
-    : fullAllowedKeys;
+  const baseSiteKeys = [...appDetailKeys, 'site_title'];
+
+  let allowedKeys: string[];
+  if (isAppDetailPage) {
+    allowedKeys = appDetailKeys;
+  } else if (isNewsDetailPage || isNewsIndexPage) {
+    allowedKeys = [...baseSiteKeys, 'news_meta_title', 'news_meta_description'];
+  } else if (isVideoDetailPage || isVideoIndexPage) {
+    allowedKeys = [...baseSiteKeys, 'videos_meta_title', 'videos_meta_description'];
+  } else if (isHomePage) {
+    allowedKeys = [
+      ...baseSiteKeys,
+      'seo_title', 'seo_description', 'seo_keywords', 'meta_title', 'meta_description',
+      'hero_title_text', 'hero_title_subtitle', 'hero_title_color', 'hero_title_animation',
+      'hero_title_visible', 'hero_title_style', 'portal_heading', 'secure_index_title',
+      'secure_index_subtitle', 'banners', 'website_faqs'
+    ];
+  } else if (cleanPathLower === '/new-apps') {
+    allowedKeys = [...baseSiteKeys, 'new_apps_meta_title', 'new_apps_meta_description', 'seo_keywords'];
+  } else if (cleanPathLower === '/categories' || cleanPathLower.startsWith('/category/')) {
+    allowedKeys = [...baseSiteKeys, 'categories_meta_title', 'categories_meta_description', 'seo_keywords'];
+  } else if (cleanPathLower === '/about') {
+    allowedKeys = [...baseSiteKeys, 'about_meta_title', 'about_meta_description', 'about_content', 'about_us'];
+  } else if (cleanPathLower === '/contact') {
+    allowedKeys = [...baseSiteKeys, 'contact_meta_title', 'contact_meta_description', 'contact_content'];
+  } else if (cleanPathLower === '/privacy') {
+    allowedKeys = [...baseSiteKeys, 'privacy_meta_title', 'privacy_meta_description', 'privacy_content'];
+  } else if (cleanPathLower === '/terms') {
+    allowedKeys = [...baseSiteKeys, 'terms_meta_title', 'terms_meta_description', 'terms_content'];
+  } else if (cleanPathLower === '/responsibility') {
+    allowedKeys = [...baseSiteKeys, 'responsibility_meta_title', 'responsibility_meta_description', 'responsibility_content'];
+  } else if (cleanPathLower === '/report-removal') {
+    allowedKeys = [...baseSiteKeys, 'report_removal_meta_title', 'report_removal_meta_description', 'report_removal_content'];
+  } else if (cleanPathLower === '/notice') {
+    allowedKeys = [...baseSiteKeys, 'notice_meta_title', 'notice_meta_description', 'important_notice', 'important_notice_heading'];
+  } else if (cleanPathLower === '/ethics') {
+    allowedKeys = [...baseSiteKeys, 'ethics_meta_title', 'ethics_meta_description', 'ethics_discrimination_text', 'ethics_heading'];
+  } else if (cleanPathLower === '/disclaimer') {
+    allowedKeys = [...baseSiteKeys, 'disclaimer_meta_title', 'disclaimer_meta_description', 'disclaimer_text', 'disclaimer_heading'];
+  } else if (cleanPathLower === '/developers' || cleanPathLower.startsWith('/developer')) {
+    allowedKeys = [...baseSiteKeys, 'developers_meta_title', 'developers_meta_description', 'developers'];
+  } else if (cleanPathLower === '/faq' || cleanPathLower === '/faqs') {
+    allowedKeys = [...baseSiteKeys, 'faq_meta_title', 'faq_meta_description', 'website_faqs'];
+  } else if (cleanPathLower === '/safety' || cleanPathLower === '/safety-status') {
+    allowedKeys = [...baseSiteKeys, 'safety_meta_title', 'safety_meta_description'];
+  } else {
+    allowedKeys = [...baseSiteKeys, 'seo_title', 'seo_description', 'meta_title', 'meta_description'];
+  }
 
   const htmlContentKeys = new Set([
     'about_content', 'about_us', 'contact_content', 'privacy_content', 'terms_content',
@@ -750,8 +753,8 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     }
   }
 
-  // Ensure developers array is available on /developers or full static pages
-  if (!isAppDetailPage && !isLeanMediaPage && !isCatalogPage && !optimizedSettings.developers && Array.isArray(data.developers)) {
+  // Ensure developers array is available ONLY on /developers route if stored at top level of data
+  if ((cleanPathLower === '/developers' || cleanPathLower.startsWith('/developer')) && !optimizedSettings.developers && Array.isArray(data.developers)) {
     optimizedSettings.developers = data.developers;
   }
 

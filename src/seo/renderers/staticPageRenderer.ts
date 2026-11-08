@@ -17,28 +17,33 @@ export function renderCategoriesList(categoriesList: Array<{ name: string; slug:
   let catsHtml = '';
   categoriesList.forEach(cat => {
     catsHtml += `
-      <a href="/category/${encodeURIComponent(cat.slug)}" class="p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/30 rounded-3xl transition text-left flex items-center justify-between group shadow-2xs">
-        <div>
-          <h2 class="font-bold text-lg text-zinc-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">${escapeHtml(cat.name)}</h2>
-          <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">${cat.count} Verified Application${cat.count === 1 ? '' : 's'}</p>
+      <a href="/category/${encodeURIComponent(cat.slug)}" class="flex items-center justify-between gap-3 p-3.5 xs:p-4 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 hover:border-blue-500/30 rounded-2xl text-left transition-all duration-200 cursor-pointer no-underline group shadow-xs">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 xs:w-11 xs:h-11 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
+          <div class="min-w-0">
+            <h2 class="font-semibold text-sm xs:text-base text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">${escapeHtml(cat.name)}</h2>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums mt-0.5">${cat.count} Verified ${cat.count === 1 ? 'App' : 'Apps'}</p>
+          </div>
         </div>
-        <span class="text-blue-600 dark:text-blue-400 font-bold text-sm group-hover:translate-x-1 transition-transform">Explore →</span>
+        <svg class="w-4 h-4 text-zinc-400 group-hover:text-blue-500 transition-all shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
       </a>
     `;
   });
 
   return `
-    <div class="max-w-4xl mx-auto py-6 px-2 sm:px-4">
-      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6 text-left">
-        <a href="/" class="hover:text-blue-600">Home</a>
-        <span>/</span>
-        <span class="font-bold text-zinc-800 dark:text-zinc-200">Categories</span>
-      </nav>
-      <div class="text-center py-8 mb-6 bg-white dark:bg-zinc-900 rounded-[28px] border border-black/5 p-6 shadow-sm">
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">Application Categories</h1>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Browse apps by game genre and category on ${escapeHtml(siteTitle)}.</p>
+    <div class="select-none min-h-screen">
+      <div class="pt-2 pb-3 px-1 text-left">
+        <nav aria-label="Breadcrumb" class="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+          <a href="/" class="hover:text-blue-600 transition-colors">Home</a>
+          <span>/</span>
+          <span class="font-semibold text-zinc-800 dark:text-zinc-200">Categories</span>
+        </nav>
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">Application Categories</h1>
+        <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Browse apps by game genre and category on ${escapeHtml(siteTitle)}.</p>
       </div>
-      <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-2.5 xs:gap-3.5 px-0">
         ${catsHtml || '<p class="text-center text-zinc-400 py-10 col-span-full">No categories available.</p>'}
       </div>
     </div>
@@ -70,7 +75,7 @@ export function renderDevelopersList(developers: any[], settings: any): string {
   devList.forEach(d => {
     const name = getField(d, 'name') || getField(d, 'title') || 'Developer';
     const logo = getField(d, 'image_url') || getField(d, 'logo_url') || getField(d, 'icon_url');
-    const optimizedLogo = logo ? optimizeImageUrl(logo, 256) : `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+    const optimizedLogo = logo ? optimizeImageUrl(logo, 256) : '';
     const bio = getField(d, 'bio') || getField(d, 'description') || '';
     const role = getField(d, 'role') || 'Verified Developer';
     const github = getField(d, 'github') || '';
@@ -78,16 +83,20 @@ export function renderDevelopersList(developers: any[], settings: any): string {
 
     cards += `
       <div class="border border-zinc-200/80 dark:border-white/10 rounded-2xl p-5 flex flex-col items-center text-center group animate-fade-in">
-        <div class="w-24 h-24 rounded-full overflow-hidden mb-4 border-2 border-zinc-200 dark:border-zinc-800">
-          <img src="${escapeHtml(optimizedLogo)}" alt="${escapeHtml(name)}" loading="lazy" decoding="async" width="96" height="96" class="w-full h-full object-cover" referrerpolicy="no-referrer"/>
+        <div class="w-24 h-24 rounded-full overflow-hidden mb-4 border-2 border-zinc-200 dark:border-zinc-800 bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-extrabold text-2xl">
+          ${optimizedLogo
+            ? `<img src="${escapeHtml(optimizedLogo)}" alt="${escapeHtml(name)}" loading="lazy" decoding="async" width="96" height="96" class="w-full h-full object-cover"/>`
+            : `<span>${escapeHtml(name.charAt(0).toUpperCase())}</span>`}
         </div>
         <h3 class="text-lg font-extrabold text-zinc-900 dark:text-white mb-1 tracking-tight">${escapeHtml(name)}</h3>
         <div class="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider mb-3">${escapeHtml(role)}</div>
         ${bio ? `<p class="text-zinc-600 dark:text-zinc-400 mb-4 flex-grow text-xs sm:text-sm leading-relaxed">${escapeHtml(bio)}</p>` : ''}
-        <div class="flex gap-3 mt-auto pt-3 border-t border-zinc-200/80 dark:border-white/10 w-full justify-center">
-          ${github ? `<a href="${escapeHtml(github)}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 border border-zinc-200/80 dark:border-white/10 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-300" aria-label="${escapeHtml(name)} GitHub Profile">GitHub</a>` : ''}
-          ${twitter ? `<a href="${escapeHtml(twitter)}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 border border-zinc-200/80 dark:border-white/10 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-300" aria-label="${escapeHtml(name)} Twitter Profile">Twitter</a>` : ''}
-        </div>
+        ${(github || twitter) ? `
+          <div class="flex gap-3 mt-auto pt-3 border-t border-zinc-200/80 dark:border-white/10 w-full justify-center">
+            ${github ? `<a href="${escapeHtml(github)}" target="_blank" rel="noopener noreferrer" class="p-2 border border-zinc-200/80 dark:border-white/10 rounded-lg transition-colors text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white" title="GitHub" aria-label="${escapeHtml(name)} GitHub Profile">GitHub</a>` : ''}
+            ${twitter ? `<a href="${escapeHtml(twitter)}" target="_blank" rel="noopener noreferrer" class="p-2 border border-zinc-200/80 dark:border-white/10 rounded-lg transition-colors text-zinc-700 dark:text-zinc-300 hover:text-blue-500 dark:hover:text-blue-400" title="Twitter" aria-label="${escapeHtml(name)} Twitter Profile">Twitter</a>` : ''}
+          </div>
+        ` : ''}
       </div>
     `;
   });
@@ -273,7 +282,25 @@ export function render404(urlPath: string, settings: any): string {
 
 export function renderFaqPage(settings: any): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
-  const siteFaqs = Array.isArray(settings?.website_faqs) ? settings.website_faqs.filter((f: any) => f && f.question && f.answer) : [];
+  const rawFaqs = Array.isArray(settings?.website_faqs) ? settings.website_faqs.filter((f: any) => f && f.question && f.answer) : [];
+  const siteFaqs = rawFaqs.length > 0 ? rawFaqs : [
+    {
+      question: "What is RummyDex, and how does it help me find the best apps?",
+      answer: "RummyDex is an all-in-one digital discovery portal and review directory. We provide curated listings, hands-on performance evaluations, APK verification, and community feedback so you can discover safe, verified mobile apps."
+    },
+    {
+      question: "How does RummyDex ensure listed applications perform well on my device?",
+      answer: "Every application featured on our platform undergoes evaluation for frame rate stability, thermal efficiency, battery consumption, and interface responsiveness."
+    },
+    {
+      question: "Is downloading apps from RummyDex secure?",
+      answer: "Yes. All download references link directly to verified original developer APK packages with multi-point hash checks to prevent modified or compromised builds."
+    },
+    {
+      question: "How can I submit my own review or report a problem?",
+      answer: "You can submit community reviews directly on any app details page or flag any concern through the report modal for prompt moderator inspection."
+    }
+  ];
   return `
     <div class="max-w-[1000px] mx-auto px-3.5 sm:px-6 py-3 sm:py-6 animate-fade-in pb-14 min-h-[70vh] text-left">
       <div class="mb-3 sm:mb-4">
@@ -282,27 +309,41 @@ export function renderFaqPage(settings: any): string {
           Home
         </a>
       </div>
-      <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mb-1.5">
-        Frequently Asked Questions
-      </h1>
-      <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mb-4 pb-3 border-b border-zinc-200/80 dark:border-zinc-800/80">
-        Everything you need to know about ${escapeHtml(siteTitle)}, app downloads, verification, and safety.
-      </p>
-      <div class="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
-        ${siteFaqs.map((faq: any) => `
-          <details class="group py-3.5" open>
-            <summary class="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 cursor-pointer list-none flex justify-between items-center gap-3">
-              <span class="flex items-start gap-2">
-                <span class="text-blue-600 dark:text-blue-400 font-extrabold select-none">Q.</span>
-                <span>${escapeHtml(faq.question)}</span>
-              </span>
-              <span class="text-blue-500 font-bold select-none">+</span>
-            </summary>
-            <div class="mt-2 pt-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed pl-5 rich-html-content">
-              ${sanitizeHtml(faq.answer)}
-            </div>
-          </details>
-        `).join('')}
+      <div class="animate-fade-in">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-4 pb-3 border-b border-zinc-200/80 dark:border-zinc-800/80">
+          <div>
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mb-1.5">
+              Frequently Asked Questions
+            </h1>
+            <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+              Everything you need to know about ${escapeHtml(siteTitle)}, app downloads, verification, and safety.
+            </p>
+          </div>
+          <div class="relative w-full sm:w-64 shrink-0">
+            <input type="text" readonly placeholder="Filter questions..." aria-label="Filter questions" class="w-full py-2 pl-9 pr-8 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl placeholder-zinc-400" />
+            <svg class="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          </div>
+        </div>
+        <div class="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
+          ${siteFaqs.map((faq: any) => `
+            <details class="group py-3.5" open>
+              <summary class="list-none [&::-webkit-details-marker]:hidden w-full text-left flex items-center justify-between gap-3 cursor-pointer focus:outline-hidden select-none">
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-start gap-2">
+                  <span class="text-blue-600 dark:text-blue-400 font-extrabold shrink-0 select-none">Q.</span>
+                  <span class="leading-snug">${escapeHtml(faq.question)}</span>
+                </h2>
+                <div class="p-1 rounded-lg transition-transform duration-200 shrink-0 text-zinc-400 dark:text-zinc-500 group-open:rotate-180 group-open:text-blue-600 group-open:dark:text-blue-400">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"></path></svg>
+                </div>
+              </summary>
+              <div class="mt-2 pt-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed pl-5 rich-html-content">
+                <div class="prose prose-zinc dark:prose-invert prose-sm max-w-none w-full break-words whitespace-normal">
+                  ${sanitizeHtml(faq.answer)}
+                </div>
+              </div>
+            </details>
+          `).join('')}
+        </div>
       </div>
     </div>
   `;

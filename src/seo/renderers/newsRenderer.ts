@@ -1,6 +1,6 @@
 import { getField, optimizeImageUrl } from '../utils';
 import { escapeHtml, sanitizeHtml } from './common';
-import { formatNewsDate, calculateReadingTime, getNextNewsChain, getPlainTextSnippet } from '../../lib/newsUtils';
+import { formatNewsDate, calculateReadingTime, getNextNewsChain, getPlainTextSnippet, resolveNewsRelatedApp } from '../../lib/newsUtils';
 
 export function renderNewsList(news: any[], _settings: any, pageNum: number = 1): string {
   const publicNewsList = (Array.isArray(news) ? news : [])
@@ -207,18 +207,8 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
   // Calculate estimated reading time identically on SSR and client
   const readingTime = calculateReadingTime(getField(item, 'content') || getField(item, 'description_html') || description);
 
-  // Find related app only if explicitly linked by related_app_id or link
-  let relatedApp: any = null;
-  const relId = getField(item, 'related_app_id');
-  if (relId && Array.isArray(apps)) {
-    relatedApp = apps.find(a => (getField(a, 'id') || '').toLowerCase() === relId.toLowerCase() || (getField(a, 'slug') || '').toLowerCase() === relId.toLowerCase());
-  }
-  if (!relatedApp && getField(item, 'link') && Array.isArray(apps)) {
-    const linkSlug = getField(item, 'link').replace(/^.*\/app\//, '').replace(/\/$/, '').split(/[?#]/)[0].toLowerCase();
-    if (linkSlug) {
-      relatedApp = apps.find(a => (getField(a, 'slug') || '').toLowerCase() === linkSlug || (getField(a, 'id') || '').toLowerCase() === linkSlug);
-    }
-  }
+  // Find related app identically on SSR and client
+  const relatedApp = resolveNewsRelatedApp(item, apps);
 
   // Determine body content strictly from the news article itself
   let rawContent = getField(item, 'content') || getField(item, 'description_html');
@@ -334,9 +324,9 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
 
       <header class="mb-4 text-left px-1 sm:px-4">
         <div class="flex flex-wrap items-center gap-2 mb-2 text-xs">
-          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-800/50">
+          <a href="/news?category=${encodeURIComponent(cat)}" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors no-underline">
             ${escapeHtml(cat)}
-          </span>
+          </a>
           <span class="text-zinc-400 dark:text-zinc-500 flex items-center gap-1 font-medium">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
             ${escapeHtml(formattedDate)}
@@ -371,6 +361,17 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
       <div class="rich-html-content prose dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 leading-relaxed text-sm sm:text-base space-y-4 font-normal mt-6">
         ${sanitizedContent}
       </div>
+
+      ${Array.isArray(item.tags) && item.tags.filter(Boolean).length > 0 ? `
+        <div class="mt-6 pt-4 border-t border-zinc-200/60 dark:border-zinc-800/60 flex flex-wrap items-center gap-2">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mr-1">Topics:</span>
+          ${item.tags.filter(Boolean).map((tag: any) => {
+            const cleanTag = String(tag || '').trim();
+            if (!cleanTag) return '';
+            return `<a href="/news?q=${encodeURIComponent(cleanTag)}" class="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-zinc-600 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-medium transition-colors no-underline">#${escapeHtml(cleanTag)}</a>`;
+          }).join('')}
+        </div>
+      ` : ''}
 
       <!-- 4. Latest News & Updates Internal Linking -->
       ${recentNewsHtml}

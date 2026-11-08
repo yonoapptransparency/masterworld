@@ -168,6 +168,69 @@ export const AdminDashboardOverview = React.memo(({ apps, news, onTabChange }: D
         </div>
       </div>
 
+      {/* Catalog SEO & Vault Security Health Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div
+          onClick={() => onTabChange && onTabChange('apps')}
+          className="bg-white/80 dark:bg-slate-900/80 border border-slate-200/70 dark:border-slate-800/80 px-4 py-3 rounded-2xl flex items-center justify-between cursor-pointer hover:border-blue-500/40 transition-colors"
+        >
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">SEO Title Optimal (≤58c)</div>
+            <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5 tabular-nums">
+              {apps.filter(a => a.seo_title && a.seo_title.length <= 58).length} <span className="text-xs font-semibold text-slate-400">/ {apps.length}</span>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            SERP Ready
+          </span>
+        </div>
+
+        <div
+          onClick={() => onTabChange && onTabChange('apps')}
+          className="bg-white/80 dark:bg-slate-900/80 border border-slate-200/70 dark:border-slate-800/80 px-4 py-3 rounded-2xl flex items-center justify-between cursor-pointer hover:border-blue-500/40 transition-colors"
+        >
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Meta Desc Optimal (≤155c)</div>
+            <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5 tabular-nums">
+              {apps.filter(a => a.seo_description && a.seo_description.length <= 155).length} <span className="text-xs font-semibold text-slate-400">/ {apps.length}</span>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+            Indexed
+          </span>
+        </div>
+
+        <div
+          onClick={() => onTabChange && onTabChange('apps')}
+          className="bg-white/80 dark:bg-slate-900/80 border border-slate-200/70 dark:border-slate-800/80 px-4 py-3 rounded-2xl flex items-center justify-between cursor-pointer hover:border-blue-500/40 transition-colors"
+        >
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Vault Link Coverage</div>
+            <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5 tabular-nums">
+              {apps.filter(a => Boolean(a.download_url || a.real_url || a.encrypted_link)).length} <span className="text-xs font-semibold text-slate-400">/ {apps.length}</span>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+            AES-256
+          </span>
+        </div>
+
+        <div
+          onClick={() => onTabChange && onTabChange('apps')}
+          className="bg-white/80 dark:bg-slate-900/80 border border-slate-200/70 dark:border-slate-800/80 px-4 py-3 rounded-2xl flex items-center justify-between cursor-pointer hover:border-blue-500/40 transition-colors"
+        >
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Safety Verified Catalog</div>
+            <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white mt-0.5 tabular-nums">
+              {apps.filter(a => a.is_verified !== false).length} <span className="text-xs font-semibold text-slate-400">/ {apps.length}</span>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+            Active
+          </span>
+        </div>
+      </div>
+
       {/* Community Firebase Engine & Live Moderation Card */}
       <AdminCommunityOverviewCard onTabChange={onTabChange} />
       

@@ -37,6 +37,8 @@ export const AdminBannersTab = React.memo(({
   triggerHaptic,
   toast
 }: AdminBannersTabProps) => {
+  const [confirmClearAll, setConfirmClearAll] = React.useState(false);
+
   const onRemove = (index: number, id: string) => {
     if (handleDeleteBanner && id) {
       handleDeleteBanner(id);
@@ -46,19 +48,22 @@ export const AdminBannersTab = React.memo(({
   };
 
   const onClearAll = () => {
-    if (window.confirm('Are you sure you want to remove ALL banners? After clearing, click "Save Changes" to apply.')) {
-      if (handleClearAllBanners) {
-        handleClearAllBanners();
-      } else if (handleRemoveBanner) {
-        // Fallback: remove backwards
-        for (let i = banners.length - 1; i >= 0; i--) {
-          const b = banners[i];
-          if (handleDeleteBanner && b?.id) handleDeleteBanner(b.id);
-          else if (handleRemoveBanner) handleRemoveBanner(i);
-        }
-      }
-      if (toast) toast('All banners cleared from workspace. Click "Save Changes" to persist.', 'info');
+    if (!confirmClearAll) {
+      setConfirmClearAll(true);
+      setTimeout(() => setConfirmClearAll(false), 4000);
+      return;
     }
+    setConfirmClearAll(false);
+    if (handleClearAllBanners) {
+      handleClearAllBanners();
+    } else if (handleRemoveBanner) {
+      for (let i = banners.length - 1; i >= 0; i--) {
+        const b = banners[i];
+        if (handleDeleteBanner && b?.id) handleDeleteBanner(b.id);
+        else if (handleRemoveBanner) handleRemoveBanner(i);
+      }
+    }
+    if (toast) toast('All banners cleared from workspace. Click "Save Changes" to persist.', 'info');
   };
 
   const onUpdate = (index: number, id: string, field: string, value: any) => {
@@ -109,9 +114,13 @@ export const AdminBannersTab = React.memo(({
             <button 
               type="button"
               onClick={onClearAll} 
-              className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              className={`flex items-center gap-1.5 border px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                confirmClearAll
+                  ? 'bg-rose-600 text-white border-rose-600'
+                  : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800'
+              }`}
             >
-              <Eraser className="w-3.5 h-3.5"/> Remove All
+              <Eraser className="w-3.5 h-3.5"/> {confirmClearAll ? 'Tap Again to Clear All' : 'Remove All'}
             </button>
           )}
           

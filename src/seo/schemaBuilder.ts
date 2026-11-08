@@ -511,8 +511,8 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "description": params.description || 'Premium Transparency Directory for Rummy & Gaming Apps'
     });
   } else {
-    // Static pages (/about, /contact, /terms, /privacy, /faq, /developers, /videos, etc.):
-    // Emit WebPage schema with exact page title/headline
+    // Static pages (/about, /contact, /terms, /privacy, /faq, /developers, etc.):
+    // Emit WebPage schema with exact page title/headline + BreadcrumbList
     schemas.push({
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -521,8 +521,36 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "name": params.title,
       "headline": params.title,
       "description": params.description,
-      "inLanguage": "en"
+      "inLanguage": "en",
+      "isPartOf": {
+        "@type": "WebSite",
+        "@id": `${hostOrigin}/#website`,
+        "name": params.siteTitle || 'RummyDex',
+        "url": hostOrigin
+      }
     });
+
+    if (params.breadcrumbItems && params.breadcrumbItems.length > 0) {
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": params.breadcrumbItems.map((b, i) => ({
+          "@type": "ListItem",
+          "position": i + 1,
+          "name": b.name,
+          "item": b.url
+        }))
+      });
+    } else if (params.url && params.url !== hostOrigin && params.url !== `${hostOrigin}/`) {
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": hostOrigin },
+          { "@type": "ListItem", "position": 2, "name": params.title, "item": params.url }
+        ]
+      });
+    }
 
     // On /about, also emit the Organization schema for brand verification
     if (params.url && /\/about\/?$/i.test(params.url)) {

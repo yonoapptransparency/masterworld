@@ -95,3 +95,42 @@ export function cleanFaqQuestion(q?: string): string {
     .trim();
 }
 
+export function buildStaticWebPageSchemas(
+  path: string,
+  title: string,
+  description: string,
+  breadcrumbName?: string,
+  siteTitle: string = 'RummyDex'
+): { webPageSchema: Record<string, any>; breadcrumbSchema: Record<string, any> } {
+  const hostOrigin = 'https://www.rummydex.com';
+  const cleanUrl = getCleanCanonicalUrl('', path);
+  const webPageSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${cleanUrl}#webpage`,
+    url: cleanUrl,
+    name: title,
+    headline: title,
+    description,
+    inLanguage: 'en',
+    isPartOf: {
+      '@type': 'WebSite',
+      '@id': `${hostOrigin}/#website`,
+      name: siteTitle,
+      url: hostOrigin,
+    },
+  };
+
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: hostOrigin },
+      { '@type': 'ListItem', position: 2, name: breadcrumbName || title, item: cleanUrl },
+    ],
+  };
+
+  return { webPageSchema, breadcrumbSchema };
+}
+
+

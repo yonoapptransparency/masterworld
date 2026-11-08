@@ -327,16 +327,36 @@ async function verifyModulesAndLiveServer() {
     turnstile_site_key: '0x4AAAAAA_SITE',
     turnstile_secret_key: '0x4AAAAAA_SECRET',
     cloudinary_api_secret: 'cloud_sec',
-    gemini_api_key: 'gem_sec'
+    cloudinary_api_key: 'cloud_key',
+    cloudinary_cloud_name: 'cloud_name',
+    cloudinary_upload_preset: 'cloud_preset',
+    gemini_api_key: 'gem_sec',
+    gemini_model: 'gemini-3-flash',
+    _rest_admin_bypass: true,
+    test_ping: 12345
   });
   const staticJsonRaw = fs.readFileSync(staticJsonPath, 'utf8');
   const useGitHubSyncSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/hooks/useGitHubSync.ts'), 'utf8');
+  const privacyInitialData = optimizeInitialDataForRoute(rawData, '/privacy', null, null, null);
   const secretsSanitizedOk =
     !('turnstile_secret_key' in sanitizedSettings) &&
     !('cloudinary_api_secret' in sanitizedSettings) &&
+    !('cloudinary_api_key' in sanitizedSettings) &&
+    !('cloudinary_cloud_name' in sanitizedSettings) &&
+    !('cloudinary_upload_preset' in sanitizedSettings) &&
     !('gemini_api_key' in sanitizedSettings) &&
+    !('gemini_model' in sanitizedSettings) &&
+    !('_rest_admin_bypass' in sanitizedSettings) &&
+    !('test_ping' in sanitizedSettings) &&
     !staticJsonRaw.includes('turnstile_secret_key') &&
+    !staticJsonRaw.includes('cloudinary_api_key') &&
+    !staticJsonRaw.includes('gemini_model') &&
+    !staticJsonRaw.includes('_rest_admin_bypass') &&
     !staticJsonRaw.includes('more_information_url') &&
+    Array.isArray(privacyInitialData.apps) &&
+    privacyInitialData.apps.length === 0 &&
+    !('terms_content' in (privacyInitialData.settings || {})) &&
+    !('about_content' in (privacyInitialData.settings || {})) &&
     !useGitHubSyncSrc.includes("path: 'src/lib/public_backup.json'");
 
   // GATE-5: No synthetic touch telemetry fabrication in useClearanceDispatch.ts & cold sitekey present in lightFallback.ts

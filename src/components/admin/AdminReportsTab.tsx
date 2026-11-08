@@ -71,6 +71,8 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
   // Modals & Inspectors
   const [inspectReport, setInspectReport] = useState<ReportItem | null>(null);
   const [editingNotes, setEditingNotes] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   // Reset page when filters change
   useEffect(() => {
@@ -163,7 +165,12 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
 
   // Delete Report
   const handleDeleteReport = async (reportId: string) => {
-    if (!window.confirm('Delete this report entry permanently?')) return;
+    if (confirmDeleteId !== reportId) {
+      setConfirmDeleteId(reportId);
+      setTimeout(() => setConfirmDeleteId(prev => (prev === reportId ? null : prev)), 4000);
+      return;
+    }
+    setConfirmDeleteId(null);
     try {
       setActioningId(reportId);
       const res = await adminFetch(`/api/v1/admin/reports/${reportId}`, {
@@ -188,9 +195,12 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
   // Bulk Actions
   const handleBulkAction = async (action: 'resolve' | 'dismiss' | 'in_review' | 'delete') => {
     if (selectedReportIds.length === 0) return;
-    if (action === 'delete' && !window.confirm(`Permanently delete ${selectedReportIds.length} selected reports?`)) {
+    if (action === 'delete' && !confirmBulkDelete) {
+      setConfirmBulkDelete(true);
+      setTimeout(() => setConfirmBulkDelete(false), 4000);
       return;
     }
+    setConfirmBulkDelete(false);
 
     try {
       setRefreshing(true);
@@ -527,7 +537,7 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
               onClick={() => handleBulkAction('delete')}
               className="px-3 py-1.5 bg-black hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
             >
-              <Trash2 className="w-3.5 h-3.5" /> Delete
+              <Trash2 className="w-3.5 h-3.5" /> {confirmBulkDelete ? 'Tap Again to Confirm' : 'Delete'}
             </button>
             <button
               onClick={() => setSelectedReportIds([])}
@@ -777,10 +787,15 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
                         <button
                           disabled={actioningId === report.id}
                           onClick={() => handleDeleteReport(report.id)}
-                          className="p-2 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 dark:bg-rose-950/30 dark:hover:bg-rose-600 dark:hover:text-white rounded-xl transition-all cursor-pointer"
+                          className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs font-bold ${
+                            confirmDeleteId === report.id
+                              ? 'bg-rose-600 text-white px-2.5'
+                              : 'bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 dark:bg-rose-950/30 dark:hover:bg-rose-600 dark:hover:text-white'
+                          }`}
                           title="Delete Report"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
+                          {confirmDeleteId === report.id && <span>Confirm</span>}
                         </button>
                       </div>
                     </div>

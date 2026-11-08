@@ -203,4 +203,61 @@ export function resolveVideoRelatedApp(videoItem: any, apps: any[]): any {
   return null;
 }
 
+export function resolveNewsRelatedApp(newsItem: any, apps: any[]): any {
+  if (!newsItem || !Array.isArray(apps) || apps.length === 0) return null;
+  const getVal = (obj: any, key: string): string => {
+    if (!obj || obj[key] === undefined || obj[key] === null) return '';
+    const v = obj[key];
+    if (typeof v === 'object' && v.stringValue !== undefined) return String(v.stringValue);
+    return String(v);
+  };
+
+  const relId = getVal(newsItem, 'related_app_id').toLowerCase().trim();
+  if (relId) {
+    const byId = apps.find((a: any) => {
+      if (!a || a.sync_to_public === false) return false;
+      const aId = getVal(a, 'id').toLowerCase().trim();
+      const aSlug = getVal(a, 'slug').toLowerCase().trim();
+      return (aId && aId === relId) || (aSlug && aSlug === relId);
+    });
+    if (byId) return byId;
+  }
+
+  const rawLink = getVal(newsItem, 'link').trim();
+  if (rawLink && rawLink.includes('/app/')) {
+    const linkSlug = rawLink.replace(/^.*\/app\//, '').replace(/\/$/, '').split(/[?#]/)[0].toLowerCase().trim();
+    if (linkSlug) {
+      const byLink = apps.find((a: any) => {
+        if (!a || a.sync_to_public === false) return false;
+        const aSlug = getVal(a, 'slug').toLowerCase().trim();
+        const aId = getVal(a, 'id').toLowerCase().trim();
+        return aSlug === linkSlug || aId === linkSlug;
+      });
+      if (byLink) return byLink;
+    }
+  }
+
+  const titleLower = getVal(newsItem, 'title').toLowerCase();
+  const tagsLower = Array.isArray(newsItem.tags)
+    ? newsItem.tags.map((t: any) => String(t || '').toLowerCase().trim()).filter(Boolean)
+    : [];
+
+  let bestMatch: any = null;
+  let bestLen = 0;
+  for (const app of apps) {
+    if (!app || app.sync_to_public === false) continue;
+    const appName = getVal(app, 'name').trim();
+    if (appName.length < 3) continue;
+    const appNameLower = appName.toLowerCase();
+    if (titleLower.includes(appNameLower) || tagsLower.includes(appNameLower)) {
+      if (appNameLower.length > bestLen) {
+        bestMatch = app;
+        bestLen = appNameLower.length;
+      }
+    }
+  }
+
+  return bestMatch;
+}
+
 

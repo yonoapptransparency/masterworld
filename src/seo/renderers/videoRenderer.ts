@@ -1,6 +1,6 @@
 import { getField, optimizeImageUrl } from '../utils';
-import { escapeHtml } from './common';
-import { extractYoutubeId, formatNewsDate, resolveCanonicalNewsDate, resolveVideoRelatedApp } from '../../lib/newsUtils';
+import { escapeHtml, sanitizeHtml } from './common';
+import { extractYoutubeId, formatNewsDate, resolveCanonicalNewsDate, resolveVideoRelatedApp, getPlainTextSnippet } from '../../lib/newsUtils';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -12,11 +12,24 @@ export function renderVideosList(videos: any[], _settings: any, pageNum: number 
   const paginatedVideos = allVideos.slice(startIdx, startIdx + ITEMS_PER_PAGE);
   const remainingVideos = allVideos.filter((_, idx) => idx < startIdx || idx >= startIdx + ITEMS_PER_PAGE);
 
+  const labelByLower = new Map<string, string>();
+  const categoryCounts = new Map<string, number>();
+  allVideos.forEach(v => {
+    const c = (getField(v, 'category') || 'Video Guide').trim();
+    if (c) {
+      const lower = c.toLowerCase();
+      if (!labelByLower.has(lower)) labelByLower.set(lower, c);
+      const canonical = labelByLower.get(lower)!;
+      categoryCounts.set(canonical, (categoryCounts.get(canonical) || 0) + 1);
+    }
+  });
+  const categories = ['All', ...Array.from(labelByLower.values())];
+
   let cards = '';
   paginatedVideos.forEach((v, index) => {
     const title = getField(v, 'title') || 'Video Guide';
     const slug = getField(v, 'slug') || getField(v, 'id');
-    const desc = getField(v, 'description', '');
+    const desc = getPlainTextSnippet(getField(v, 'description', ''), 160);
     const videoUrl = getField(v, 'youtube_url') || getField(v, 'video_url') || getField(v, 'url', '');
     const videoId = extractYoutubeId(videoUrl);
     const thumb = videoId
@@ -38,7 +51,7 @@ export function renderVideosList(videos: any[], _settings: any, pageNum: number 
               <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
             </div>
           </div>
-          ${duration ? `<span class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded bg-black/80 text-white text-[11px] font-mono font-semibold">${escapeHtml(duration)}</span>` : ''}
+          ${duration ? `<span class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded bg-black/80 text-white text-[11px] font-mono font-semibold tabular-nums">${escapeHtml(duration)}</span>` : ''}
         </a>
         <div class="p-4 sm:p-5 flex-1 flex flex-col">
           <div class="flex items-center gap-1.5 mb-2 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
@@ -61,6 +74,21 @@ export function renderVideosList(videos: any[], _settings: any, pageNum: number 
       </article>
     `;
   });
+
+  const paginationHtml = totalPages > 1 ? `
+    <div class="mt-10 pt-6 border-t border-zinc-200/70 dark:border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 tabular-nums">
+        Showing <span class="text-zinc-900 dark:text-zinc-100">${startIdx + 1}</span>–<span class="text-zinc-900 dark:text-zinc-100">${Math.min(safePage * ITEMS_PER_PAGE, allVideos.length)}</span> of <span class="text-zinc-900 dark:text-zinc-100">${allVideos.length}</span> guides
+      </p>
+      <div class="flex items-center gap-1.5 flex-wrap justify-center">
+        ${Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+          const isCurr = p === safePage;
+          const href = p <= 1 ? '/videos' : `/videos?page=${p}`;
+          return `<a href="${href}" ${isCurr ? 'aria-current="page"' : ''} class="w-9 h-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center no-underline tabular-nums ${isCurr ? 'bg-blue-600 text-white shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'}">${p}</a>`;
+        }).join('')}
+      </div>
+    </div>
+  ` : '';
 
   const archiveHtml = remainingVideos.length > 0 ? `
     <nav aria-label="Complete Video Archive" data-nosnippet class="mt-10 pt-6 border-t border-zinc-200/70 dark:border-zinc-800/80">
@@ -85,7 +113,7 @@ export function renderVideosList(videos: any[], _settings: any, pageNum: number 
         <span class="text-zinc-700 dark:text-zinc-300 font-semibold">Videos</span>
       </nav>
 
-      <header class="mb-6 sm:mb-8 pb-5 border-b border-zinc-200/80 dark:border-zinc-800/80 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <header class="mb-5 sm:mb-6 pb-5 border-b border-zinc-200/80 dark:border-zinc-800/80 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <p class="text-[11px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-1">Visual Walkthroughs</p>
           <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white m-0">Videos &amp; Guides</h1>
@@ -103,6 +131,15 @@ export function renderVideosList(videos: any[], _settings: any, pageNum: number 
         </div>
       </header>
 
+      ${categories.length > 1 ? `
+        <div class="mb-6 flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+          ${categories.map((cat, i) => {
+            const count = cat === 'All' ? allVideos.length : (categoryCounts.get(cat) || 0);
+            return `<span class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 ${i === 0 ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400'}"><span>${escapeHtml(cat)}</span><span class="text-[10px] opacity-80 tabular-nums">(${count})</span></span>`;
+          }).join('')}
+        </div>
+      ` : ''}
+
       ${paginatedVideos.length === 0 ? `
         <div class="text-center py-20 max-w-md mx-auto">
           <h2 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">No videos found</h2>
@@ -110,6 +147,7 @@ export function renderVideosList(videos: any[], _settings: any, pageNum: number 
         </div>
       ` : `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">${cards}</div>
+        ${paginationHtml}
       `}
 
       ${archiveHtml}
@@ -151,12 +189,14 @@ export function renderVideoDetail(slug: string, videos: any[], _settings: any, a
 
   const title = getField(v, 'title') || 'Video Guide';
   const desc = getField(v, 'description', '');
+  const hasHtmlDesc = /<[a-z][\s\S]*>/i.test(desc);
   const videoUrl = getField(v, 'youtube_url') || getField(v, 'video_url') || getField(v, 'url', '');
   const videoId = extractYoutubeId(videoUrl);
   const thumb = videoId
     ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
     : '/logo.png';
   const category = getField(v, 'category') || 'Video Guide';
+  const duration = getField(v, 'duration', '');
   const rawDate = resolveCanonicalNewsDate(v, getField(v, 'published_at'), getField(v, 'created_at'));
   const dateLabel = formatNewsDate(rawDate, getField(v, 'published_at'), getField(v, 'created_at'));
   const watchUrl = videoId ? `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}` : videoUrl;
@@ -173,12 +213,12 @@ export function renderVideoDetail(slug: string, videos: any[], _settings: any, a
     relatedAppHtml = `
       <section aria-label="Featured Application" class="mt-6 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80">
         <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3">Featured Application in This Guide</p>
-        <a href="/app/${encodeURIComponent(appSlug)}" class="flex items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 hover:border-blue-500/40 transition-colors group">
+        <a href="/app/${encodeURIComponent(appSlug)}" class="flex items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-500/40 transition-colors group no-underline">
           <div class="flex items-center gap-3 min-w-0">
             <img src="${escapeHtml(appIcon)}" alt="${escapeHtml(appName)}" width="48" height="48" loading="lazy" decoding="async" class="w-12 h-12 rounded-xl object-cover shrink-0 border border-black/5 dark:border-white/10" />
             <div class="min-w-0">
               <h2 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">${escapeHtml(appName)}</h2>
-              <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate">${escapeHtml(appCat)} · ★ ${escapeHtml(appRating)}</p>
+              <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate tabular-nums">${escapeHtml(appCat)} · ★ ${escapeHtml(appRating)}</p>
             </div>
           </div>
           <span class="shrink-0 px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold group-hover:bg-blue-700 transition-colors">View App</span>
@@ -206,7 +246,7 @@ export function renderVideoDetail(slug: string, videos: any[], _settings: any, a
           const ovId = extractYoutubeId(ovUrl);
           const ovThumb = ovId ? `https://img.youtube.com/vi/${ovId}/mqdefault.jpg` : '/logo.png';
           return `
-            <a href="/videos/${encodeURIComponent(ovSlug)}" class="group flex sm:flex-col gap-3 p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/70 dark:border-zinc-800 hover:border-blue-500/40 transition-colors">
+            <a href="/videos/${encodeURIComponent(ovSlug)}" class="group flex sm:flex-col gap-3 p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/70 dark:border-zinc-800 hover:border-blue-500/40 transition-colors no-underline">
               <div class="relative w-28 sm:w-full aspect-video rounded-lg overflow-hidden bg-zinc-900 shrink-0">
                 <img src="${escapeHtml(ovThumb)}" alt="${escapeHtml(ovTitle)}" width="320" height="180" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
               </div>
@@ -221,17 +261,23 @@ export function renderVideoDetail(slug: string, videos: any[], _settings: any, a
   ` : '';
 
   return `
-    <div class="max-w-4xl mx-auto px-3 sm:px-6 pb-14 text-left">
-      <nav aria-label="Breadcrumb" class="mb-4 sm:mb-6 pt-2 sm:pt-4 flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 overflow-x-auto whitespace-nowrap no-scrollbar">
-        <a href="/" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Home</a>
-        <span aria-hidden="true">/</span>
-        <a href="/videos" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Videos</a>
-        <span aria-hidden="true">/</span>
-        <span class="text-zinc-800 dark:text-zinc-200 font-semibold truncate max-w-[220px] sm:max-w-md">${escapeHtml(title)}</span>
+    <div class="max-w-4xl mx-auto px-3 sm:px-6 pb-16 text-left">
+      <nav aria-label="Breadcrumb" class="mb-4 sm:mb-5 pt-2 sm:pt-4 flex items-center justify-between gap-3 text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400">
+        <div class="flex items-center gap-2 overflow-x-auto whitespace-nowrap no-scrollbar min-w-0">
+          <a href="/" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Home</a>
+          <span aria-hidden="true">/</span>
+          <a href="/videos" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Videos</a>
+          <span aria-hidden="true">/</span>
+          <span class="text-zinc-800 dark:text-zinc-200 font-semibold truncate max-w-[200px] sm:max-w-md">${escapeHtml(title)}</span>
+        </div>
+        <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all border border-black/5 dark:border-white/10 shrink-0 cursor-pointer" title="Share video guide">
+          <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+          <span>Share</span>
+        </button>
       </nav>
 
-      <article class="bg-white dark:bg-zinc-900 rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm">
-        <div class="relative w-full bg-zinc-950 aspect-video overflow-hidden">
+      <article class="text-zinc-900 dark:text-zinc-100">
+        <div class="relative w-full bg-zinc-950 aspect-video rounded-2xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm mb-5 sm:mb-6">
           ${videoId ? `
             <button type="button" aria-label="Play video: ${escapeHtml(title)}" class="group relative w-full h-full block text-left cursor-pointer focus:outline-none">
               <img src="${escapeHtml(thumb)}" alt="${escapeHtml(title)}" width="1280" height="720" loading="eager" fetchpriority="high" decoding="async" referrerpolicy="no-referrer" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
@@ -248,39 +294,44 @@ export function renderVideoDetail(slug: string, videos: any[], _settings: any, a
           `}
         </div>
 
-        <div class="p-4 sm:p-8">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            <div class="flex items-center gap-1.5">
-              <span class="text-blue-600 dark:text-blue-400 uppercase tracking-wider">${escapeHtml(category)}</span>
-              <span aria-hidden="true">·</span>
-              <time>${escapeHtml(dateLabel)}</time>
-            </div>
-            ${watchUrl ? `
-              <a href="${escapeHtml(watchUrl)}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-                Watch on YouTube ↗
-              </a>
-            ` : ''}
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+          <div class="flex items-center gap-2">
+            <a href="/videos?category=${encodeURIComponent(category)}" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors no-underline">${escapeHtml(category)}</a>
+            <span aria-hidden="true">·</span>
+            <time>${escapeHtml(dateLabel)}</time>
+            ${duration ? `<span aria-hidden="true">·</span><span class="tabular-nums">${escapeHtml(duration)}</span>` : ''}
           </div>
+          ${watchUrl ? `
+            <a href="${escapeHtml(watchUrl)}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+              Watch on YouTube ↗
+            </a>
+          ` : ''}
+        </div>
 
-          <h1 class="text-xl sm:text-3xl font-extrabold leading-snug mb-4 tracking-tight text-zinc-900 dark:text-zinc-100">${escapeHtml(title)}</h1>
+        <h1 class="text-xl sm:text-3xl font-extrabold leading-snug mb-4 tracking-tight text-zinc-900 dark:text-zinc-100">${escapeHtml(title)}</h1>
 
+        ${hasHtmlDesc ? `
+          <div class="rich-html-content prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed text-sm sm:text-base space-y-4">
+            ${sanitizeHtml(desc)}
+          </div>
+        ` : `
           <div class="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed text-sm sm:text-base whitespace-pre-line">
             <p>${escapeHtml(desc)}</p>
           </div>
+        `}
 
-          ${relatedAppHtml}
-          ${moreVideosHtml}
+        ${relatedAppHtml}
+        ${moreVideosHtml}
 
-          <nav aria-label="Related Directory Links" class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-            <a href="/videos" class="text-blue-600 dark:text-blue-400 hover:underline">← All Videos &amp; Guides</a>
-            <div class="flex flex-wrap items-center gap-4">
-              <a href="/" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">App Directory</a>
-              <a href="/news" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Latest News</a>
-              <a href="/new-apps" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">New Apps</a>
-              <a href="/categories" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Categories</a>
-            </div>
-          </nav>
-        </div>
+        <nav aria-label="Related Directory Links" class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+          <a href="/videos" class="text-blue-600 dark:text-blue-400 hover:underline">← All Videos &amp; Guides</a>
+          <div class="flex flex-wrap items-center gap-4">
+            <a href="/" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">App Directory</a>
+            <a href="/news" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Latest News</a>
+            <a href="/new-apps" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">New Apps</a>
+            <a href="/categories" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Categories</a>
+          </div>
+        </nav>
       </article>
     </div>
   `;

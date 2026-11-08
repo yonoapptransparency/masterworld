@@ -243,19 +243,110 @@ export function generateCommunityReviewsFileCode(reviews: any[] = []): string {
   return `// Auto-generated verified community reviews dataset\nexport interface StaticReviewRecord {\n  id: string;\n  appId: string;\n  appSlug?: string;\n  appName?: string;\n  userName: string;\n  rating: number;\n  reviewText: string;\n  timestamp: string;\n  status: "published" | "pending" | "rejected" | string;\n  helpful_count: number;\n  isPinned?: boolean;\n  reported?: boolean;\n  report_count?: number;\n  source?: string;\n  adminReply?: {\n    text: string;\n    author: string;\n    timestamp: string;\n  } | null;\n  updated_at?: string;\n}\n\nexport const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = ${JSON.stringify(cleanReviews, null, 2)};\n`;
 }
 
+const PUBLIC_SETTINGS_ALLOWLIST = new Set<string>([
+  'site_title',
+  'logo_url',
+  'favicon_url',
+  'seo_title',
+  'seo_description',
+  'seo_keywords',
+  'meta_title',
+  'meta_description',
+  'social_links',
+  'social_facebook',
+  'social_instagram',
+  'social_twitter',
+  'social_linkedin',
+  'social_youtube',
+  'categories',
+  'trending_searches',
+  'ticker_text',
+  'support_email',
+  'last_updated',
+  'animations_enabled',
+  'quick_links',
+  'turnstile_site_key',
+  'helpline_whatsapp',
+  'helpline_telegram',
+  'ga_tracking_id',
+  'hero_title_text',
+  'hero_title_subtitle',
+  'hero_title_color',
+  'hero_title_animation',
+  'hero_title_visible',
+  'hero_title_style',
+  'portal_heading',
+  'secure_index_title',
+  'secure_index_subtitle',
+  'banners',
+  'news_meta_title',
+  'news_meta_description',
+  'videos_meta_title',
+  'videos_meta_description',
+  'new_apps_meta_title',
+  'new_apps_meta_description',
+  'categories_meta_title',
+  'categories_meta_description',
+  'faq_meta_title',
+  'faq_meta_description',
+  'website_faqs',
+  'about_meta_title',
+  'about_meta_description',
+  'about_content',
+  'about_us',
+  'contact_meta_title',
+  'contact_meta_description',
+  'contact_content',
+  'privacy_meta_title',
+  'privacy_meta_description',
+  'privacy_content',
+  'terms_meta_title',
+  'terms_meta_description',
+  'terms_content',
+  'responsibility_meta_title',
+  'responsibility_meta_description',
+  'responsibility_content',
+  'report_removal_meta_title',
+  'report_removal_meta_description',
+  'report_removal_content',
+  'notice_meta_title',
+  'notice_meta_description',
+  'important_notice',
+  'important_notice_heading',
+  'ethics_meta_title',
+  'ethics_meta_description',
+  'ethics_discrimination_text',
+  'ethics_heading',
+  'disclaimer_meta_title',
+  'disclaimer_meta_description',
+  'disclaimer_text',
+  'disclaimer_heading',
+  'developers_meta_title',
+  'developers_meta_description',
+  'developers',
+  'safety_meta_title',
+  'safety_meta_description',
+]);
+
 /**
- * Strips server-only secrets (such as turnstile_secret_key) from public settings objects
+ * Strictly sanitizes public settings objects using an explicit allowlist and pattern guard,
+ * stripping all server-only secrets, API keys, Cloudinary/Gemini configs, and internal test flags
  * before writing staticData.json / staticData.ts or serving public endpoints.
  */
 export function sanitizePublicSettings(settings: any): any {
   if (!settings || typeof settings !== 'object') return {};
-  const copy = JSON.parse(JSON.stringify(settings));
-  delete copy.turnstile_secret_key;
-  delete copy.admin_password;
-  delete copy.admin_totp_secret;
-  delete copy.cloudinary_api_secret;
-  delete copy.gemini_api_key;
-  return copy;
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(settings)) {
+    if (!PUBLIC_SETTINGS_ALLOWLIST.has(key)) continue;
+    if (
+      key !== 'turnstile_site_key' &&
+      /secret|password|token|api_key|apikey|cloudinary|gemini|totp|bypass|^test_|^_rest_/i.test(key)
+    ) {
+      continue;
+    }
+    clean[key] = JSON.parse(JSON.stringify(value));
+  }
+  return clean;
 }
 
 export function generateSecureVaultFile(ciphertext: string, encryptedTurnstileSecret?: string): string {

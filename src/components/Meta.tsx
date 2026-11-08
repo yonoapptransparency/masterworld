@@ -258,6 +258,7 @@ const Meta: React.FC<MetaProps> = ({
       schemasToInject.push({
         "@context": "https://schema.org",
         "@type": "WebSite",
+        "@id": `${origin}/#website`,
         "name": siteTitle,
         "url": origin,
         "description": metaDescription,
@@ -267,6 +268,33 @@ const Meta: React.FC<MetaProps> = ({
           "query-input": "required name=search_term_string"
         }
       });
+    } else if (currentPath !== '/' && !schema && isIndexable) {
+      schemasToInject.push({
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "@id": `${canonicalUrl}#webpage`,
+        "url": canonicalUrl,
+        "name": fullTitle,
+        "headline": fullTitle,
+        "description": metaDescription,
+        "inLanguage": "en",
+        "isPartOf": {
+          "@type": "WebSite",
+          "@id": `${origin}/#website`,
+          "name": siteTitle,
+          "url": origin
+        }
+      });
+      if (!breadcrumbSchema) {
+        schemasToInject.push({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": origin },
+            { "@type": "ListItem", "position": 2, "name": fullTitle, "item": canonicalUrl }
+          ]
+        });
+      }
     }
 
     // Update schema scripts when new schemas are provided, or purge stale SPA route schemas

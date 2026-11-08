@@ -158,6 +158,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
   const [replyText, setReplyText] = useState('');
   const [replyAuthor, setReplyAuthor] = useState('RummyDex Official Support');
   const [recalculating, setRecalculating] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   // Sync runtime catalog apps into communityFirebase so canonical id <-> slug resolution always has all 230+ apps
   useEffect(() => {
@@ -547,7 +549,12 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
   };
 
   const handleDeleteReview = async (id: string) => {
-    if (!window.confirm('Delete this review permanently?')) return;
+    if (confirmDeleteId !== id) {
+      setConfirmDeleteId(id);
+      setTimeout(() => setConfirmDeleteId(prev => (prev === id ? null : prev)), 4000);
+      return;
+    }
+    setConfirmDeleteId(null);
     try {
       setActioningId(id);
       const targetReview = reviews.find(r => r.id === id);
@@ -570,7 +577,12 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
 
   const handleBulkAction = async (action: 'publish' | 'pending' | 'reject' | 'delete') => {
     if (selectedReviewIds.length === 0) return;
-    if (action === 'delete' && !window.confirm(`Delete ${selectedReviewIds.length} selected reviews permanently?`)) return;
+    if (action === 'delete' && !confirmBulkDelete) {
+      setConfirmBulkDelete(true);
+      setTimeout(() => setConfirmBulkDelete(false), 4000);
+      return;
+    }
+    setConfirmBulkDelete(false);
 
     try {
       setRefreshing(true);
@@ -1520,9 +1532,13 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
 
                       <button
                         onClick={() => handleDeleteReview(review.id)}
-                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors ml-auto cursor-pointer"
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors ml-auto cursor-pointer ${
+                          confirmDeleteId === review.id
+                            ? 'bg-rose-600 text-white'
+                            : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                        }`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                        <Trash2 className="w-3.5 h-3.5" /> {confirmDeleteId === review.id ? 'Confirm Delete' : 'Delete'}
                       </button>
                     </div>
 
@@ -1580,7 +1596,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
                 onClick={() => handleBulkAction('delete')}
                 className="text-xs font-bold text-rose-400 dark:text-rose-600 hover:underline cursor-pointer"
               >
-                Delete Selected
+                {confirmBulkDelete ? 'Tap Again to Confirm' : 'Delete Selected'}
               </button>
               <button
                 onClick={() => setSelectedReviewIds([])}
