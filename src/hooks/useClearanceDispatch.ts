@@ -1,5 +1,10 @@
 import { useState, useRef, useEffect, useCallback, type MutableRefObject } from 'react';
-import { TOKEN_V, SESSION_RETRY_MAX, type TokenV12 } from '../lib/gateConfig';
+import {
+  TOKEN_V,
+  SESSION_RETRY_MAX,
+  CLEARANCE_FETCH_TIMEOUT_MS,
+  type TokenV12,
+} from '../lib/gateConfig';
 import type { FrozenEnvProbe } from '../lib/deviceProbe';
 
 interface TapCaptureBuffer {
@@ -223,7 +228,7 @@ export function useClearanceDispatch({
       const encodedToken = utf8ToBase64Url(JSON.stringify(tokenObj));
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), CLEARANCE_FETCH_TIMEOUT_MS);
 
       try {
         const res = await fetch('/api/v1/app/session-clearance', {

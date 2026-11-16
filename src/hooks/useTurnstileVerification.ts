@@ -4,6 +4,7 @@ import {
   NONCE_REFRESH_MS,
   CLIENT_TAP_HOLD_MS,
   TURNSTILE_UI_TIMEOUT_MS,
+  SESSION_INIT_TIMEOUT_MS,
   DEFAULT_TURNSTILE_SITE_KEY,
   SESSION_RETRY_MAX,
 } from '../lib/gateConfig';
@@ -27,22 +28,154 @@ export interface UseTurnstileVerificationOptions {
 const TURNSTILE_SCRIPT_SRC =
   'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
-function ensureTurnstileScriptLoaded(): void {
+const scriptLoadCallbacks = new Set<() => void>();
+
+function ensureTurnstilePreconnect(): void {
+  if (typeof document === 'undefined' || !document.head) return;
+  try {
+    if (!document.getElementById('cf-turnstile-preconnect')) {
+      const preconnect = document.createElement('link');
+      preconnect.id = 'cf-turnstile-preconnect';
+      preconnect.rel = 'preconnect';
+      preconnect.href = 'https://challenges.cloudflare.com';
+      preconnect.crossOrigin = 'anonymous';
+      document.head.appendChild(preconnect);
+    }
+    if (!document.getElementById('cf-turnstile-dns-prefetch')) {
+      const dns = document.createElement('link');
+      dns.id = 'cf-turnstile-dns-prefetch';
+      dns.rel = 'dns-prefetch';
+      dns.href = 'https://challenges.cloudflare.com';
+      document.head.appendChild(dns);
+    }
+  } catch {
+    // Ignore DOM injection errors
+  }
+}
+
+export function ensureTurnstileScriptLoaded(forceReload = false): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
-  if (window.turnstile) return;
+  ensureTurnstilePreconnect();
+  if (window.turnstile && !forceReload) return;
+
   const existing = document.querySelector(
     'script[src*="challenges.cloudflare.com/turnstile/v0/api.js"]'
-  );
-  if (existing) return;
+  ) as HTMLScriptElement | null;
+
+  if (existing) {
+    if (forceReload || existing.getAttribute('data-failed') === '1') {
+      try {
+        existing.remove();
+      } catch {
+        // Ignore removal errors
+      }
+    } else {
+      return;
+    }
+  }
+
   try {
     const s = document.createElement('script');
-    s.src = TURNSTILE_SCRIPT_SRC;
+    s.src = forceReload ? `${TURNSTILE_SCRIPT_SRC}&retry=${Date.now() % 10000}` : TURNSTILE_SCRIPT_SRC;
     s.async = true;
     s.defer = true;
+    s.onload = () => {
+      s.setAttribute('data-loaded', '1');
+      scriptLoadCallbacks.forEach((cb) => {
+        try {
+          cb();
+        } catch {
+          // Ignore callback error
+        }
+      });
+    };
+    s.onerror = () => {
+      s.setAttribute('data-failed', '1');
+    };
     document.head.appendChild(s);
   } catch {
     // Ignore DOM injection errors
   }
+}
+
+interface SessionInitOutcome {
+  ok: boolean;
+  status: number;
+  nonce: string | null;
+  retry: boolean;
+  startedAtMs: number;
+  completedAtMs: number;
+}
+
+const preflightSessionCache = new Map<
+  string,
+  { promise: Promise<SessionInitOutcome>; startedAtMs: number }
+>();
+
+async function fetchSessionInitOnce(safeAppId: string): Promise<SessionInitOutcome> {
+  const startedAtMs = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SESSION_INIT_TIMEOUT_MS);
+  try {
+    const res = await fetch('/api/v1/app/session-init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ appId: safeAppId }),
+      signal: controller.signal,
+    });
+    const completedAtMs = Date.now();
+    if (res.status === 404) {
+      return { ok: false, status: 404, nonce: null, retry: false, startedAtMs, completedAtMs };
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.status === 'retry' || typeof data.nonce !== 'string') {
+      return { ok: false, status: res.status, nonce: null, retry: true, startedAtMs, completedAtMs };
+    }
+    return {
+      ok: true,
+      status: res.status,
+      nonce: data.nonce.trim(),
+      retry: false,
+      startedAtMs,
+      completedAtMs,
+    };
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      nonce: null,
+      retry: true,
+      startedAtMs,
+      completedAtMs: Date.now(),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Pre-warms Turnstile DNS/TLS connection, script download, frozen hardware probe,
+ * and (optionally) the `/api/v1/app/session-init` nonce request when the user touches
+ * "Download" on `/app/:slug` so everything runs in parallel during route navigation.
+ */
+export function warmGatewaySession(rawAppId?: string): void {
+  if (typeof window === 'undefined') return;
+  ensureTurnstileScriptLoaded(false);
+  void collectEnv();
+
+  if (!rawAppId) return;
+  const safeAppId = rawAppId.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 64);
+  if (!safeAppId) return;
+
+  const existing = preflightSessionCache.get(safeAppId);
+  if (existing && Date.now() - existing.startedAtMs < 8000) {
+    return;
+  }
+
+  const startedAtMs = Date.now();
+  const promise = fetchSessionInitOnce(safeAppId);
+  preflightSessionCache.set(safeAppId, { promise, startedAtMs });
 }
 
 function isRealTurnstileKey(k: string): boolean {
@@ -162,12 +295,9 @@ export function useTurnstileVerification({
     }
     setUiTimeoutExceeded(false);
 
-    const serverIssuedMs = Number((nonceRef.current || '').split('.')[1] || 0);
-    const baselineMs =
-      serverIssuedMs > 0 && serverIssuedMs <= Date.now()
-        ? serverIssuedMs
-        : initResponseTimeRef.current;
-    const elapsed = Date.now() - baselineMs;
+    // Use client-monotonic midpoint of session-init RTT to prevent mobile carrier NITZ clock-skew delays
+    const baselineMs = initResponseTimeRef.current > 0 ? initResponseTimeRef.current : Date.now();
+    const elapsed = Math.max(0, Date.now() - baselineMs);
     const remainingHold = Math.max(0, CLIENT_TAP_HOLD_MS - elapsed);
 
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
@@ -183,10 +313,10 @@ export function useTurnstileVerification({
   }, []);
 
   const startSessionFlow = useCallback(
-    async (_isSilentRetry = false) => {
+    async (isSilentRetry = false) => {
       if (unmountedRef.current || !appId) return;
 
-      ensureTurnstileScriptLoaded();
+      ensureTurnstileScriptLoaded(false);
       clearTimers();
       removeWidget();
       cfTokenRef.current = null;
@@ -204,8 +334,30 @@ export function useTurnstileVerification({
       }, TURNSTILE_UI_TIMEOUT_MS);
 
       try {
-        // 1. Collect frozen env probe once (§5.3)
-        const env = await collectEnv();
+        const candidateKeys = resolveCandidateSiteKeys();
+        if (candidateKeys.length === 0) {
+          clearTimers();
+          setUiTimeoutExceeded(true);
+          return;
+        }
+
+        const safeAppId = appId.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 64);
+
+        // Reuse pre-warmed session-init if fresh (< 8s) and not a retry; otherwise start immediately in parallel with collectEnv()
+        let sessionInitPromise: Promise<SessionInitOutcome>;
+        const cachedPreflight = !isSilentRetry ? preflightSessionCache.get(safeAppId) : undefined;
+        if (cachedPreflight && Date.now() - cachedPreflight.startedAtMs < 8000) {
+          preflightSessionCache.delete(safeAppId);
+          sessionInitPromise = cachedPreflight.promise;
+        } else {
+          preflightSessionCache.delete(safeAppId);
+          sessionInitPromise = fetchSessionInitOnce(safeAppId);
+        }
+
+        initResponseTimeRef.current = Date.now();
+
+        // 1 & 2. Run frozen hardware probe (§5.3) and server nonce request (§5.4) concurrently to save 1 full step on slow mobile networks
+        let [env, initOutcome] = await Promise.all([collectEnv(), sessionInitPromise]);
         if (unmountedRef.current) return;
         envRef.current = env;
 
@@ -215,33 +367,24 @@ export function useTurnstileVerification({
           return;
         }
 
-        const candidateKeys = resolveCandidateSiteKeys();
-        if (candidateKeys.length === 0) {
-          clearTimers();
-          setUiTimeoutExceeded(true);
-          return;
+        // If a pre-warmed request failed due to a transient network blip during navigation, transparently re-try once right away
+        if (!initOutcome.ok && initOutcome.status !== 404 && cachedPreflight) {
+          initOutcome = await fetchSessionInitOnce(safeAppId);
+          if (unmountedRef.current) return;
         }
 
-        const safeAppId = appId.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 64);
-        initResponseTimeRef.current = Date.now();
+        // Record client-monotonic midpoint of the session-init round-trip for clock-skew-proof dwell accounting
+        initResponseTimeRef.current = Math.round(
+          (initOutcome.startedAtMs + initOutcome.completedAtMs) / 2
+        );
 
-        // 2. Request server-issued signed nonce + device cookie (§5.4)
-        const res = await fetch('/api/v1/app/session-init', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ appId: safeAppId }),
-        });
-
-        if (unmountedRef.current) return;
-
-        if (res.status === 404) {
+        if (initOutcome.status === 404) {
           clearTimers();
           if (retryCountRef.current < SESSION_RETRY_MAX) {
             retryCountRef.current += 1;
             setTimeout(() => {
               if (!unmountedRef.current) void startSessionFlow(true);
-            }, 600);
+            }, 350);
             return;
           }
           const hasTouch =
@@ -255,13 +398,12 @@ export function useTurnstileVerification({
           return;
         }
 
-        const data = await res.json().catch(() => null);
-        if (!res.ok || !data || data.status === 'retry' || typeof data.nonce !== 'string') {
+        if (!initOutcome.ok || !initOutcome.nonce) {
           if (retryCountRef.current < SESSION_RETRY_MAX) {
             retryCountRef.current += 1;
             setTimeout(() => {
               if (!unmountedRef.current) void startSessionFlow(true);
-            }, 600);
+            }, 350);
           } else {
             clearTimers();
             setUiTimeoutExceeded(true);
@@ -269,7 +411,7 @@ export function useTurnstileVerification({
           return;
         }
 
-        const nonce = data.nonce.trim();
+        const nonce = initOutcome.nonce;
         const nid = nonce.split('.')[0] || '';
         if (nid.length !== 32) {
           clearTimers();
@@ -291,13 +433,22 @@ export function useTurnstileVerification({
           }
         }, NONCE_REFRESH_MS);
 
+        const scriptWaitStartMs = Date.now();
+        let didForceScriptReload = false;
+
         // 3. Render Turnstile with hardware commitment cData = `${appId}_${nid}_${hw}` (§5.5)
         const renderTurnstileWidget = () => {
           if (unmountedRef.current) return;
           if (!window.turnstile || !widgetRef.current) {
-            scriptWaitTimerRef.current = setTimeout(renderTurnstileWidget, 100);
+            // If Turnstile script stalled for > 7.5s on a weak 2G/3G connection, re-inject script once
+            if (!window.turnstile && !didForceScriptReload && Date.now() - scriptWaitStartMs > 7500) {
+              didForceScriptReload = true;
+              ensureTurnstileScriptLoaded(true);
+            }
+            scriptWaitTimerRef.current = setTimeout(renderTurnstileWidget, 40);
             return;
           }
+          scriptLoadCallbacks.delete(renderTurnstileWidget);
 
           removeWidget();
 
@@ -372,6 +523,9 @@ export function useTurnstileVerification({
           }
         };
 
+        if (!window.turnstile) {
+          scriptLoadCallbacks.add(renderTurnstileWidget);
+        }
         renderTurnstileWidget();
       } catch {
         if (!unmountedRef.current) {
@@ -379,7 +533,7 @@ export function useTurnstileVerification({
             retryCountRef.current += 1;
             setTimeout(() => {
               if (!unmountedRef.current) void startSessionFlow(true);
-            }, 600);
+            }, 350);
           } else {
             clearTimers();
             setUiTimeoutExceeded(true);

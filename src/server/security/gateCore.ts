@@ -171,7 +171,7 @@ async function runRedisPipeline(
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 1500);
+  const timer = setTimeout(() => controller.abort(), 800);
   try {
     const endpoint = url.endsWith('/') ? `${url}pipeline` : `${url}/pipeline`;
     const res = await fetch(endpoint, {
