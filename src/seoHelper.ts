@@ -743,12 +743,18 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<style\s+id=["']server-critical-css["']>[\s\S]*?<\/style>/gi, '')
     .replace(/<head(\s[^>]*)?>/i, '<head$1>\n    <meta charset="utf-8" />');
 
+  const isViteDev = /\/@vite\/client|\/src\/index\.css/.test(finalHtml);
   const criticalCss = getCriticalCss();
-  const viteInlineCss = finalHtml.includes('id="vite-inline-css"') ? '' : getCompiledViteCssTag();
-  const headAdditions = `${seoTags}${criticalCss ? '\n' + criticalCss : ''}${viteInlineCss ? '\n' + viteInlineCss : ''}`;
+  const hasInlineViteCss = finalHtml.includes('id="vite-inline-css"');
+  const viteInlineCss = (!isViteDev && !hasInlineViteCss) ? getCompiledViteCssTag() : '';
+  const headAdditions = `${criticalCss ? criticalCss + '\n' : ''}${seoTags}${viteInlineCss ? '\n' + viteInlineCss : ''}`;
 
   if (finalHtml.includes('<!--__SEO_HEAD__-->')) {
     finalHtml = finalHtml.replace('<!--__SEO_HEAD__-->', () => headAdditions);
+  } else if (/<style\s+id=["']vite-inline-css["']>/i.test(finalHtml)) {
+    finalHtml = finalHtml.replace(/(<style\s+id=["']vite-inline-css["']>)/i, (m) => `${headAdditions}\n${m}`);
+  } else if (/<link\s+[^>]*href=["'][^"']*\/src\/index\.css["'][^>]*>/i.test(finalHtml)) {
+    finalHtml = finalHtml.replace(/(<link\s+[^>]*href=["'][^"']*\/src\/index\.css["'][^>]*>)/i, (m) => `${headAdditions}\n${m}`);
   } else if (/<link\s+[^>]*rel=["']dns-prefetch["'][^>]*>/i.test(finalHtml)) {
     finalHtml = finalHtml.replace(/(<link\s+[^>]*rel=["']dns-prefetch["'][^>]*>)/i, (m) => `${m}\n${headAdditions}`);
   } else if (/<meta\s+[^>]*name=["']viewport["'][^>]*>/i.test(finalHtml)) {

@@ -307,6 +307,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchBackupData = useCallback(async (silent = false) => {
     try {
       if (!silent && apps.length === 0) setLoading(true);
+      if (apps.length < 50) {
+        loadFullStaticDataset().then(full => {
+          if (full?.apps && full.apps.length > 0) {
+            setApps(prev => (prev.length >= 50 ? prev : mergeUniqueApps(prev, full.apps)));
+          }
+        }).catch(() => {});
+      }
       const res = await fetch('/api/v1/public/backup-data', {
         headers: { 'Accept': 'application/json' }
       });

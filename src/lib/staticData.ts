@@ -4109,7 +4109,7 @@ export const mockApps: any[] = [
     "publish_date": "",
     "review_count": "",
     "yellow_box_msg": "Diwa Ok is a casual self-care game and is not a substitute for professional mental health therapy or medical treatment. If you are struggling, please reach out to a qualified professional.  ",
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "category": "Diwa Apps",
     "version": "1.02.4",
     "developer": "Hearth & Quill Digital",
@@ -4119,12 +4119,12 @@ export const mockApps: any[] = [
         "answer": "<p>Diwa Ok is a gentle daily check-in game where logging your mood, completing a two-minute self-care act, and lighting a virtual oil lamp (Diwa) builds a low-pressure mindfulness routine.</p>"
       },
       {
-        "answer": "<p>No, all daily mood check-ins, tiny acts, and the cozy Lamp Room run 100% offline. An internet connection is only required to send one-tap OK messages to friends.</p>",
-        "question": "Does the Diwa Ok game require an active internet connection?"
+        "question": "Does the Diwa Ok game require an active internet connection?",
+        "answer": "<p>No, all daily mood check-ins, tiny acts, and the cozy Lamp Room run 100% offline. An internet connection is only required to send one-tap OK messages to friends.</p>"
       },
       {
-        "answer": "<p>Unlike apps that reset your progress to zero, Diwa Ok uses a forgiving streak system where missed days only dim your lamp, making it easy to return without feeling guilty.</p>",
-        "question": "What happens if I miss a day on Diwa Ok?"
+        "question": "What happens if I miss a day on Diwa Ok?",
+        "answer": "<p>Unlike apps that reset your progress to zero, Diwa Ok uses a forgiving streak system where missed days only dim your lamp, making it easy to return without feeling guilty.</p>"
       }
     ],
     "seo_title": "Diwa Ok App Download: Daily Self-Care & Lamp Tracker APK",
@@ -4134,7 +4134,7 @@ export const mockApps: any[] = [
     "rating": 4,
     "og_image_url": "",
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1793363597/rummydex_uploads/ayi9s6mzt2jtkxqx6hqq.webp",
-    "updated_at": "2026-11-07T04:16:33.776Z",
+    "updated_at": "2026-11-17T07:49:15.704Z",
     "screenshots": [],
     "id": "74175k2sy",
     "seo_keywords": "",
@@ -4147,16 +4147,16 @@ export const mockApps: any[] = [
     "og_image_url": "",
     "faqs": [
       {
-        "question": "What is the core mechanic of the Diwa WoW app?",
-        "answer": "<p>Diwa WoW is a quantum time-loop puzzle game where you record your movements for five seconds, then loop time to cooperate with your past shadow self in order to trigger dual pressure plates simultaneously.</p>"
+        "answer": "<p>Diwa WoW is a quantum time-loop puzzle game where you record your movements for five seconds, then loop time to cooperate with your past shadow self in order to trigger dual pressure plates simultaneously.</p>",
+        "question": "What is the core mechanic of the Diwa WoW app?"
       },
       {
-        "answer": "<p>Yes, all 80 Chrono-Chamber levels and the Endless Paradox mode in the Diwa WoW APK run 100% offline with zero Wi-Fi or cellular data required.</p>",
-        "question": "Can I play the Diwa WoW game offline without an internet connection?"
+        "question": "Can I play the Diwa WoW game offline without an internet connection?",
+        "answer": "<p>Yes, all 80 Chrono-Chamber levels and the Endless Paradox mode in the Diwa WoW APK run 100% offline with zero Wi-Fi or cellular data required.</p>"
       },
       {
-        "question": "What happens if my past shadow clone crashes into a wall?",
-        "answer": "<p>If your recorded shadow timeline fails to clear an obstacle or steps into a laser trap, the time loop collapses, requiring you to re-record your sequence from the puzzle's starting node.</p>"
+        "answer": "<p>If your recorded shadow timeline fails to clear an obstacle or steps into a laser trap, the time loop collapses, requiring you to re-record your sequence from the puzzle's starting node.</p>",
+        "question": "What happens if my past shadow clone crashes into a wall?"
       }
     ],
     "custom_admin_box_heading": "",
@@ -4172,7 +4172,7 @@ export const mockApps: any[] = [
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1793363924/rummydex_uploads/olxqq35tczkveffxfdgq.webp",
     "idea_box_msg": "",
     "publish_date": "",
-    "updated_at": "2026-11-07T04:16:46.742Z",
+    "updated_at": "2026-11-17T07:49:23.828Z",
     "serial_number": 77,
     "sync_to_public": true,
     "meta_title": "Diwa WoW App Download: Time-Warp Puzzle & Neon Portal APK",
@@ -4181,7 +4181,7 @@ export const mockApps: any[] = [
     "version": "1.20.2",
     "rating": 4,
     "screenshots": [],
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "seo_description": "Get the official Diwa WoW app download. Reverse time portals, solve quantum mirror mazes, and split timelines in this clever offline puzzle game!",
     "is_new": false,
     "slug": "diwa-wow",
@@ -4208,7 +4208,7 @@ export const mockApps: any[] = [
     "publish_date": "",
     "description_html": "<article class=\"app-content-wrapper\">\n\n  <!-- PART 1: Core Concept & Cyber Arena Twist -->\n  <section class=\"content-section\" id=\"cyber-grid-concept\">\n    <h2>Diwa Game App: High-Velocity Neon-Grid Survival &amp; Reflex Arcade</h2>\n    <p>\n      If you are looking for an arcade challenge that tests your split-second reflexes without any bloated tutorials or paywalls, the <strong>Diwa Game app</strong> delivers pure cyberpunk survival. Developed by NexusForge Studio, <strong>Diwa Game</strong> drops your agile hover-drone onto a shifting, high-contrast neon grid floating in digital space. Your mission is simple yet punishing: weave through sweeping laser barriers, outmaneuver tracking energy spikes, and collect glowing core nodes before the grid collapses beneath your thrusters.\n    </p>\n  </section>\n\n  <!-- PART 2: The Dual-Stick Movement & Pulse Engine -->\n  <section class=\"content-section\" id=\"movement-engine\">\n    <h2>The Grid Engine: Smooth Slide Controls &amp; Pulse Dodging</h2>\n    <p>\n      The <strong>Diwa Game game</strong> replaces rigid directional pads with a fluid, momentum-based touch system designed for absolute precision:\n    </p>\n\n    <ul>\n      <li><strong>Inertia-Based Sliding:</strong> Dragging your thumb anywhere on the lower screen propels your drone with realistic physical drift, letting you skim past razor-sharp corner walls at high speeds.</li>\n      <li><strong>The Phase-Dash Button:</strong> Tapping the right-side trigger executes a 0.2-second quantum phase-dash, allowing your drone to pass directly through solid laser beams unharmed on a short cooldown.</li>\n      <li><strong>Energy Node Magnets:</strong> Hovering close to scattered neon crystals pulls them into your chassis automatically, charging your hyper-drive meter for a screen-clearing speed burst.</li>\n    </ul>\n  </section>\n\n  <!-- PART 3: Cyber Hazards & Grid Modifiers (Table) -->\n  <section class=\"content-section\" id=\"grid-hazards\">\n    <h2>Grid Hazards &amp; Tactical Upgrades in the Diwa Game APK</h2>\n    <p>\n      Once you complete your <strong>Diwa Game app download</strong> and clear the opening training sectors, the cyber arena introduces dangerous obstacles that require quick tactical adjustments:\n    </p>\n\n    <table>\n      <thead>\n        <tr>\n          <th>Grid Obstacle</th>\n          <th>Behavioral Hazard</th>\n          <th>Survival Strategy</th>\n        </tr>\n      </thead>\n      <tbody>\n        <tr>\n          <td><strong>Pulse Wall </strong></td>\n          <td>Sweeps back and forth across the entire width of the sector</td>\n          <td>Time your Phase-Dash to pass right through the glowing center gap</td>\n        </tr>\n        <tr>\n          <td><strong>Tracking Seeker Orbs</strong></td>\n          <td>Lock onto your drone's coordinate and follow you slowly</td>\n          <td>Lead them into stationary hazard pillars to detonate them safely</td>\n        </tr>\n        <tr>\n          <td><strong>Glitch Floor Tiles</strong></td>\n          <td>Disappear into a bottomless digital void 1.5 seconds after stepping on them</td>\n          <td>Keep moving continuously without lingering in one spot</td>\n        </tr>\n        <tr>\n          <td><strong>EMP Suppression Ring</strong></td>\n          <td>Temporarily disables your Phase-Dash ability when touched</td>\n          <td>Navigate around the outer perimeter to avoid the electronic field</td>\n        </tr>\n      </tbody>\n    </table>\n  </section>\n\n  <!-- PART 4: Real-World Touch & Performance Audit -->\n  <section class=\"content-section\" id=\"hands-on-audit\">\n    <h2>Hands-On Performance Audit: Touch Latency &amp; Battery Efficiency</h2>\n    <p>\n      We evaluated the <strong>Diwa Game app</strong> across various Android smartphones to check its touch responsiveness and thermal stability during extended arcade runs:\n    </p>\n\n    <ul>\n      <li><strong>Zero Touch-Input Delay:</strong> Swipe registration is locked to the display's native refresh rate, ensuring that emergency dodge maneuvers execute the exact microsecond your thumb moves.</li>\n      <li><strong>Vibrant Neon Visuals:</strong> The rendering pipeline makes use of high-contrast cyber-punk palettes (`#00FFFF` and `#FF007F`) that pop brilliantly against dark backgrounds without causing eye strain.</li>\n      <li><strong>Featherlight Offline Footprint:</strong> Running entirely on local device storage, the <strong>Diwa Game APK</strong> consumes under 1.2% battery per session and requires zero Wi-Fi or cellular connections to save your high scores.</li>\n    </ul>\n  </section>\n\n  <!-- PART 5: Streamlined Setup Guide -->\n  <section class=\"content-section\" id=\"setup-guide\">\n    <h2>How to Complete the Diwa Game App Download &amp; Setup</h2>\n    <ol>\n      <li><strong>Fetch the Official Package:</strong> Tap the verified <strong>Diwa Game app download</strong> button on this page to securely save the 45.8 MB APK installer to your local device memory.</li>\n      <li><strong>Authorize Unknown Sources:</strong> If prompted by Android security settings, navigate to <em>Settings &gt; Security</em> and enable installation permissions for your trusted browser.</li>\n      <li><strong>Run the Package Installer:</strong> Open your notification tray or <em>Downloads</em> folder, tap the downloaded installer file, and select <strong>Install</strong>.</li>\n      <li><strong>Launch &amp; Play:</strong> Open the <strong>Diwa Game app</strong> from your app drawer, launch your drone into Sector 1, and test your reflexes with zero account registration needed.</li>\n    </ol>\n  </section>\n\n</article>",
     "sync_to_public": true,
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "meta_description": "Get the official Diwa Game app download. Dodge cyber-grid lasers, collect neon energy nodes, and master fast-paced dual-stick reflex trials offline!",
     "canonical_url": "",
     "yellow_box_msg": "Sector 75+ introduces rapid laser grids that push touch refresh rates to the limit. Keep background apps closed to ensure consistent 60 FPS input response.",
@@ -4228,7 +4228,7 @@ export const mockApps: any[] = [
     "is_new": false,
     "file_size": "45.8 MB",
     "review_count": "",
-    "updated_at": "2026-11-07T04:17:00.526Z",
+    "updated_at": "2026-11-17T07:49:31.409Z",
     "rating": 4.1,
     "video_url": "",
     "faqs": [],
@@ -4255,21 +4255,21 @@ export const mockApps: any[] = [
     "seo_title": "DiwaSpin App Download: 360° Chakri Firework Arcade APK",
     "seo_description": "Get the official DiwaSpin app download (38.4 MB). Launch Chakri firework spinners, ricochet sparks off prisms, and light 150 offline Diya puzzle stages!",
     "description_html": "<article class=\"app-content-wrapper\">\n\n  <!-- PART 1: Core Overview -->\n  <section class=\"content-section\" id=\"overview\">\n    <h2>DiwaSpin App: 360-Degree Firework Physics &amp; Light Arcade</h2>\n    <p>\n      The <strong>DiwaSpin app</strong> brings the high-speed energy of India's Festival of Lights straight to your touchscreen. Built by Lumina Arc Interactive, <strong>DiwaSpin</strong> replaces standard slot reels with a pure skill-based pyrotechnic arena. Players control a blazing ground spinner (<em>Chakri</em>) inside pitch-black palace courtyards, timing rotational bursts to fling golden sparks and ignite unlit clay lamps (<em>Diyas</em>) before the fuse runs out.\n    </p>\n  </section>\n\n  <!-- PART 2: Step-by-Step Control Mechanics -->\n  <section class=\"content-section\" id=\"controls-mechanics\">\n    <h2>Part-by-Part Gameplay Breakdown: How DiwaSpin Works</h2>\n    <p>\n      Every round in the <strong>DiwaSpin game</strong> is divided into four clear mechanical phases:\n    </p>\n\n    <ul>\n      <li><strong>1. Charge the Spinner:</strong> Press and hold your thumb anywhere on the screen to rev up your central Chakri wheel. The longer you hold, the faster the RPM climbs and the tighter your spark radius becomes.</li>\n      <li><strong>2. Aim the Tangent Vector:</strong> As the wheel spins, a glowing golden sightline rotates 360 degrees around the hub, showing the exact path your embers will travel.</li>\n      <li><strong>3. Release to Fire Sparks:</strong> Lift your thumb at the right millisecond to launch a high-velocity burst of sparks across the dark courtyard grid.</li>\n      <li><strong>4. Beat the Burning Fuse:</strong> A physical rope fuse burns around the edge of your display. Igniting a Diya lamp adds +3 seconds to your fuse; lighting every lamp on the board clears the stage.</li>\n    </ul>\n  </section>\n\n  <!-- PART 3: Arena Obstacles & Board Elements -->\n  <section class=\"content-section\" id=\"board-elements\">\n    <h2>Courtyard Obstacles &amp; Interactive Light Nodes</h2>\n    <p>\n      As you advance through the <strong>DiwaSpin APK</strong> campaign, stages introduce interactive objects that help or block your shots:\n    </p>\n\n    <ul>\n      <li><strong>Prism Splitters:</strong> Shooting a single spark into a crystal prism splits the ember into three separate beams (Red, Gold, and Cyan) to light up wide corners simultaneously.</li>\n      <li><strong>Rotating Brass Mirrors:</strong> Angled metal plates that bounce your sparks around stone pillars and walls to reach hidden lamps.</li>\n      <li><strong>Gunpowder Lines:</strong> Hitting a powder trail on the floor sets off a rapid ground chain reaction that automatically lights every connected Diya in its path.</li>\n      <li><strong>Monsoon Wind Vents:</strong> High-level hazard fans that push your flying embers off course, forcing you to curve your shots carefully.</li>\n      <li><strong>Damp Courtyard Tiles:</strong> Wet floor zones that instantly extinguish stray sparks on contact unless you jump over them using a high-RPM burst.</li>\n    </ul>\n  </section>\n\n  <!-- PART 4: Game Modes -->\n  <section class=\"content-section\" id=\"game-modes\">\n    <h2>Three Distinct Game Modes in the DiwaSpin App</h2>\n    <p>\n      Completing your <strong>DiwaSpin app download</strong> unlocks three separate play styles right from the main lobby:\n    </p>\n\n    <ul>\n      <li><strong>Festival Campaign (150 Stages):</strong> A structured level map moving from village rooftops to royal forts. Earn up to 3 Golden Diyas per stage based on how much fuse rope you save.</li>\n      <li><strong>Endless Sparkler Survival:</strong> An infinite high-score arena where waves of unlit lanterns slowly close in around your central wheel. Keep firing to survive as long as possible.</li>\n      <li><strong>Rangoli Zen Sandbox:</strong> A 100% timer-free mode with unlimited gunpowder. Spin multi-colored firework wheels to draw symmetrical light trails and relax without pressure.</li>\n    </ul>\n  </section>\n\n  <!-- PART 5: Spinner Workshop & Upgrades -->\n  <section class=\"content-section\" id=\"workshop-upgrades\">\n    <h2>The Artisan Workshop: Custom Chakri Loadouts</h2>\n    <p>\n      Clearing levels in <strong>DiwaSpin</strong> rewards you with \"Spark Dust\" to upgrade three core stats in the Workshop:\n    </p>\n\n    <ul>\n      <li><strong>Torque &amp; Spin Speed:</strong> Increases how quickly your wheel reaches maximum RPM when you touch the screen.</li>\n      <li><strong>Ember Heat &amp; Bounce:</strong> Allows your sparks to ricochet off up to four walls before fading out, making trick shots much easier.</li>\n      <li><strong>Fuse Length:</strong> Upgrades your starting rope fuse with slow-burning wax, giving you extra seconds on tough boss boards.</li>\n    </ul>\n  </section>\n\n  <!-- PART 6: Real Hardware & Display Performance -->\n  <section class=\"content-section\" id=\"hardware-performance\">\n    <h2>Hands-On Performance &amp; AMOLED Display Audit</h2>\n    <p>\n      We tested the <strong>DiwaSpin app</strong> (v1.04) across budget and mid-range Android phones to verify its speed and battery usage:\n    </p>\n\n    <ul>\n      <li><strong>True-Black AMOLED Battery Saving:</strong> Because the courtyard backgrounds use pure black pixels (`#000000`), OLED and AMOLED phone screens use 30% less battery while making the gold sparks look ultra-bright.</li>\n      <li><strong>Locked 60 FPS Physics:</strong> Even when 30 lamps ignite at once, the lightweight <strong>38.4 MB</strong> engine runs at a smooth 60 frames per second with zero touch lag or phone heating.</li>\n      <li><strong>Zero-Permission Offline Safety:</strong> The <strong>DiwaSpin game</strong> does not ask for camera, contact, or location permissions, and saves your entire progress locally on your phone.</li>\n    </ul>\n  </section>\n\n  <!-- PART 7: Quick Installation Steps -->\n  <section class=\"content-section\" id=\"installation-steps\">\n    <h2>How to Complete the DiwaSpin App Download &amp; Install</h2>\n    <ol>\n      <li><strong>Download the APK:</strong> Tap the verified <strong>DiwaSpin app download</strong> link on this page to save `DiwaSpin-v1.04.apk` (38.4 MB).</li>\n      <li><strong>Allow Installation:</strong> If prompted, open <em>Settings &gt; Security &gt; Install Unknown Apps</em> and allow your browser.</li>\n      <li><strong>Run the Installer:</strong> Tap the downloaded file in your notification bar and press <strong>Install</strong>.</li>\n      <li><strong>Launch &amp; Play:</strong> Open <strong>DiwaSpin</strong> and start Courtyard Stage 1 immediately with no login required.</li>\n    </ol>\n  </section>\n\n  <!-- PART 8: Technical Specifications Table -->\n  <section class=\"content-section\" id=\"tech-specs\">\n    <h2>DiwaSpin Technical Specifications</h2>\n    <table>\n      <thead>\n        <tr>\n          <th>Specification</th>\n          <th>Details</th>\n        </tr>\n      </thead>\n      <tbody>\n        <tr>\n          <td><strong>App Name</strong></td>\n          <td>DiwaSpin</td>\n        </tr>\n        <tr>\n          <td><strong>Developer</strong></td>\n          <td>Lumina Arc Interactive</td>\n        </tr>\n        <tr>\n          <td><strong>Version</strong></td>\n          <td>1.04</td>\n        </tr>\n        <tr>\n          <td><strong>File Size</strong></td>\n          <td>38.4 MB</td>\n        </tr>\n        <tr>\n          <td><strong>Category</strong></td>\n          <td>Firework Physics Arcade</td>\n        </tr>\n        <tr>\n          <td><strong>Android Requirement</strong></td>\n          <td>Android 7.0+ (Minimum 2 GB RAM)</td>\n        </tr>\n        <tr>\n          <td><strong>Internet Required</strong></td>\n          <td>No (100% Offline Playable)</td>\n        </tr>\n      </tbody>\n    </table>\n  </section>\n\n</article>",
-    "updated_at": "2026-11-07T04:17:13.176Z",
+    "updated_at": "2026-11-17T07:49:37.496Z",
     "yellow_box_msg": "High-particle boss stages require steady memory. Keep at least 150 MB of free RAM open or turn on \"Battery Saver Glow\" in settings to prevent frame drops. ",
     "meta_title": "DiwaSpin App Download: 360° Chakri Firework Arcade APK",
     "idea_box_msg": "",
     "publish_date": "",
     "custom_admin_box_html": "",
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "faqs": [
       {
-        "question": "What kind of game is the DiwaSpin app?",
-        "answer": "<p>DiwaSpin is a 360-degree firework physics arcade game where you spin a blazing Chakri wheel and shoot golden sparks to light up clay Diya lamps.</p>"
+        "answer": "<p>DiwaSpin is a 360-degree firework physics arcade game where you spin a blazing Chakri wheel and shoot golden sparks to light up clay Diya lamps.</p>",
+        "question": "What kind of game is the DiwaSpin app?"
       },
       {
-        "question": "Does the DiwaSpin game work completely offline?",
-        "answer": "<p>Yes, all 150 courtyard stages, Endless Survival, and Zen Sandbox modes run 100% offline with zero Wi-Fi or mobile data required.</p>"
+        "answer": "<p>Yes, all 150 courtyard stages, Endless Survival, and Zen Sandbox modes run 100% offline with zero Wi-Fi or mobile data required.</p>",
+        "question": "Does the DiwaSpin game work completely offline?"
       },
       {
         "answer": "<p>The official DiwaSpin APK is a compact 38.4 MB download that runs smoothly at 60 FPS on Android 7.0 and above.</p>",
@@ -4291,7 +4291,7 @@ export const mockApps: any[] = [
     "has_secure_link": true
   },
   {
-    "updated_at": "2026-10-31T05:32:18.772Z",
+    "updated_at": "2026-11-17T07:49:44.254Z",
     "description_html": "<article class=\"app-content-wrapper\">\n\n  <!-- PART 1: Core Concept & Mechanical Twist -->\n  <section class=\"content-section\" id=\"workshop-slot-concept\">\n    <h2>Diwa Slot App: The Mechanical Workshop Where You Control the Reels</h2>\n    <p>\n      Forget passive, one-touch spinning screens where you simply wait for a computer algorithm to decide your fate. The <strong>Diwa Slot app</strong> reimagines the classic wheel-spinning format by turning your display into an intricate brass workshop table. Developed by Apex Spinworks Studio, <strong>Diwa Slot</strong> introduces physical weight, manual crank velocity, and interlocking gear assemblies into every single pull. You aren't just watching symbols blur past—you are managing axle friction, oiling squeaky pinions, and manually snapping mechanical cogs into place to force winning combinations across the payline.\n    </p>\n  </section>\n\n  <!-- PART 2: The Manual Crank & Kinetic Physics Engine -->\n  <section class=\"content-section\" id=\"kinetic-crank-engine\">\n    <h2>The Kinetic Crank: How Manual Pull Velocity Changes the Odds</h2>\n    <p>\n      At the right-hand bezel of your device screen sits the heavy iron crank of the <strong>Diwa Slot game</strong>. Your interaction starts the moment you touch the handle:\n    </p>\n\n    <ul>\n      <li><strong>Flick for Light Spins:</strong> A quick, soft swipe up spins the wheels loosely, keeping the reels turning at low speed so you can easily spot matching bronze and copper icons as they coast to a stop.</li>\n      <li><strong>Slam for Momentum Bursts:</strong> Pulling the lever down with maximum velocity throws a heavy kinetic torque through the machine, locking the outer iron drums into a high-speed blur that can pierce through sticky resin hazard tiles.</li>\n      <li><strong>The Brake Pedal Tap:</strong> Tapping the emergency foot-brake icon on the bottom bezel locks Reel 1 and Reel 2 instantly, forcing the final three reels to coast independently on their remaining momentum.</li>\n    </ul>\n  </section>\n\n  <!-- PART 3: Workshop Hazard Grid (Table) -->\n  <section class=\"content-section\" id=\"workshop-hazards\">\n    <h2>Workshop Hazards &amp; Reel Modifiers in the Diwa Slot APK</h2>\n    <p>\n      Once you complete your <strong>Diwa Slot app download</strong> and advance past the initial tutorial bench, the workshop introduces physical blockages that alter how your machine operates:\n    </p>\n\n    <table>\n      <thead>\n        <tr>\n          <th>Workshop Element</th>\n          <th>Grid Behavior</th>\n          <th>Tactical Countermeasure</th>\n        </tr>\n      </thead>\n      <tbody>\n        <tr>\n          <td><strong>Sticky Tree Resin</strong></td>\n          <td>Glues a symbol in place, preventing it from spinning</td>\n          <td>Apply a Solvent Drop tool before pulling the crank</td>\n        </tr>\n        <tr>\n          <td><strong>Rusted Iron Lock</strong></td>\n          <td>Freezes an entire reel column for 3 rounds</td>\n          <td>Hit it with a Heavy Wrench token to shatter the padlock</td>\n        </tr>\n        <tr>\n          <td><strong>Solar Prism Tile</strong></td>\n          <td>Reflects light onto adjacent blank wooden blocks</td>\n          <td>Turns dead spaces into active bonus multipliers</td>\n        </tr>\n        <tr>\n          <td><strong>Counterweight Pendulum</strong></td>\n          <td>Swings back and forth across the bottom payline</td>\n          <td>Time your brake pedal tap to catch it on a high-value row</td>\n        </tr>\n      </tbody>\n    </table>\n  </section>\n\n  <!-- PART 4: Real-World Hands-On Testing -->\n  <section class=\"content-section\" id=\"hands-on-review\">\n    <h2>Hands-On Performance Audit: Touch Feel &amp; Sound Design</h2>\n    <p>\n      We spent several hours testing the <strong>Diwa Slot app</strong> across various Android smartphones to evaluate its tactile responsiveness and system optimization:\n    </p>\n\n    <ul>\n      <li><strong>Tactile Haptic Feedback:</strong> Every time the heavy iron crank clicks into its socket or a brass gear snaps onto the axle, your phone delivers a sharp, mechanical vibration that mimics real hardware switches.</li>\n      <li><strong>Immersive Workshop Audio:</strong> The acoustic design avoids cheesy arcade jingles in favor of authentic ASMR recordings: the deep clunk of iron levers, the hum of spinning bearings, and the satisfying chime of copper tokens dropping into a metal tray.</li>\n      <li><strong>Zero-Lag Frame Pacing:</strong> Running on a clean 2D vector architecture, the <strong>Diwa Slot game</strong> maintains a buttery 60 FPS animation loop with zero stutter, keeping battery consumption remarkably low during long sessions.</li>\n    </ul>\n  </section>\n\n  <!-- PART 5: Streamlined Installation Steps -->\n  <section class=\"content-section\" id=\"setup-guide\">\n    <h2>How to Complete the Diwa Slot App Download &amp; Setup</h2>\n    <ol>\n      <li><strong>Fetch the Official Package:</strong> Tap the verified <strong>Diwa Slot app download</strong> button on this page to securely save the 48.3 MB APK installer to your local memory.</li>\n      <li><strong>Authorize Unknown Sources:</strong> If prompted by Android security settings, navigate to <em>Settings &gt; Security</em> and enable installation permissions for your web browser.</li>\n      <li><strong>Run the Package Installer:</strong> Open your notification shade or <em>Downloads</em> folder, tap the installer file, and select <strong>Install</strong>.</li>\n      <li><strong>Launch &amp; Crank:</strong> Open the <strong>Diwa Slot app</strong> from your app drawer, grab the workshop lever, and pull your very first mechanical spin with zero account registration needed.</li>\n    </ol>\n  </section>\n\n</article>",
     "category": "Diwa Apps",
     "name": "Diwa Slot",
@@ -4302,7 +4302,7 @@ export const mockApps: any[] = [
     "meta_title": "Diwa Slot App Download: Kinetic Cogs & Gear-Slot APK",
     "slug": "diwa-slot",
     "serial_number": 80,
-    "idea_box_msg": "Drop a \"Counterweight Bolt\" onto Reel 3 to stabilize bouncy bronze cogs and prevent them from slipping off the payline during high-multiplier rounds.",
+    "idea_box_msg": "",
     "publish_date": "",
     "reviews": "",
     "meta_description": "Get the official Diwa Slot app download. Manually engage brass gears, match kinetic symbols, and trigger cascading win chains in this mechanical slot game!",
@@ -4324,8 +4324,8 @@ export const mockApps: any[] = [
     "is_new": false,
     "faqs": [
       {
-        "question": "How does the mechanical spinning mechanism work in the Diwa Slot app?",
-        "answer": "<p>Unlike standard automated games, Diwa Slot features a manual hand-crank lever that lets you physically control the spin velocity, determining how fast the brass reels spin to a halt</p>"
+        "answer": "<p>Unlike standard automated games, Diwa Slot features a manual hand-crank lever that lets you physically control the spin velocity, determining how fast the brass reels spin to a halt</p>",
+        "question": "How does the mechanical spinning mechanism work in the Diwa Slot app?"
       },
       {
         "question": "Can I play the Diwa Slot game without an internet connection?",
@@ -4341,7 +4341,7 @@ export const mockApps: any[] = [
     "video_url": "",
     "custom_admin_box_html": "",
     "og_image_url": "",
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "has_secure_link": false
   },
   {
@@ -4356,7 +4356,7 @@ export const mockApps: any[] = [
     "description_html": "<article class=\"app-content-wrapper\">\n\n  <!-- PART 1: Lobby Concept & Overview -->\n  <section class=\"content-section\" id=\"lobby-overview\">\n    <h2>Diwa Win App: A Centralized Hub for Multiplayer &amp; Skill-Based Gaming</h2>\n    <p>\n      The <strong>Diwa Win app</strong> is engineered for mobile gamers who enjoy variety without the clutter of installing a dozen separate applications. Developed by MOBiTUNGO, <strong>Diwa Win</strong> acts as a unified digital lounge that houses multiple interactive game modes under one roof. Instead of forcing you into a single repetitive loop, the platform lets you seamlessly transition from rapid-fire casual challenges to structured, skill-based multiplayer matches with clean menus and responsive touch controls.\n    </p>\n  </section>\n\n  <!-- PART 2: Exploring the Multi-Game Lobby Structure -->\n  <section class=\"content-section\" id=\"game-lobby\">\n    <h2>Inside the Lobby: Navigation &amp; Game Categories</h2>\n    <p>\n      Launching the <strong>Diwa Win game</strong> drops you straight into an organized dashboard designed for effortless, one-handed vertical scrolling:\n    </p>\n\n    <ul>\n      <li><strong>Quick-Match Arena:</strong> Jump instantly into fast-paced 1v1 lobbies where matches resolve in under three minutes, perfect for short commuter sessions.</li>\n      <li><strong>Tournament Brackets:</strong> Scheduled competitive events where players compete across consecutive rounds to climb the global leaderboard and unlock special seasonal rewards.</li>\n      <li><strong>Casual Arcade Zones:</strong> Low-pressure mini-games built for pure relaxation, featuring simple rules, bright visual feedback, and zero timer stress.</li>\n      <li><strong>Social Challenge Hubs:</strong> Private room creation tools that let you invite friends, share custom match links, and compare high scores directly.</li>\n    </ul>\n  </section>\n\n  <!-- PART 3: The Reward & Progression Ecosystem -->\n  <section class=\"content-section\" id=\"rewards-system\">\n    <h2>Daily Rewards, Missions, and Player Progression</h2>\n    <p>\n      The <strong>Diwa Win APK</strong> keeps active players engaged through a structured economy built around consistency and participation:\n    </p>\n\n    <dl>\n      <dt><strong>Daily Check-In Bonuses</strong></dt>\n      <dd>Opening the app every day triggers a progressive reward calendar, handing out virtual tokens and booster items that increase in value the longer your streak continues.</dd>\n\n      <dt><strong>Achievement Checklists</strong></dt>\n      <dd>Completing specific daily objectives—such as winning three matches in a specific category or trying out a new game mode—grants bonus currency for your wallet.</dd>\n\n      <dt><strong>Referral Milestones</strong></dt>\n      <dd>Inviting friends to join the platform through unique sharing codes unlocks reciprocal rewards for both participants once active participation is confirmed.</dd>\n    </dl>\n  </section>\n\n  <!-- PART 4: Technical Specs & Performance Table -->\n  <section class=\"content-section\" id=\"performance-specs\">\n    <h2>Diwa Win Performance &amp; Hardware Compatibility</h2>\n    <p>\n      Designed with lightweight assets and efficient network handling, the <strong>Diwa Win app</strong> maintains steady performance across diverse Android hardware configurations:\n    </p>\n\n    <table>\n      <thead>\n        <tr>\n          <th>System Parameter</th>\n          <th>Specification Details</th>\n        </tr>\n      </thead>\n      <tbody>\n        <tr>\n          <td><strong>App Name</strong></td>\n          <td>Diwa Win</td>\n        </tr>\n        <tr>\n          <td><strong>Developer</strong></td>\n          <td>MOBiTUNGO / Diwa Games</td>\n        </tr>\n        <tr>\n          <td><strong>Package Version</strong></td>\n          <td>2.6.0</td>\n        </tr>\n        <tr>\n          <td><strong>File Size</strong></td>\n          <td>57 MB</td>\n        </tr>\n        <tr>\n          <td><strong>OS Requirement</strong></td>\n          <td>Android 6.0 or higher</td>\n        </tr>\n        <tr>\n          <td><strong>Core Focus</strong></td>\n          <td>Multiplayer Lobby &amp; Casual Arcade Hub</td>\n        </tr>\n      </tbody>\n    </table>\n  </section>\n\n  <!-- PART 5: Streamlined Setup Guide -->\n  <section class=\"content-section\" id=\"setup-guide\">\n    <h2>How to Complete the Diwa Win App Download &amp; Setup</h2>\n    <ol>\n      <li><strong>Fetch the Official Package:</strong> Tap the verified <strong>Diwa Win app download</strong> link on this page to save the 57 MB installer file to your device.</li>\n      <li><strong>Enable Unknown Sources:</strong> If required by your Android security settings, open <em>Settings &gt; Security</em> and allow installation from your trusted browser.</li>\n      <li><strong>Execute the Installer:</strong> Tap the downloaded file in your notification panel and press <strong>Install</strong> to set up the client.</li>\n      <li><strong>Launch &amp; Explore:</strong> Open the <strong>Diwa Win app</strong>, set up your player handle, claim your initial welcome bonus, and explore the active game lobbies.</li>\n    </ol>\n  </section>\n\n</article>",
     "developer": "MOBiTUNGO / Diwa Games",
     "rating": 4.2,
-    "updated_at": "2026-11-07T04:17:32.368Z",
+    "updated_at": "2026-11-17T07:49:49.323Z",
     "features_html": "",
     "meta_description": "Get the official Diwa Win app download. Explore competitive multiplayer rooms, daily login bonuses, and skill-based arcade tables in this multi-game hub!",
     "seo_title": "Diwa Win App Download: Multi-Game Lobby & Rewards APK",
@@ -4379,8 +4379,8 @@ export const mockApps: any[] = [
     "category": "Diwa Apps",
     "faqs": [
       {
-        "question": "What is the primary layout of the Diwa Win app?",
-        "answer": "<p>Diwa Win functions as a centralized multi-game lobby where users can switch between quick-fire arcade challenges, card tables, and competitive tournament rooms from a single dashboard.</p>"
+        "answer": "<p>Diwa Win functions as a centralized multi-game lobby where users can switch between quick-fire arcade challenges, card tables, and competitive tournament rooms from a single dashboard.</p>",
+        "question": "What is the primary layout of the Diwa Win app?"
       },
       {
         "question": "How do daily bonuses work in Diwa Win?",
@@ -4395,12 +4395,12 @@ export const mockApps: any[] = [
     "version": "2.6.0",
     "yellow_box_msg": "Ensure your device has a stable internet connection before entering live multiplayer match queues to prevent unexpected session drops or forfeit penalties.",
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1793364190/rummydex_uploads/yt6flwxsfxtzmod03yog.webp",
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "has_secure_link": true
   },
   {
     "features_html": "",
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1793416979/rummydex_uploads/rige2qqvwsgivok5m9wi.webp",
     "review_count": "",
     "yellow_box_msg": "Bluetooth earbuds have a tiny audio delay. Use your phone's built-in speakers or wired earphones so your finger plucks match the beat perfectly.",
@@ -4414,8 +4414,8 @@ export const mockApps: any[] = [
     "canonical_url": "",
     "faqs": [
       {
-        "answer": "<p>Diwa Play is an acoustic rhythm-physics game where you pull and pluck tight brass wires stretched across your screen, firing visible soundwave rings that bounce off walls to ring hanging temple bells.</p>",
-        "question": "How do you play the Diwa Play app?"
+        "question": "How do you play the Diwa Play app?",
+        "answer": "<p>Diwa Play is an acoustic rhythm-physics game where you pull and pluck tight brass wires stretched across your screen, firing visible soundwave rings that bounce off walls to ring hanging temple bells.</p>"
       },
       {
         "answer": "<p>Yes, all 90 Sound Chamber stages and the Freestyle Jam sandbox in the Diwa Play APK work 100% offline with zero mobile data required.</p>",
@@ -4430,7 +4430,7 @@ export const mockApps: any[] = [
     "description_html": "<article class=\"app-content-wrapper\">\n\n  <!-- PART 1: What Makes Diwa Play Different -->\n  <section class=\"content-section\" id=\"what-is-diwa-play\">\n    <h2>Diwa Play App: Where Plucking Music Strings Controls Physics</h2>\n    <p>\n      Most games treat sound as background noise, but in the <strong>Diwa Play app</strong>, sound is your only weapon. Built by SonicLoom Studio, <strong>Diwa Play</strong> turns your touchscreen into a playable acoustic instrument box. Across dark stone chambers, golden brass strings are stretched tight from one side of your screen to the other. When you pull a string with your finger and let go, it plays a real classical note (Sitar, Tanpura, or Santoor) and shoots a physical ripple of golden sound energy across the room. Your goal is to angle those sound ripples so they hit and wake up every sleeping temple bell on the map.\n    </p>\n  </section>\n\n  <!-- PART 2: The 3 Pitch Controls (How Your Fingers Control the Board) -->\n  <section class=\"content-section\" id=\"string-controls\">\n    <h2>How String Tension Changes Your Shot</h2>\n    <p>\n      There are no buttons or joysticks inside the <strong>Diwa Play game</strong>. Everything depends on how hard and where you pluck the wire:\n    </p>\n\n    <dl>\n      <dt><strong>1. Light Pluck (High Pitch / Fast Ripple)</strong></dt>\n      <dd>Barely pulling the string back plays a sharp, high note. It fires a small, super-fast ring that travels in a straight line to hit distant bells before swinging doors close.</dd>\n\n      <dt><strong>2. Deep Pull (Bass Note / Heavy Shockwave)</strong></dt>\n      <dd>Dragging the wire far back plays a deep bass rumble. When released, it launches a wide, slow-moving wave that can push heavy hanging lanterns and break cracked clay pots blocking your path.</dd>\n\n      <dt><strong>3. Finger Slide (Fret Bending)</strong></dt>\n      <dd>Sliding your second thumb along the edge of the wire while it vibrates bends the musical note in mid-air, curving the flying soundwave around solid stone corners.</dd>\n    </dl>\n  </section>\n\n  <!-- PART 3: Chamber Echoes & Sound Traps -->\n  <section class=\"content-section\" id=\"echo-mechanics\">\n    <h2>Inside the Sound Chambers: Echo Walls &amp; Mufflers</h2>\n    <p>\n      Once you finish your <strong>Diwa Play app download</strong>, the rooms start mixing surfaces that react differently to sound:\n    </p>\n\n    <ul>\n      <li><strong>Copper Echo Plates:</strong> Smooth metal walls that double the speed and size of your soundwave every time it bounces off them.</li>\n      <li><strong>Silk Curtain Dead-Zones:</strong> Heavy hanging fabric that swallows sound completely. If your ripple hits a curtain, the note dies instantly—you have to curve your shot around it.</li>\n      <li><strong>Tuning Fork Pillars:</strong> Hitting a silver tuning fork in the middle of the room makes it hum for 5 seconds, creating a bridge that carries your next note across deep gaps.</li>\n      <li><strong>Glass Chimes:</strong> Fragile targets that only ring if you hit them with a soft High Pitch note; hitting them with a Heavy Bass wave shatters them and restarts the turn.</li>\n    </ul>\n  </section>\n\n  <!-- PART 4: Instrument Soundpacks (Table) -->\n  <section class=\"content-section\" id=\"instrument-packs\">\n    <h2>Unlockable Instrument Wires in the Diwa Play APK</h2>\n    <p>\n      Clearing chambers earns you brass tuning pegs, letting you restring your board with four different instrument setups:\n    </p>\n\n    <table>\n      <thead>\n        <tr>\n          <th>String Material</th>\n          <th>Real Audio Sound</th>\n          <th>Gameplay Advantage</th>\n        </tr>\n      </thead>\n      <tbody>\n        <tr>\n          <td><strong>Bronze Sitar Wire</strong></td>\n          <td>Crisp metallic twang</td>\n          <td>Balanced speed and 3 wall bounces</td>\n        </tr>\n        <tr>\n          <td><strong>Heavy Tanpura Drone</strong></td>\n          <td>Deep continuous hum</td>\n          <td>Waves stay active on screen for 2 extra seconds</td>\n        </tr>\n        <tr>\n          <td><strong>Hammered Santoor</strong></td>\n          <td>Bright twin-mallet chime</td>\n          <td>Fires two smaller ripples in opposite directions</td>\n        </tr>\n        <tr>\n          <td><strong>Silver Veena Coil</strong></td>\n          <td>Smooth sliding melody</td>\n          <td>Allows extreme 90-degree mid-air curve bends</td>\n        </tr>\n      </tbody>\n    </table>\n  </section>\n\n  <!-- PART 5: Real Speaker & Touch Check -->\n  <section class=\"content-section\" id=\"real-device-check\">\n    <h2>Playing Diwa Play in Real Life: What Stood Out</h2>\n    <p>\n      Because every puzzle in the <strong>Diwa Play app</strong> creates an actual song as the waves bounce around, it feels completely different from silent mobile games:\n    </p>\n\n    <p>\n      <strong>The Sound Is Real Studio Audio:</strong> Instead of cheap digital beeps, the developers recorded real acoustic strings. When you clear a 10-bell room, the bouncing echoes naturally layer together into a relaxing melody. Even if you mute your phone on a crowded bus, the visual ripples show the exact pitch thickness so you can still solve every room by sight alone.\n    </p>\n    <p>\n      <strong>Vibration Feels Like a Real String:</strong> As you pull a wire tighter on screen, the <strong>Diwa Play game</strong> uses tiny rapid vibrations that genuinely make your thumb feel like it is holding a stretched guitar string ready to snap.\n    </p>\n  </section>\n\n  <!-- PART 6: Direct Setup -->\n  <section class=\"content-section\" id=\"setup-steps\">\n    <h2>Getting Started After Your Diwa Play App Download</h2>\n    <p>\n      Installing the <strong>Diwa Play APK</strong> takes less than thirty seconds: tap the download button on this page, allow browser installation if Android asks, and press <strong>Install</strong>. The moment the app opens, pluck the single golden string on the title screen to break the seal and enter Chamber 1—no sign-ups, no passwords, and no internet connection required.\n    </p>\n  </section>\n\n</article>",
     "meta_title": "Diwa Play App Download: Acoustic String & Rhythm Arcade",
     "seo_description": "Get the official Diwa Play app download. Pluck brass sitar strings, bounce soundwaves to light temple bells, and master 90 offline acoustic rhythm stages!",
-    "updated_at": "2026-11-07T04:17:43.731Z",
+    "updated_at": "2026-11-17T07:49:55.204Z",
     "screenshots": [],
     "video_url": "",
     "red_box_msg": "Grab the Diwa Play installer strictly from verified directory links so your saved audio tracks and unlocked instruments stay safe from tampered files.  ",
@@ -4467,7 +4467,7 @@ export const mockApps: any[] = [
     "seo_title": "Good Slots App Download: Custom Reel & Gear-Builder Game",
     "seo_description": "Play the Good Slots app and build your own slot machine! Swap out bad symbols, oil rusty gears, and craft massive winning combos in this mechanical game.",
     "name": "GOOD SLOTS",
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "created_at": "2026-10-31T03:31:11.048Z",
     "features_html": "",
     "review_count": "",
@@ -4478,19 +4478,19 @@ export const mockApps: any[] = [
     "slug": "good-slots",
     "video_url": "",
     "is_hot": false,
-    "updated_at": "2026-11-07T04:17:53.915Z",
+    "updated_at": "2026-11-17T07:50:02.156Z",
     "faqs": [
       {
-        "answer": "<p>Yes! Between rounds, you open the machine's glass front with a screwdriver, pull out low-value lemon tiles, and snap high-value diamond or multiplier gears onto the wheel.</p>",
-        "question": "Can you actually remove losing symbols in the Good Slots app?"
+        "question": "Can you actually remove losing symbols in the Good Slots app?",
+        "answer": "<p>Yes! Between rounds, you open the machine's glass front with a screwdriver, pull out low-value lemon tiles, and snap high-value diamond or multiplier gears onto the wheel.</p>"
       },
       {
         "question": "What happens when two symbols touch in Good Slots?",
         "answer": "<p>Symbols interact with their neighbours on the 5x4 grid. Placing a Miner symbol next to an Ore symbol breaks the rock open, while placing a Magnet pulls all Gold Coins toward the center row.</p>"
       },
       {
-        "question": "Why did my machine jam during a spin?",
-        "answer": "<p>Rusty Junk tiles slowly appear after every 10 pulls. If three Rust tiles land on the middle line at once, the gears lock up and you have to spend a Repair Wrench to unjam the cylinder.</p>"
+        "answer": "<p>Rusty Junk tiles slowly appear after every 10 pulls. If three Rust tiles land on the middle line at once, the gears lock up and you have to spend a Repair Wrench to unjam the cylinder.</p>",
+        "question": "Why did my machine jam during a spin?"
       }
     ],
     "red_box_msg": "Never fill your entire cylinder with heavy Gold Bars at the start—they weigh down the middle axle and slow your spin speed by half until you upgrade to the Titanium Motor.",
@@ -4523,7 +4523,7 @@ export const mockApps: any[] = [
     "rating": 4.2,
     "red_box_msg": "Download the Diwa X APK only from verified directory links. Avoid modified third-party files to keep your local scores safe.",
     "og_image_url": "",
-    "updated_at": "2026-11-07T04:18:04.150Z",
+    "updated_at": "2026-11-17T07:50:13.096Z",
     "serial_number": 84,
     "version": "1.05.1",
     "description_html": "<article class=\"app-content-wrapper\">\n\n  <!-- PART 1: Direct Overview -->\n  <section class=\"content-section\" id=\"overview\">\n    <h2>Diwa X App: Fast Two-Thumb Laser Intersection Arcade</h2>\n    <p>\n      <strong>Diwa X</strong> is a pure reflex game built for players who hate slow tutorials and waiting around. Developed by CrossVector Arcade Works, the <strong>Diwa X app</strong> turns your phone screen into a high-speed vertical firing grid. Instead of tapping individual targets, you control two glowing light rails locked to the left and right bezels of your display. Touching both sides fires two diagonal beams that cross in the middle like a giant glowing \"X\". Your only goal is to slide your thumbs up and down to move that intersection point and burn through falling dark spheres before they hit the bottom line.\n    </p>\n  </section>\n\n  <!-- PART 2: Core Mechanics (Simple & Clear) -->\n  <section class=\"content-section\" id=\"mechanics\">\n    <h2>How the X-Point Targeting Works</h2>\n    <p>\n      A single beam in the <strong>Diwa X game</strong> is weak, but where the two lines cross, they create a superheated focal point. Mastering the game comes down to three simple thumb movements:\n    </p>\n\n    <ul>\n      <li><strong>Slide Together (Vertical Shift):</strong> Moving both thumbs up or down at the same speed keeps the \"X\" locked in the middle of the screen to slice straight down central enemy columns.</li>\n      <li><strong>Pinch &amp; Spread (Horizontal Shift):</strong> Sliding your left thumb high and your right thumb low shifts the crossing point toward the corners to snipe fast targets hugging the walls.</li>\n      <li><strong>Release to Vent (The Snap Blast):</strong> Holding the beams on for more than 6 seconds overheats your emitters. Lifting both thumbs right before the red meter fills fires a shockwave that clears small debris off the board.</li>\n    </ul>\n  </section>\n\n  <!-- PART 3: Enemy Types Table -->\n  <section class=\"content-section\" id=\"target-types\">\n    <h2>Grid Targets &amp; How to Break Them</h2>\n    <p>\n      Once you finish your <strong>Diwa X app download</strong>, the game throws four main target types down the screen, each requiring a different thumb reaction:\n    </p>\n\n    <table>\n      <thead>\n        <tr>\n          <th>Target Node</th>\n          <th>Behavior</th>\n          <th>How to Destroy It</th>\n        </tr>\n      </thead>\n      <tbody>\n        <tr>\n          <td><strong>Cinder Orbs</strong></td>\n          <td>Drop straight down in fast groups</td>\n          <td>Sweep the center X-point across the line</td>\n        </tr>\n        <tr>\n          <td><strong>Mirror Cubes</strong></td>\n          <td>Bounce single beams back at you</td>\n          <td>Hit them strictly with the center crossing point</td>\n        </tr>\n        <tr>\n          <td><strong>Splitter Rings</strong></td>\n          <td>Break into 4 smaller pieces when cut</td>\n          <td>Save your Release Shockwave to wipe the pieces</td>\n        </tr>\n        <tr>\n          <td><strong>Iron Hex Cores</strong></td>\n          <td>Heavy boss blocks that fall slowly</td>\n          <td>Hold the X-point locked on their center for 3 seconds</td>\n        </tr>\n      </tbody>\n    </table>\n  </section>\n\n  <!-- PART 4: Real Hands-On Experience -->\n  <section class=\"content-section\" id=\"hands-on-test\">\n    <h2>Hands-On Check: Controls, Speed &amp; Screen Feel</h2>\n    <p>\n      We played the <strong>Diwa X APK</strong> on standard Android phones to see how it actually feels in the hands during fast rounds:\n    </p>\n\n    <ul>\n      <li><strong>Zero Thumb Blocking:</strong> Because your thumbs stay parked on the far left and right edges of the glass, your fingers never cover up the middle of the screen where the action happens.</li>\n      <li><strong>Instant Restart Loop:</strong> When a sphere slips past your guard, there are no annoying ads or slow tally screens. One tap puts you right back at the start of the wave in half a second.</li>\n      <li><strong>Light on Battery &amp; Data:</strong> The clean neon-on-black visuals run at a smooth 60 FPS without warming up the phone, and the <strong>Diwa X app</strong> works completely in Airplane Mode without asking for any permissions.</li>\n    </ul>\n  </section>\n\n  <!-- PART 5: Quick Install Steps -->\n  <section class=\"content-section\" id=\"install-guide\">\n    <h2>How to Complete the Diwa X App Download &amp; Install</h2>\n    <ol>\n      <li><strong>Download the APK:</strong> Tap the official <strong>Diwa X app download</strong> button on this page to save the installer file.</li>\n      <li><strong>Allow Browser Install:</strong> Turn on <em>Install Unknown Apps</em> in your Android settings if your phone asks for permission.</li>\n      <li><strong>Install &amp; Play:</strong> Open the downloaded <strong>Diwa X APK</strong> file, tap <strong>Install</strong>, and jump straight into Stage 1 with no sign-up needed.</li>\n    </ol>\n  </section>\n\n</article>",
@@ -4534,18 +4534,18 @@ export const mockApps: any[] = [
     "category": "Diwa Apps",
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1793417052/rummydex_uploads/zm5n8ufgmvd6v5u5jvsv.webp",
     "is_hot": false,
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "seo_title": "Diwa X App Download: Dual-Beam Laser & X-Axis Reflex",
     "idea_box_msg": "",
     "publish_date": "",
     "faqs": [
       {
-        "answer": "<p>Diwa X is a two-thumb arcade game where you slide two light emitters along the left and right edges of your screen, crossing their beams into an \"X\" to burn away falling targets.</p>",
-        "question": "How do you play the Diwa X app?"
+        "question": "How do you play the Diwa X app?",
+        "answer": "<p>Diwa X is a two-thumb arcade game where you slide two light emitters along the left and right edges of your screen, crossing their beams into an \"X\" to burn away falling targets.</p>"
       },
       {
-        "question": "Does the Diwa X game work offline?",
-        "answer": "<p>Yes, all 100 grid levels and the Endless Overdrive mode in the Diwa X APK run 100% offline with zero internet required.</p>"
+        "answer": "<p>Yes, all 100 grid levels and the Endless Overdrive mode in the Diwa X APK run 100% offline with zero internet required.</p>",
+        "question": "Does the Diwa X game work offline?"
       },
       {
         "answer": "<p>Holding your fingers down continuously builds heat; lifting both thumbs for half a second vents the emitters and triggers a screen-clearing pulse.</p>",
@@ -4569,12 +4569,12 @@ export const mockApps: any[] = [
         "question": "How is the Diwa Rummy app different from standard card games?"
       },
       {
-        "question": "​Can I play the Diwa Rummy game offline without mobile data?",
-        "answer": "<p>Yes, all 120 Courtyard Fog stages and the Midnight Survival gauntlet in the Diwa Rummy APK run 100% offline with zero Wi-Fi or cellular connection required.</p>"
+        "answer": "<p>Yes, all 120 Courtyard Fog stages and the Midnight Survival gauntlet in the Diwa Rummy APK run 100% offline with zero Wi-Fi or cellular connection required.</p>",
+        "question": "​Can I play the Diwa Rummy game offline without mobile data?"
       },
       {
-        "question": "What happens if my lantern wick burns out in Diwa Rummy?",
-        "answer": "<p>Every card draw burns 5% of your active oil reservoir; if the wick hits zero before you meld a pure sequence to refill the oil, shadows swallow your rack and the stage resets</p>"
+        "answer": "<p>Every card draw burns 5% of your active oil reservoir; if the wick hits zero before you meld a pure sequence to refill the oil, shadows swallow your rack and the stage resets</p>",
+        "question": "What happens if my lantern wick burns out in Diwa Rummy?"
       }
     ],
     "description_html": "<article class=\"app-content-wrapper\">\n\n  <!-- SECTION 1: Original Concept Hook -->\n  <section class=\"content-section\" id=\"shadow-grid-hook\">\n    <h2>Diwa Rummy App: 13-Card Shadow-Grid &amp; Lantern Illumination Tactics</h2>\n    <p>\n      Throw out everything you expect from a slow, green-felt card table. The <strong>Diwa Rummy app</strong> merges classic 13-card sequence logic with a dark, atmospheric light-strategy board built by EmberDeck Grid Studios. In the <strong>Diwa Rummy game</strong>, the entire tabletop is plunged into pitch-black midnight fog. You can only see the cards directly illuminated by your central earthen lamp (<em>Diya</em>). To uncover hidden deck piles, burn away creeping shadow vines, and unlock the stage exit, you must rapidly weld valid card sequences that shoot trails of liquid fire across the board.\n    </p>\n  </section>\n\n  <!-- SECTION 2: The 4-Part Illumination Loop -->\n  <section class=\"content-section\" id=\"illumination-mechanics\">\n    <h2>The Illumination Engine: How Light &amp; Card Melding Interact</h2>\n    <p>\n      Every puzzle stage inside the <strong>Diwa Rummy APK</strong> runs on a live light-radius system where your card combinations directly control visibility on the screen:\n    </p>\n\n    <ul>\n      <li><strong>1. The Shrinking Oil Radius:</strong> At the start of a hand, your main lantern only lights up 5 cards in your 13-card rack; the remaining 8 cards sit in darkness as concealed \"Shadow Cards.\" Every turn you take without melding drains lamp oil and shrinks your visible circle.</li>\n      <li><strong>2. Pure Sequence \"Flame Chains\":</strong> Locking three consecutive suited cards together (e.g., 4♦-5♦-6♦) triggers an immediate <em>Flame Chain</em>. This sends a beam of fire down your rack, lighting an unlit clay Diya and permanently revealing three hidden Shadow Cards.</li>\n      <li><strong>3. Wax-Sealed Obstacle Cards:</strong> Later stages in the <strong>Diwa Rummy app</strong> deal heavy cards encased in hardened red candle wax. You cannot drag or discard a wax-sealed card until you place a completed Set or Impure Run directly beside it to melt the seal off.</li>\n      <li><strong>4. The Final Beacon Show:</strong> Once all 13 cards in your rack are illuminated and grouped into legal melds, dragging your 14th card onto the central <em>Altar Brazier</em> detonates a screen-clearing solar flare that banishes the fog and locks in your 3-Star rating.</li>\n    </ul>\n  </section>\n\n  <!-- SECTION 3: Tactical Fire-Card Modifiers Table -->\n  <section class=\"content-section\" id=\"ember-cards\">\n    <h2>Special Ember Cards &amp; Illumination Effects</h2>\n    <p>\n      After completing your <strong>Diwa Rummy app download</strong>, advancing past Courtyard Stage 15 introduces specialized utility cards tucked inside the shadow deck:\n    </p>\n\n    <table>\n      <thead>\n        <tr>\n          <th>Special Card Type</th>\n          <th>Board Illumination Effect</th>\n          <th>Best Tactical Use</th>\n        </tr>\n      </thead>\n      <tbody>\n        <tr>\n          <td><strong>Camphor Wildcard</strong></td>\n          <td>Acts as a Cut Joker &amp; refills +25% Lamp Oil</td>\n          <td>Saving a dying wick during long 4-card run setups</td>\n        </tr>\n        <tr>\n          <td><strong>Flint Spark Card</strong></td>\n          <td>Flashes the entire open discard pile for 4 seconds</td>\n          <td>Memorizing buried connectors hidden in the dark</td>\n        </tr>\n        <tr>\n          <td><strong>Ghee Torch Suit</strong></td>\n          <td>Doubles the light radius of any Set it joins</td>\n          <td>Melting two adjacent Wax-Sealed cards at once</td>\n        </tr>\n        <tr>\n          <td><strong>Eclipse Blocker</strong></td>\n          <td>Casts darkness over adjacent cards until discarded</td>\n          <td>Throw into the open tray immediately on turn one</td>\n        </tr>\n      </tbody>\n    </table>\n  </section>\n\n  <!-- SECTION 4: Real-World Hardware & Visibility Testing -->\n  <section class=\"content-section\" id=\"hands-on-audit\">\n    <h2>Hands-On Testing: Dark-Mode Contrast &amp; Touch Speed</h2>\n    <p>\n      Our team tested the <strong>Diwa Rummy app</strong> across budget LCD screens and high-refresh AMOLED phones to evaluate how well the shadow-and-light mechanics perform in daily use:\n    </p>\n\n    <div class=\"test-verdict-list\">\n      <h3>1. High-Contrast Card Readability</h3>\n      <p>\n        Dark games often fail when players cannot read small suit icons. <strong>Diwa Rummy</strong> solves this by printing card ranks in bold, glowing neon-gold and cyan ink against obsidian card backs, making every revealed number razor-sharp even at 40% screen brightness.\n      </p>\n\n      <h3>2. Dynamic Ray-Cast Lighting at 60 FPS</h3>\n      <p>\n        When you drag a lit card across your rack in the <strong>Diwa Rummy game</strong>, the golden glow moves with your fingertip in real time, letting you \"peek\" at adjacent shadow cards before dropping it. This real-time lighting runs at a locked 60 FPS with zero stutter or battery heating.\n      </p>\n\n      <h3>3. 100% Offline Commute Readiness</h3>\n      <p>\n        We ran 30 consecutive Courtyard Fog stages with mobile data and Wi-Fi completely disabled. The <strong>Diwa Rummy APK</strong> loads levels instantaneously, stores your star progression locally, and never interrupts a puzzle with connection pop-ups.\n      </p>\n    </div>\n  </section>\n\n  <!-- SECTION 5: Fast 3-Step Installation Protocol -->\n  <section class=\"content-section\" id=\"installation-steps\">\n    <h2>How to Complete the Official Diwa Rummy App Download &amp; Setup</h2>\n    <ol>\n      <li><strong>Fetch the Verified APK:</strong> Tap the official <strong>Diwa Rummy app download</strong> link on this page to save the clean installer package directly to your phone.</li>\n      <li><strong>Grant Browser Permission:</strong> If prompted by Android security, open <em>Settings &gt; Security &gt; Install Unknown Apps</em> and toggle permission on for your browser.</li>\n      <li><strong>Install &amp; Ignite:</strong> Open the downloaded <strong>Diwa Rummy APK</strong> file from your notifications, tap <strong>Install</strong>, and jump straight into Courtyard Stage 1 with zero sign-up required.</li>\n    </ol>\n  </section>\n\n</article>",
@@ -4594,8 +4594,8 @@ export const mockApps: any[] = [
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1793417083/rummydex_uploads/t19zbyib14emzqkxkql4.webp",
     "seo_title": "Diwa Rummy App Download: Shadow-Grid 13-Card Fog Tactics",
     "meta_description": "Get the official Diwa Rummy app download. Master 13-card shadow grids, ignite Flame Runs to lift table fog, and clear midnight puzzles 100% offline!",
-    "is_coming_soon": false,
-    "updated_at": "2026-11-07T04:18:12.893Z",
+    "is_coming_soon": true,
+    "updated_at": "2026-11-17T07:50:07.522Z",
     "canonical_url": "",
     "safety_status": "Verified",
     "release_notes": "",
@@ -4618,16 +4618,16 @@ export const mockApps: any[] = [
     "version": "2.1.0",
     "faqs": [
       {
-        "question": "What is the main gameplay objective in the Diwa King app?",
-        "answer": "<p>Diwa King is a fast-paced royal fortress defense game where you place flame cannons, solar mirrors, and archer towers around a central throne to stop incoming shadow monsters from extinguishing the King's Beacon.</p>"
+        "answer": "<p>Diwa King is a fast-paced royal fortress defense game where you place flame cannons, solar mirrors, and archer towers around a central throne to stop incoming shadow monsters from extinguishing the King's Beacon.</p>",
+        "question": "What is the main gameplay objective in the Diwa King app?"
       },
       {
         "question": "Does the Diwa King game require an active internet connection?",
         "answer": "<p>No, the entire 80-night Kingdom Siege campaign and Boss Rush modes in the Diwa King APK work 100% offline with zero mobile data required.</p>"
       },
       {
-        "answer": "<p>Defeating shadow creatures drops \"Solar Gold\" directly onto the battlefield, which you tap to instantly upgrade turret firing speed, blast radius, or wall armor mid-wave.</p>",
-        "question": "How do resource upgrades work during a live match in Diwa King?"
+        "question": "How do resource upgrades work during a live match in Diwa King?",
+        "answer": "<p>Defeating shadow creatures drops \"Solar Gold\" directly onto the battlefield, which you tap to instantly upgrade turret firing speed, blast radius, or wall armor mid-wave.</p>"
       }
     ],
     "custom_admin_box_html": "",
@@ -4639,7 +4639,7 @@ export const mockApps: any[] = [
     "is_hot": false,
     "video_url": "",
     "category": "Diwa Apps",
-    "updated_at": "2026-11-07T04:18:22.425Z",
+    "updated_at": "2026-11-17T07:50:18.670Z",
     "reviews": "",
     "meta_description": "Get the official Diwa King app download. Defend the royal throne, deploy fire-turret bastions, and stop shadow waves in this fast offline strategy game!",
     "serial_number": 86,
@@ -4652,7 +4652,7 @@ export const mockApps: any[] = [
     "meta_title": "Diwa King App Download: Tactical Fortress & Light Defense",
     "slug": "diwa-king",
     "rating": 4,
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "is_new": false,
     "developer": "CrownGrid Tactics Studio",
     "seo_keywords": "",
@@ -4687,7 +4687,7 @@ export const mockApps: any[] = [
     "video_url": "",
     "file_size": "41.6 MB",
     "features_html": "",
-    "updated_at": "2026-11-07T04:18:32.047Z",
+    "updated_at": "2026-11-17T07:50:25.377Z",
     "meta_title": "Diwa Top App Download (2026): Vertical Lantern Tower & Physics",
     "is_new": false,
     "serial_number": 89,
@@ -4698,7 +4698,7 @@ export const mockApps: any[] = [
     "id": "6vphrtddi",
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1793417233/rummydex_uploads/ijorlmotqpoejkazwm7f.webp",
     "reviews": "",
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "canonical_url": "",
     "release_notes": "",
     "safety_status": "Verified",
@@ -4710,12 +4710,12 @@ export const mockApps: any[] = [
         "question": "What is the core gameplay mechanism of the Diwa Top app?"
       },
       {
-        "question": "Can I play the Diwa Top game offline without an internet connection?",
-        "answer": "<p>Yes, the entire vertical climbing campaign and Endless Skyscraper mode in the Diwa Top APK run 100% offline with zero Wi-Fi or mobile data required.</p>"
+        "answer": "<p>Yes, the entire vertical climbing campaign and Endless Skyscraper mode in the Diwa Top APK run 100% offline with zero Wi-Fi or mobile data required.</p>",
+        "question": "Can I play the Diwa Top game offline without an internet connection?"
       },
       {
-        "question": "How does the center-of-gravity mechanic work in Diwa Top?",
-        "answer": "<p>Every block you drop shifts the tower's weight distribution; if your alignment is off-center by more than three blocks, structural sway increases until the tower collapses.</p>"
+        "answer": "<p>Every block you drop shifts the tower's weight distribution; if your alignment is off-center by more than three blocks, structural sway increases until the tower collapses.</p>",
+        "question": "How does the center-of-gravity mechanic work in Diwa Top?"
       }
     ],
     "publish_date": "",
@@ -4736,7 +4736,7 @@ export const mockApps: any[] = [
     "custom_admin_box_heading": "",
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1793417205/rummydex_uploads/yaacixticix4pydg1rlz.webp",
     "name": "Diwa Ace",
-    "updated_at": "2026-11-07T04:18:44.696Z",
+    "updated_at": "2026-11-17T07:50:31.517Z",
     "is_new": false,
     "idea_box_msg": "",
     "publish_date": "",
@@ -4749,7 +4749,7 @@ export const mockApps: any[] = [
     "seo_description": "Get the official Diwa Ace app download Pilot a flaming origami glider through midnight palace canyons, ride thermal updrafts, and master offline air stunts",
     "is_hot": false,
     "yellow_box_msg": "Canyon Stage 40+ runs at high velocity. Turn off battery-saving screen dimmers before flying so you can clearly spot dark stone arches ahead.",
-    "is_coming_soon": false,
+    "is_coming_soon": true,
     "meta_description": "Get the official Diwa Ace app download Pilot a flaming origami glider through midnight palace canyons, ride thermal updrafts, and master offline air stunts",
     "review_count": "",
     "version": "1.12.0",
@@ -4765,12 +4765,12 @@ export const mockApps: any[] = [
         "answer": "<p>Diwa Ace is an aerodynamic stunt-gliding game where you pilot a fiery paper plane through lantern-lit canyons, riding hot air currents to stay airborne and weave through floating brass rings.</p>"
       },
       {
-        "answer": "<p>Yes, the entire 90-mission Night Canyon Tour and Endless Thermal Drift modes in the Diwa Ace APK run 100% offline with zero Wi-Fi or mobile data required.</p>",
-        "question": "Can I play the Diwa Ace game completely offline?"
+        "question": "Can I play the Diwa Ace game completely offline?",
+        "answer": "<p>Yes, the entire 90-mission Night Canyon Tour and Endless Thermal Drift modes in the Diwa Ace APK run 100% offline with zero Wi-Fi or mobile data required.</p>"
       },
       {
-        "answer": "<p>Dive-bombing reduces your wingspan to build speed, while flying directly over glowing courtyard bonfires catches rising hot air that refills your altitude meter instantly.</p>",
-        "question": "How does the thermal wind mechanic work in Diwa Ace?"
+        "question": "How does the thermal wind mechanic work in Diwa Ace?",
+        "answer": "<p>Dive-bombing reduces your wingspan to build speed, while flying directly over glowing courtyard bonfires catches rising hot air that refills your altitude meter instantly.</p>"
       }
     ],
     "created_at": "2026-10-31T03:26:50.966Z",
@@ -4805,16 +4805,16 @@ export const mockApps: any[] = [
     "meta_description": "Read an authentic breakdown of Vip Rummy. Learn card sorting mechanics, table formats, scoring systems, and offline solo play features.",
     "faqs": [
       {
-        "answer": "<p>Cards can be sorted automatically by suit using the sort button or organized manually by dragging cards into custom grouping containers along the bottom dock.</p>",
-        "question": "How does card sorting work in Vip Rummy?"
+        "question": "How does card sorting work in Vip Rummy?",
+        "answer": "<p>Cards can be sorted automatically by suit using the sort button or organized manually by dragging cards into custom grouping containers along the bottom dock.</p>"
       },
       {
         "answer": "<p>Yes. Vip Rummy includes a dedicated offline practice mode featuring automated opponents governed by standard probability models, requiring zero data connectivity.</p>",
         "question": "Can I play Vip Rummy without an internet connection?"
       },
       {
-        "answer": "<p>A valid hand requires at least two sequences, including one pure sequence formed without wildcards, alongside valid sets or additional sequences totaling 13 cards.</p>",
-        "question": "What constitutes a valid declaration in Vip Rummy?"
+        "question": "What constitutes a valid declaration in Vip Rummy?",
+        "answer": "<p>A valid hand requires at least two sequences, including one pure sequence formed without wildcards, alongside valid sets or additional sequences totaling 13 cards.</p>"
       }
     ],
     "yellow_box_msg": "Extended mobile gaming sessions cause eye strain and digital fatigue; schedule regular breaks away from your screen between game rounds.",
@@ -4868,16 +4868,16 @@ export const mockApps: any[] = [
     "screenshots": [],
     "faqs": [
       {
-        "question": "Can you play Best Rummy offline without an internet connection?",
-        "answer": "<p>Yes, Best Rummy includes an Offline AI Arena that launches automatically when you have no internet connection. You can play full 13-card matches against heuristic bots to practice sequence building without using mobile data.</p>"
+        "answer": "<p>Yes, Best Rummy includes an Offline AI Arena that launches automatically when you have no internet connection. You can play full 13-card matches against heuristic bots to practice sequence building without using mobile data.</p>",
+        "question": "Can you play Best Rummy offline without an internet connection?"
       },
       {
-        "question": "How does scoring work in Best Rummy?",
-        "answer": "<p>Scoring is based on the penalty points of ungrouped cards left in your hand when a player declares. Face cards and Aces count for 10 points each, numbered cards carry their face value, and jokers carry zero points.</p>"
+        "answer": "<p>Scoring is based on the penalty points of ungrouped cards left in your hand when a player declares. Face cards and Aces count for 10 points each, numbered cards carry their face value, and jokers carry zero points.</p>",
+        "question": "How does scoring work in Best Rummy?"
       },
       {
-        "answer": "<p>The current v1.6.4 release of Best Rummy requires 62 MB of storage space. Its lightweight 2D graphics engine allows it to run smoothly at 60 FPS on entry-level smartphones with minimal battery drain.</p>",
-        "question": "What is the file size of the Best Rummy app on Android?"
+        "question": "What is the file size of the Best Rummy app on Android?",
+        "answer": "<p>The current v1.6.4 release of Best Rummy requires 62 MB of storage space. Its lightweight 2D graphics engine allows it to run smoothly at 60 FPS on entry-level smartphones with minimal battery drain.</p>"
       }
     ],
     "created_at": "2026-11-02T17:39:17.169Z",
@@ -5014,8 +5014,8 @@ export const mockApps: any[] = [
         "question": "What is ACE Rummy and how do you play it?"
       },
       {
-        "answer": "<p>ACE Rummy is completely free to play and gives you virtual practice chips through daily login rewards, two-hour chip trays, and free refill vouchers.</p>",
-        "question": "Is ACE Rummy free to play and how do virtual coins work?"
+        "question": "Is ACE Rummy free to play and how do virtual coins work?",
+        "answer": "<p>ACE Rummy is completely free to play and gives you virtual practice chips through daily login rewards, two-hour chip trays, and free refill vouchers.</p>"
       },
       {
         "question": "What are the system requirements and size for ACE Rummy?",
@@ -5047,8 +5047,8 @@ export const mockApps: any[] = [
     "seo_title": "123Rummy App: Learn, Practice and Play Rummy in 3 Steps",
     "faqs": [
       {
-        "answer": "<p>123Rummy is a rummy app with a guided path for new players, practice games against the computer, and online tables for friends and other players.</p>",
-        "question": "What is 123Rummy?"
+        "question": "What is 123Rummy?",
+        "answer": "<p>123Rummy is a rummy app with a guided path for new players, practice games against the computer, and online tables for friends and other players.</p>"
       },
       {
         "answer": "<p><strong>It refers to three things:</strong> the three-step learning path (learn, practice, play), the three-round Best of Three match format, and the three-seat Triple Table.</p>",
@@ -5176,8 +5176,8 @@ export const mockSettings: any = {
   "social_links": {
     "instagram": "https://www.instagram.com/rummydex?igsh=MTJjaGR3c3hmdjhnZA==",
     "youtube": "https://www.youtube.com/@rummydex",
-    "facebook": "https://www.facebook.com/share/1951euBy3d/",
     "linkedin": "",
+    "facebook": "https://www.facebook.com/share/1951euBy3d/",
     "twitter": ""
   },
   "hero_title_text": "RummyDex",

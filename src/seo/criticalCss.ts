@@ -9,12 +9,14 @@ import path from 'path';
 
 const CRITICAL_SHELL_CSS = `<style id="server-critical-css">
 *,::before,::after{box-sizing:border-box;border:0 solid}
-html{-webkit-text-size-adjust:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;background-color:#f8fafc;color:#0f172a;color-scheme:light}
-@media (prefers-color-scheme:dark){html:not(.light){background-color:#090d16;color:#f8fafc;color-scheme:dark}}
-html.dark{background-color:#090d16;color:#f8fafc;color-scheme:dark}
-body{margin:0;min-height:100vh;background-color:inherit;color:inherit;overflow-x:hidden}
+:root{color-scheme:light;--font-sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--bg-primary:#ffffff;--text-primary:#09090b;--text-secondary:#71717a;--card-bg:rgba(255,255,255,0.85);--glass-border:rgba(0,0,0,0.08);--ticker-bg:rgba(255,255,255,0.92)}
+@media (prefers-color-scheme:dark){:root:not(.light){color-scheme:dark;--bg-primary:#090d16;--text-primary:#f8fafc;--text-secondary:#a1a1aa;--card-bg:rgba(17,23,38,0.85);--glass-border:rgba(255,255,255,0.08);--ticker-bg:rgba(9,13,22,0.92)}}
+html.dark,.dark{color-scheme:dark;--font-sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--bg-primary:#090d16;--text-primary:#f8fafc;--text-secondary:#a1a1aa;--card-bg:rgba(17,23,38,0.85);--glass-border:rgba(255,255,255,0.08);--ticker-bg:rgba(9,13,22,0.92)}
+html{-webkit-text-size-adjust:100%;font-family:var(--font-sans);line-height:1.5;-webkit-font-smoothing:antialiased;background-color:var(--bg-primary);color:var(--text-primary);scroll-behavior:auto}
+body{margin:0;min-height:100vh;background-color:var(--bg-primary);color:var(--text-primary);font-family:var(--font-sans);overflow-x:hidden;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 #root{min-height:100vh;display:flex;flex-direction:column}
 main#main-content{flex:1 1 0%;width:100%;max-width:80rem;margin-left:auto;margin-right:auto}
+[hidden]{display:none}
 img,svg,video{display:block;max-width:100%;height:auto}
 a{color:inherit;text-decoration:inherit}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}

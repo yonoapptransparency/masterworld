@@ -266,3 +266,72 @@ export function normalizeFileSize(rawSize: any, fallback = '45 MB'): string {
   return trimmed;
 }
 
+export function getCategoryRouteHref(categoryName?: string): string {
+  const clean = (categoryName || '').trim();
+  const lower = clean.toLowerCase();
+  if (!clean || lower === 'all apps' || lower === 'all' || lower === 'home' || lower === 'apps' || lower === 'general') {
+    return '/';
+  }
+  if (lower === 'categories') {
+    return '/categories';
+  }
+  if (lower === 'top charts') {
+    return '/?tab=Top%20Charts';
+  }
+  const slug = lower.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return slug ? `/category/${slug}` : '/';
+}
+
+export interface SimilarCategoryPill {
+  name: string;
+  slug: string;
+  href: string;
+  isActive: boolean;
+}
+
+export function resolveSpecificAppCategory(rawCategory?: string): string {
+  if (!rawCategory || typeof rawCategory !== 'string') return 'All Apps';
+  const parts = rawCategory.split(',').map(c => c.trim()).filter(Boolean);
+  const nonGeneric = parts.filter(c => {
+    const l = c.toLowerCase();
+    return l !== 'all apps' && l !== 'all' && l !== 'home' && l !== 'apps' && l !== 'general';
+  });
+  return nonGeneric.length > 0 ? nonGeneric[0] : 'All Apps';
+}
+
+export function buildSimilarCategoryPills(
+  specificCategory?: string,
+  adminCategories?: string[]
+): SimilarCategoryPill[] {
+  const pills: SimilarCategoryPill[] = [];
+  const seen = new Set<string>();
+  const skipGeneric = new Set(['all apps', 'all', 'home', 'apps', 'general', 'categories', 'top charts']);
+
+  const addCategory = (rawName: string, isActive: boolean) => {
+    const clean = (rawName || '').trim();
+    if (!clean) return;
+    const lower = clean.toLowerCase();
+    if (skipGeneric.has(lower)) return;
+    const slug = lower.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!slug || seen.has(slug)) return;
+    seen.add(slug);
+    pills.push({
+      name: clean,
+      slug,
+      href: `/category/${slug}`,
+      isActive
+    });
+  };
+
+  addCategory(specificCategory || '', true);
+
+  if (Array.isArray(adminCategories)) {
+    for (const cat of adminCategories) {
+      if (typeof cat === 'string') {
+        addCategory(cat, false);
+      }
+    }
+  }
+
+  return pills;
+}

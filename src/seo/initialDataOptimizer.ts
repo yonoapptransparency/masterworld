@@ -1,4 +1,4 @@
-import { getField } from './utils';
+import { getField, resolveSpecificAppCategory } from './utils';
 import { structureHtmlFragment } from '../lib/safeHtmlPublic';
 import { getNextNewsChain, calculateReadingTime, resolveVideoRelatedApp, resolveNewsRelatedApp } from '../lib/newsUtils';
 
@@ -124,10 +124,8 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
   const targetAppSlug = (getField(targetApp, 'slug') || getField(targetApp, 'id') || '').toLowerCase().trim();
   const targetAppId = String(getField(targetApp, 'id') || '').toLowerCase().trim();
   const rawCat = getField(targetApp, 'category', 'Card Game');
-  const specificCategory = rawCat ? rawCat.split(',')[0]?.trim() || '' : '';
-  const currentCatLower = (specificCategory && !['all apps', 'all', 'apps', 'general'].includes(specificCategory.toLowerCase()))
-    ? specificCategory.toLowerCase()
-    : 'all apps';
+  const specificCategory = resolveSpecificAppCategory(rawCat);
+  const currentCatLower = specificCategory.toLowerCase();
   const isAll = currentCatLower === 'all apps';
 
   const newApps: any[] = [];

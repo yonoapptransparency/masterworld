@@ -10,6 +10,7 @@ import {
   DEFAULT_ABOUT_HTML
 } from '../../lib/defaultLegalContent';
 import { escapeHtml, sanitizeHtml } from './common';
+import { renderCategoryTabs } from './homeRenderer';
 
 export function renderCategoriesList(categoriesList: Array<{ name: string; slug: string; count: number }>, settings: any): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
@@ -17,17 +18,17 @@ export function renderCategoriesList(categoriesList: Array<{ name: string; slug:
   let catsHtml = '';
   categoriesList.forEach(cat => {
     catsHtml += `
-      <a href="/category/${encodeURIComponent(cat.slug)}" class="flex items-center justify-between gap-3 p-3.5 xs:p-4 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 hover:border-blue-500/30 rounded-2xl text-left transition-all duration-200 cursor-pointer no-underline group shadow-xs">
+      <a href="/category/${encodeURIComponent(cat.slug)}" class="flex items-center justify-between gap-3 p-3.5 xs:p-4 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 hover:border-blue-500/30 rounded-2xl text-left active:scale-[0.98] transition-all duration-200 cursor-pointer no-underline group shadow-xs">
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-10 h-10 xs:w-11 xs:h-11 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            <svg width="20" height="20" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
           </div>
           <div class="min-w-0">
-            <h2 class="font-semibold text-sm xs:text-base text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">${escapeHtml(cat.name)}</h2>
-            <p class="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums mt-0.5">${cat.count} Verified ${cat.count === 1 ? 'App' : 'Apps'}</p>
+            <div class="font-semibold text-sm xs:text-base text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">${escapeHtml(cat.name)}</div>
+            ${cat.count > 0 ? `<div class="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums mt-0.5">${cat.count} Verified ${cat.count === 1 ? 'App' : 'Apps'}</div>` : ''}
           </div>
         </div>
-        <svg class="w-4 h-4 text-zinc-400 group-hover:text-blue-500 transition-all shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        <svg width="16" height="16" class="w-4 h-4 text-zinc-400 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
       </a>
     `;
   });
@@ -43,7 +44,8 @@ export function renderCategoriesList(categoriesList: Array<{ name: string; slug:
         <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">Application Categories</h1>
         <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Browse apps by game genre and category on ${escapeHtml(siteTitle)}.</p>
       </div>
-      <div class="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-2.5 xs:gap-3.5 px-0">
+      ${renderCategoryTabs(settings, 'Categories')}
+      <div class="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-2.5 xs:gap-3.5 animate-fade-in px-0">
         ${catsHtml || '<p class="text-center text-zinc-400 py-10 col-span-full">No categories available.</p>'}
       </div>
     </div>
@@ -61,7 +63,7 @@ export function renderDevelopersList(developers: any[], settings: any): string {
       <div class="max-w-[1000px] mx-auto px-3.5 sm:px-6 py-3 sm:py-6 animate-fade-in pb-14 min-h-[70vh] text-left">
         <div class="mb-3 sm:mb-4">
           <a href="/" class="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-blue-600 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+            <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
             Home
           </a>
         </div>
@@ -105,7 +107,7 @@ export function renderDevelopersList(developers: any[], settings: any): string {
     <div class="max-w-[1000px] mx-auto px-3.5 sm:px-6 py-3 sm:py-6 animate-fade-in pb-14 min-h-[70vh] text-left">
       <div class="mb-3 sm:mb-4">
         <a href="/" class="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-blue-600 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+          <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
           Home
         </a>
       </div>
@@ -121,7 +123,7 @@ function renderStandardLegalLayout(heading: string, statusLabel: string, statusV
     <div class="max-w-[1000px] mx-auto px-3.5 sm:px-6 py-3 sm:py-6 animate-fade-in pb-14 min-h-[70vh] text-left">
       <div class="mb-3 sm:mb-4">
         <a href="/" class="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-blue-600 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+          <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
           Home
         </a>
       </div>
@@ -152,7 +154,7 @@ export function renderContact(settings: any): string {
     <div class="max-w-[1000px] mx-auto px-3.5 sm:px-6 py-3 sm:py-6 animate-fade-in pb-14 min-h-[70vh] text-left">
       <div class="mb-3 sm:mb-4">
         <a href="/" class="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-blue-600 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+          <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
           Home
         </a>
       </div>
@@ -165,7 +167,7 @@ export function renderContact(settings: any): string {
           <div class="space-y-3 pt-2">
             <div class="flex items-start gap-3.5 py-2.5 border-b border-zinc-200/70 dark:border-zinc-800/80">
               <div class="text-blue-500 mt-0.5 shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
               </div>
               <div>
                 <h3 class="font-bold text-[11px] uppercase tracking-wider text-zinc-400 mb-0.5">Email</h3>
@@ -174,7 +176,7 @@ export function renderContact(settings: any): string {
             </div>
             <div class="flex items-start gap-3.5 py-2.5 border-b border-zinc-200/70 dark:border-zinc-800/80">
               <div class="text-pink-500 mt-0.5 shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path></svg>
+                <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path></svg>
               </div>
               <div>
                 <h3 class="font-bold text-[11px] uppercase tracking-wider text-zinc-400 mb-0.5">Live Chat</h3>
@@ -183,7 +185,7 @@ export function renderContact(settings: any): string {
             </div>
             <div class="flex items-start gap-3.5 py-2.5">
               <div class="text-purple-500 mt-0.5 shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
               </div>
               <div>
                 <h3 class="font-bold text-[11px] uppercase tracking-wider text-zinc-400 mb-0.5">Office</h3>
@@ -305,7 +307,7 @@ export function renderFaqPage(settings: any): string {
     <div class="max-w-[1000px] mx-auto px-3.5 sm:px-6 py-3 sm:py-6 animate-fade-in pb-14 min-h-[70vh] text-left">
       <div class="mb-3 sm:mb-4">
         <a href="/" class="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-blue-600 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+          <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
           Home
         </a>
       </div>
@@ -321,7 +323,7 @@ export function renderFaqPage(settings: any): string {
           </div>
           <div class="relative w-full sm:w-64 shrink-0">
             <input type="text" readonly placeholder="Filter questions..." aria-label="Filter questions" class="w-full py-2 pl-9 pr-8 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl placeholder-zinc-400" />
-            <svg class="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <svg width="14" height="14" class="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           </div>
         </div>
         <div class="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
@@ -333,7 +335,7 @@ export function renderFaqPage(settings: any): string {
                   <span class="leading-snug">${escapeHtml(faq.question)}</span>
                 </h2>
                 <div class="p-1 rounded-lg transition-transform duration-200 shrink-0 text-zinc-400 dark:text-zinc-500 group-open:rotate-180 group-open:text-blue-600 group-open:dark:text-blue-400">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"></path></svg>
+                  <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"></path></svg>
                 </div>
               </summary>
               <div class="mt-2 pt-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed pl-5 rich-html-content">

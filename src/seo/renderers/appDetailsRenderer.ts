@@ -1,4 +1,4 @@
-import { getField, optimizeImageUrl, stripHtml, cleanFaqQuestion, generateNaturalStarDistribution, normalizeFileSize } from '../utils';
+import { getField, optimizeImageUrl, stripHtml, cleanFaqQuestion, generateNaturalStarDistribution, normalizeFileSize, getCategoryRouteHref, resolveSpecificAppCategory, buildSimilarCategoryPills } from '../utils';
 import { resolveAppSlug } from '../../lib/slugResolver';
 import communityCatalogStats from '../../lib/communityCatalogStats.json';
 import { formatReviewDate } from '../../lib/communityFirebase';
@@ -137,8 +137,10 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   const rawFeatures = app.features_html ? sanitizeHtml(app.features_html) : '';
   const features = (rawFeatures && stripHtml(rawFeatures).toLowerCase() !== stripHtml(desc).toLowerCase()) ? rawFeatures : '';
 
-  // Breadcrumbs category
+  // Breadcrumbs & Specs category
   const mainCat = cat.split(',')[0].trim() || 'General';
+  const specificCat = resolveSpecificAppCategory(cat);
+  const specsCategoryHref = (!mainCat || ['all apps', 'all', 'apps', 'general'].includes(mainCat.toLowerCase())) ? '/categories' : getCategoryRouteHref(mainCat);
 
   // Safety Advisory Messages
   const hasRed = Boolean(app.red_box_msg && app.red_box_msg.trim() !== '.' && app.red_box_msg.trim() !== '');
@@ -152,7 +154,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         ${hasRed ? `
           <div class="bg-rose-50/50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 p-3 xs:p-4 rounded-xl xs:rounded-2xl flex items-start gap-2.5 xs:gap-4 shadow-sm group">
             <div class="p-1.5 xs:p-2 bg-rose-100 dark:bg-rose-500/20 rounded-lg xs:rounded-xl text-rose-600 shrink-0">
-              <svg class="w-4 h-4 xs:w-5 xs:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+              <svg width="20" height="20" class="w-4 h-4 xs:w-5 xs:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
             </div>
             <div class="text-xs xs:text-sm font-medium text-rose-800 dark:text-rose-200 leading-relaxed pt-0.5">
               ${escapeHtml(app.red_box_msg)}
@@ -162,7 +164,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         ${hasYellow ? `
           <div class="bg-orange-50/50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 p-3 xs:p-4 rounded-xl xs:rounded-2xl flex items-start gap-2.5 xs:gap-4 shadow-sm group">
             <div class="p-1.5 xs:p-2 bg-orange-100 dark:bg-orange-500/20 rounded-lg xs:rounded-xl text-orange-600 shrink-0">
-              <svg class="w-4 h-4 xs:w-5 xs:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <svg width="20" height="20" class="w-4 h-4 xs:w-5 xs:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             </div>
             <div class="text-xs xs:text-sm font-medium text-orange-800 dark:text-orange-200 leading-relaxed pt-0.5">
               ${escapeHtml(app.yellow_box_msg)}
@@ -172,7 +174,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         ${hasIdea ? `
           <div class="bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 p-3 xs:p-4 rounded-xl xs:rounded-2xl flex items-start gap-2.5 xs:gap-4 shadow-sm group">
             <div class="p-1.5 xs:p-2 bg-blue-100 dark:bg-blue-500/20 rounded-lg xs:rounded-xl text-blue-600 shrink-0">
-              <svg class="w-4 h-4 xs:w-5 xs:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+              <svg width="20" height="20" class="w-4 h-4 xs:w-5 xs:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
             </div>
             <div class="text-xs xs:text-sm font-medium text-blue-800 dark:text-blue-200 leading-relaxed pt-0.5">
               ${escapeHtml(app.idea_box_msg)}
@@ -196,7 +198,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
               </div>
               <h2 id="faq-heading" class="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
                 Frequently Asked Questions
@@ -215,7 +217,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
                     <span class="leading-snug">${escapeHtml(cleanFaqQuestion(faq.question))}</span>
                   </h3>
                   <div class="p-1 rounded-lg transition-transform duration-200 shrink-0 text-zinc-400 dark:text-zinc-500 group-open:rotate-180 group-open:text-blue-600 group-open:dark:text-blue-400 group-open:bg-blue-50 group-open:dark:bg-blue-900/30">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                   </div>
                 </summary>
                 <div class="px-4 sm:px-5 pb-5 pt-1 border-t border-black/5 dark:border-white/5 text-sm sm:text-base text-zinc-700 dark:text-zinc-300 leading-relaxed">
@@ -234,8 +236,10 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   }
 
   // 1:1 SSR Match for UserReviews.tsx + ReviewScoreSummary.tsx + ReviewItem.tsx
-  const renderStarSvg = (filled: boolean, sizeClass: string) =>
-    `<svg class="${sizeClass} ${filled ? 'fill-amber-400 text-amber-400' : 'text-zinc-300 dark:text-zinc-700'}" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><polygon stroke-linecap="round" stroke-linejoin="round" stroke-width="2" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
+  const renderStarSvg = (filled: boolean, sizeClass: string) => {
+    const px = sizeClass.includes('3.5') ? 14 : 12;
+    return `<svg width="${px}" height="${px}" class="${sizeClass} ${filled ? 'fill-amber-400 text-amber-400' : 'text-zinc-300 dark:text-zinc-700'}" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><polygon stroke-linecap="round" stroke-linejoin="round" stroke-width="2" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
+  };
 
   let reviewsCardsHtml = '';
   if (validReviews.length > 0) {
@@ -288,11 +292,11 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
             <div class="flex items-center gap-4 mt-4 pt-3.5 border-t border-black/[0.03] dark:border-white/[0.03]">
               <span class="text-[10px] text-zinc-400 dark:text-zinc-500">Was this review helpful?</span>
               <button type="button" class="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 active:scale-95 cursor-pointer">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
+                <svg width="12" height="12" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
                 <span>${helpfulCount > 0 ? `Helpful (${helpfulCount})` : 'Helpful'}</span>
               </button>
               <button type="button" class="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all ml-auto bg-black/5 hover:bg-rose-500/10 hover:text-rose-600 dark:bg-white/5 dark:hover:bg-rose-500/15 text-zinc-500 dark:text-zinc-400 active:scale-95 cursor-pointer">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15" stroke-width="2"></line></svg>
+                <svg width="12" height="12" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15" stroke-width="2"></line></svg>
                 <span>Report</span>
               </button>
             </div>
@@ -321,7 +325,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
             <div class="w-full">
               <div class="flex items-center justify-between gap-2 mb-3 xs:mb-4">
                 <h2 class="text-lg xs:text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 xs:gap-2">
-                  <svg class="w-4 h-4 xs:w-5 xs:h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                  <svg width="20" height="20" class="w-4 h-4 xs:w-5 xs:h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                   <span>Ratings and reviews</span>
                 </h2>
                 <a href="#reviewer-name" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all no-underline cursor-pointer">
@@ -345,10 +349,50 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
                 </div>
               </div>
               <div class="mt-4 p-3 bg-green-500/5 border border-green-500/10 rounded-xl flex items-start gap-2.5">
-                <svg class="w-4 h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 12 2 2 4-4"></path></svg>
+                <svg width="16" height="16" class="w-4 h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 12 2 2 4-4"></path></svg>
                 <span class="text-[11px] font-semibold text-green-700 dark:text-green-400 leading-relaxed">
                   Ratings and reviews are contributed by players and moderated for safety and constructive gameplay feedback.
                 </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="w-full">
+            <div class="p-3 xs:p-4 sm:p-6 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 rounded-xl xs:rounded-2xl shadow-sm">
+              <h3 class="text-xs xs:text-sm font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-3 xs:mb-4 flex items-center gap-1.5 xs:gap-2">
+                <svg width="16" height="16" class="w-3.5 h-3.5 xs:w-4 xs:h-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg>
+                <span>Share your gameplay review</span>
+              </h3>
+              <div class="space-y-3 xs:space-y-4">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 xs:gap-3">
+                    <span class="text-[11px] xs:text-xs font-semibold text-zinc-500 dark:text-zinc-400">Your Rating:</span>
+                    <div class="flex items-center gap-0.5 xs:gap-1" role="group" aria-label="Star rating selector">
+                      ${[1, 2, 3, 4, 5].map(() => `<button type="button" class="p-0.5 xs:p-1 transition-all duration-150 cursor-pointer" aria-label="Select star rating"><svg width="24" height="24" class="w-5 h-5 xs:w-6 xs:h-6 transition-colors duration-200 fill-amber-400 text-amber-400" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></button>`).join('')}
+                    </div>
+                    <span class="text-[11px] font-bold text-amber-600 dark:text-amber-400 tabular-nums">5/5</span>
+                  </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 xs:gap-3">
+                  <div class="sm:col-span-1">
+                    <label for="reviewer-name" class="block text-[9px] xs:text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-1 uppercase tracking-wider">Your Name</label>
+                    <input id="reviewer-name" name="reviewerName" type="text" readonly placeholder="Your name" class="w-full text-xs font-semibold p-2 xs:p-2.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 transition-all h-[42px] xs:h-[46px]" />
+                  </div>
+                  <div class="sm:col-span-2">
+                    <div class="flex items-center justify-between mb-1">
+                      <label for="comment" class="block text-[9px] xs:text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Review comment</label>
+                      <span class="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 tabular-nums">0/1000</span>
+                    </div>
+                    <textarea id="comment" name="comment" readonly rows="2" placeholder="Write a constructive, honest review of the gameplay experience..." class="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 xs:p-3 text-xs font-medium text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 transition-all resize-none min-h-[42px] xs:min-h-[46px]"></textarea>
+                  </div>
+                </div>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                  <div class="flex-1"></div>
+                  <button type="button" class="flex items-center justify-center gap-2 h-10 px-5 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-bold text-xs rounded-xl cursor-pointer transition-all shrink-0 w-full sm:w-auto">
+                    <svg width="14" height="14" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                    <span>Post Review</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -363,11 +407,11 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
                         All Reviews
                       </button>
                       <button type="button" class="px-3 py-1.5 text-xs font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 dark:bg-emerald-500/10 hover:bg-emerald-500/10">
-                        <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        <svg width="12" height="12" class="w-3 h-3 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                         Positive
                       </button>
                       <button type="button" class="px-3 py-1.5 text-xs font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 bg-rose-500/5 text-rose-600 dark:text-rose-400 dark:bg-rose-500/10 hover:bg-rose-500/10">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><line x1="12" y1="8" x2="12" y2="12" stroke-width="2"></line><line x1="12" y1="16" x2="12.01" y2="16" stroke-width="2"></line></svg>
+                        <svg width="12" height="12" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><line x1="12" y1="8" x2="12" y2="12" stroke-width="2"></line><line x1="12" y1="16" x2="12.01" y2="16" stroke-width="2"></line></svg>
                         Critical
                       </button>
                     </div>
@@ -378,7 +422,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
                           Recent
                         </button>
                         <button type="button" class="px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">
-                          <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
+                          <svg width="10" height="10" class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
                           <span>Most Helpful</span>
                         </button>
                       </div>
@@ -437,12 +481,11 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
     return badge === 'new' || badge === 'hot';
   };
 
-  const mainCatClean = (mainCat || 'Yono Apps').toLowerCase();
+  const mainCatClean = (specificCat || 'All Apps').toLowerCase();
   const isAllCat = mainCatClean === 'all' || mainCatClean === 'all apps';
 
   const newApps: any[] = [];
   const regularApps: any[] = [];
-  let totalCatCount = 0;
 
   for (let i = 0; i < apps.length; i++) {
     const a = apps[i];
@@ -454,7 +497,6 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
     const matches = isAllCat || aCat.includes(mainCatClean) || mainCatClean.includes(aCat);
 
     if (matches) {
-      totalCatCount++;
       if (!isCurrent) {
         if (checkAppIsNew(a)) {
           newApps.push(a);
@@ -503,31 +545,30 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   const displaySimilarApps = [...pinnedNew, ...pickedRegular];
   let recommendedAppsHtml = '';
 
-  const categoryHref = (() => {
-    const clean = (mainCat || '').trim();
-    const lower = clean.toLowerCase();
-    if (!clean || lower === 'all apps' || lower === 'all' || lower === 'apps' || lower === 'general') {
-      return '/categories';
-    }
-    return `/category/${encodeURIComponent(lower.replace(/\s+/g, '-'))}`;
-  })();
+  const categoryHref = getCategoryRouteHref(specificCat);
+  const categoryPills = buildSimilarCategoryPills(specificCat, _settings?.categories);
+  const categoryPillsHtml = categoryPills.length > 0 ? `
+    <nav aria-label="Browse categories" class="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-proximity touch-auto overscroll-x-contain py-0.5 pr-2" style="-webkit-overflow-scrolling: touch;">
+      ${categoryPills.map((c) => `<a href="${escapeHtml(c.href)}" class="${c.isActive
+        ? 'whitespace-nowrap shrink-0 snap-start inline-flex items-center px-2.5 xs:px-3 py-1 rounded-full text-[11px] xs:text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 border border-blue-200/70 dark:border-blue-800/60 no-underline active:scale-95 transition-all'
+        : 'whitespace-nowrap shrink-0 snap-start inline-flex items-center px-2.5 xs:px-3 py-1 rounded-full text-[11px] xs:text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80 border border-black/5 dark:border-white/10 no-underline active:scale-95 transition-all'
+      }" title="Explore ${escapeHtml(c.name)} apps">${escapeHtml(c.name)}</a>`).join('')}
+    </nav>
+  ` : '';
+  const viewAllLabel = specificCat && specificCat !== 'All Apps'
+    ? `View all ${escapeHtml(specificCat)} apps`
+    : 'View all applications';
 
   if (displaySimilarApps.length > 0) {
     recommendedAppsHtml = `
       <aside data-nosnippet aria-labelledby="related-apps-heading" class="my-5 xs:my-6 px-0 text-left">
-        <div class="flex items-center justify-between gap-2 mb-3 px-1 xs:px-2 sm:px-4 md:px-6">
-          <div class="flex items-center gap-2 min-w-0">
-            <h2 id="related-apps-heading" class="text-base xs:text-lg sm:text-xl font-bold flex items-center gap-1.5 xs:gap-2 text-zinc-900 dark:text-zinc-100 truncate">
-              <span>Similar Applications</span>
-              ${mainCat && mainCat !== 'All Apps' ? `<span class="text-[10px] xs:text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 xs:px-2.5 py-0.5 rounded-full border border-blue-200/50 dark:border-blue-800/50 truncate">${escapeHtml(mainCat)}</span>` : ''}
-            </h2>
-          </div>
-          <a href="${categoryHref}" class="inline-flex items-center gap-1.5 px-3 py-1 xs:px-3.5 xs:py-1.5 rounded-full bg-blue-50 hover:bg-blue-100 active:scale-95 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 font-bold text-xs xs:text-xs transition-all border border-blue-200/70 dark:border-blue-800/70 shadow-2xs group shrink-0 no-underline tabular-nums" title="Explore all ${totalCatCount} ${escapeHtml(mainCat)} apps">
-            <span>View all (${totalCatCount})</span>
-            <svg class="w-3 h-3 xs:w-3.5 xs:h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-          </a>
+        <div class="flex items-center gap-2 sm:gap-3 mb-2.5 px-1 xs:px-2 sm:px-4 md:px-6 min-w-0">
+          <h2 id="related-apps-heading" class="text-base xs:text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100 shrink-0 whitespace-nowrap">
+            <span>Similar Applications</span>
+          </h2>
+          ${categoryPillsHtml}
         </div>
-        <div class="grid grid-rows-2 grid-flow-col gap-x-3 xxs:gap-x-4 xs:gap-x-5 gap-y-3 xxs:gap-y-3.5 xs:gap-y-4 overflow-x-auto pt-2.5 pb-2 snap-x snap-proximity [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-2 xs:-mx-4 px-2 xs:px-4 sm:mx-0 sm:px-0" style="-webkit-overflow-scrolling: touch;">
+        <div class="grid grid-rows-2 grid-flow-col gap-x-3 xxs:gap-x-4 xs:gap-x-5 gap-y-3 xxs:gap-y-3.5 xs:gap-y-4 overflow-x-auto pt-2.5 pb-2 snap-x snap-proximity touch-pan-y overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-2 xs:-mx-4 px-2 xs:px-4 sm:mx-0 sm:px-0" style="-webkit-overflow-scrolling: touch; touch-action: pan-y pan-x; overscroll-behavior-x: contain;">
           ${displaySimilarApps.map((sim) => {
             const simName = getField(sim, 'name');
             const simSlug = getField(sim, 'slug');
@@ -545,6 +586,12 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
               </a>
             `;
           }).join('')}
+          <a href="${escapeHtml(categoryHref)}" class="row-span-2 flex flex-col items-center justify-center gap-2 w-[74px] xxs:w-[82px] xs:w-[92px] sm:w-[104px] h-full min-h-[140px] rounded-2xl bg-blue-50/80 hover:bg-blue-100/90 dark:bg-blue-950/30 dark:hover:bg-blue-900/50 border border-blue-200/70 dark:border-blue-800/60 text-blue-600 dark:text-blue-400 snap-start group shrink-0 active:scale-95 transition-all duration-150 ease-out no-underline px-1.5" title="${viewAllLabel}" aria-label="${viewAllLabel}">
+            <span class="w-10 h-10 xs:w-11 xs:h-11 rounded-full bg-white dark:bg-zinc-900 border border-blue-200/80 dark:border-blue-800/70 shadow-2xs flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
+              <svg width="20" height="20" class="w-4 h-4 xs:w-5 xs:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            </span>
+            <span class="text-[11px] xs:text-xs font-bold text-center leading-tight whitespace-nowrap">View all</span>
+          </a>
         </div>
       </aside>
     `;
@@ -579,17 +626,17 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
       <div class="flex items-center justify-between gap-2 xs:gap-3 px-1 xs:px-2 sm:px-4 md:px-6 mb-3 xs:mb-4">
         <a href="/" class="inline-flex items-center gap-1.5 xs:gap-2 text-xs xs:text-sm font-medium text-blue-500 hover:text-blue-600 transition-colors group shrink-0 no-underline">
           <div class="p-1 xs:p-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 group-hover:-translate-x-1 transition-transform">
-            <svg class="w-3.5 h-3.5 xs:w-4 xs:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            <svg width="16" height="16" class="w-3.5 h-3.5 xs:w-4 xs:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
           </div>
           <span>Back to storefront</span>
         </a>
         <a href="${topNewsHref}" class="inline-flex items-center gap-1 xs:gap-1.5 px-2 xs:px-3 py-1 xs:py-1.5 rounded-full text-[11px] xs:text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200/90 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80 border border-black/5 dark:border-white/10 transition-all shadow-xs group cursor-pointer active:scale-95 shrink-0 no-underline" title="Read latest news and updates for ${escapeHtml(name)}">
           <div class="p-0.5 xs:p-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-            <svg class="w-3 h-3 xs:w-3.5 xs:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>
+            <svg width="14" height="14" class="w-3 h-3 xs:w-3.5 xs:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>
           </div>
           <span>News</span>
-          ${relatedNewsCount > 0 ? `<span class="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[9px] xs:text-[10px] font-bold leading-tight">${relatedNewsCount}</span>` : ''}
-          <svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 text-zinc-400 dark:text-zinc-500 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          ${relatedNewsCount > 0 ? `<span class="px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[9px] xs:text-[10px] font-bold leading-none">${relatedNewsCount}</span>` : ''}
+          <svg width="12" height="12" class="w-2.5 h-2.5 xs:w-3 xs:h-3 text-zinc-400 dark:text-zinc-500 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
         </a>
       </div>
 
@@ -625,7 +672,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
                 return '';
               })()}
               <span class="flex items-center text-emerald-600 dark:text-emerald-400 gap-1 font-semibold">
-                <svg class="w-3 h-3 xxs:w-3.5 xxs:h-3.5 xs:w-4 xs:h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg> Verified
+                <svg width="16" height="16" class="w-3 h-3 xxs:w-3.5 xxs:h-3.5 xs:w-4 xs:h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg> Verified
               </span>
             </div>
           </div>
@@ -636,7 +683,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           <a href="#ratings-and-reviews-section" class="flex flex-col items-center justify-center px-0.5 xxs:px-1 xs:px-2 text-center min-w-0 no-underline group active:scale-95 transition-transform" title="Jump to ratings and community reviews">
             <div class="flex items-center gap-0.5 font-extrabold text-[11px] xxs:text-xs xs:text-sm sm:text-base text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors tabular-nums">
               <span>${escapeHtml(rating)}</span>
-              <span class="text-orange-500 text-xs">★</span>
+              <svg width="14" height="14" class="w-2 h-2 xxs:w-2.5 xxs:h-2.5 xs:w-3 xs:h-3 sm:w-3.5 sm:h-3.5 fill-current text-orange-500" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             </div>
             <div class="text-[7px] xxs:text-[8px] xs:text-[10px] sm:text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-0.5 xs:mt-1 truncate max-w-full">Rating</div>
           </a>
@@ -645,7 +692,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
             <div class="text-[7px] xxs:text-[8px] xs:text-[10px] sm:text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-0.5 xs:mt-1">Size</div>
           </div>
           <div class="flex flex-col items-center justify-center px-0.5 xxs:px-1 xs:px-2 text-center border-l border-zinc-200 dark:border-zinc-800/80 min-w-0">
-            <a href="${categoryHref}" class="font-extrabold text-[9px] xxs:text-[10px] xs:text-xs sm:text-sm text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 px-1 xxs:px-1.5 xs:px-2.5 py-0.5 rounded-full leading-none truncate max-w-full transition-colors no-underline" title="View all ${escapeHtml(mainCat)} apps">${escapeHtml(mainCat)}</a>
+            <a href="${specsCategoryHref}" class="font-extrabold text-[9px] xxs:text-[10px] xs:text-xs sm:text-sm text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 px-1 xxs:px-1.5 xs:px-2.5 py-0.5 rounded-full leading-none truncate max-w-full transition-colors no-underline" title="View all ${escapeHtml(mainCat)} apps">${escapeHtml(mainCat)}</a>
             <div class="text-[7px] xxs:text-[8px] xs:text-[10px] sm:text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-0.5 xs:mt-1.5">Type</div>
           </div>
           <div class="flex flex-col items-center justify-center px-0.5 xxs:px-1 xs:px-2 text-center border-l border-zinc-200 dark:border-zinc-800/80 min-w-0">
@@ -659,14 +706,14 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           <div class="w-full sm:flex-1 transition-transform duration-150">
             <div class="w-full flex flex-col items-center gap-1.5">
               ${Boolean(app.is_coming_soon && (!app.publish_date || new Date(app.publish_date).getTime() > Date.now())) ? `
-                <button type="button" disabled class="w-full bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-bold py-2 xxs:py-2.5 px-3 xxs:px-4 xs:px-5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all text-[11px] xxs:text-xs xs:text-sm h-[38px] xxs:h-[40px] xs:h-[44px] cursor-not-allowed opacity-80">
+                <button type="button" disabled class="w-full bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300 font-bold py-2 xxs:py-2.5 px-3 xxs:px-4 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[11px] xxs:text-xs xs:text-sm border border-zinc-200 dark:border-zinc-700 h-[38px] xxs:h-[40px] xs:h-[44px] cursor-not-allowed opacity-80">
                   <span>Coming Soon</span>
                 </button>
               ` : `
                 <button type="button" class="w-full premium-action-btn premium-action-btn-blowing cursor-pointer text-white !text-white font-bold py-2 xxs:py-2.5 px-3 xxs:px-4 xs:px-5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all text-[11px] xxs:text-xs xs:text-sm shadow-md h-[38px] xxs:h-[40px] xs:h-[44px]">
                   <span class="flex items-center gap-1.5 font-bold text-white !text-white">
                     <span>Download</span>
-                    <svg class="w-3.5 h-3.5 xs:w-4 xs:h-4 text-white !text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    <svg width="16" height="16" class="w-3.5 h-3.5 xs:w-4 xs:h-4 text-white !text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                   </span>
                 </button>
               `}
@@ -675,13 +722,13 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           <div class="flex w-full gap-1.5 xxs:gap-2 xs:gap-3 sm:w-auto shrink-0">
             <div class="flex-1 sm:w-auto sm:min-w-[100px] xxs:sm:min-w-[120px] sm:max-w-[150px]">
               <button type="button" class="w-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-semibold py-2 xxs:py-2.5 px-2 xs:px-3 rounded-xl flex items-center justify-center gap-1 xs:gap-1.5 transition-all text-[11px] xxs:text-xs xs:text-sm border border-black/5 dark:border-white/5 shadow-sm h-[38px] xxs:h-[40px] xs:h-[44px] truncate cursor-pointer">
-                <svg class="w-3 h-3 xs:w-4 xs:h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                <svg width="16" height="16" class="w-3 h-3 xs:w-4 xs:h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
                 <span class="truncate">Share</span>
               </button>
             </div>
             <div class="flex-1 sm:w-auto sm:min-w-[100px] xxs:sm:min-w-[120px] sm:max-w-[150px]">
               <a href="/report-removal" class="w-full bg-rose-50 hover:bg-rose-100/80 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-semibold py-2 xxs:py-2.5 px-2 xs:px-3 rounded-xl flex items-center justify-center gap-1 xs:gap-1.5 transition-all text-[11px] xxs:text-xs xs:text-sm border border-rose-200/40 dark:border-rose-900/40 shadow-xs h-[38px] xxs:h-[40px] xs:h-[44px] truncate cursor-pointer no-underline">
-                <svg class="w-3 h-3 xs:w-4 xs:h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path></svg>
+                <svg width="16" height="16" class="w-3 h-3 xs:w-4 xs:h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path></svg>
                 <span class="truncate">Flag</span>
               </a>
             </div>
@@ -701,7 +748,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           <section aria-labelledby="app-overview-heading" class="w-full my-4 px-1 xs:px-2 sm:px-4 md:px-6 text-left">
             <div class="flex items-center gap-2 xs:gap-2.5 sm:gap-3 mb-3 sm:mb-4 select-none">
               <div class="w-7 h-7 xs:w-8 xs:h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                <svg class="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <svg width="20" height="20" class="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
               </div>
               <div>
                 <h2 id="app-overview-heading" class="text-sm xs:text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">About this app</h2>

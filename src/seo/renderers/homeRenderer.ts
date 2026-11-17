@@ -1,14 +1,172 @@
 import { getField, optimizeImageUrl, cleanFaqQuestion } from '../utils';
-import { escapeHtml } from './common';
+import { escapeHtml, sanitizeHtml } from './common';
 
-export function renderHome(apps: any[], settings: any, news: any[], _videos: any[], pageNum: number = 1): string {
+export function renderCategoryTabs(settings: any, activeTabLabel: string = 'All Apps'): string {
+  const rawCategories = Array.isArray(settings?.categories) && settings.categories.length > 0
+    ? settings.categories
+    : ['All Apps', 'Games', 'Apps', 'Entertainment'];
+
+  const withHome = rawCategories.some((c: string) => {
+    const l = c.toLowerCase();
+    return l === 'all' || l === 'all apps' || l === 'home' || l === 'apps';
+  }) ? rawCategories : ['All Apps', ...rawCategories];
+
+  const seen = new Set<string>();
+  const categories = withHome.filter((tab: string) => {
+    const lower = String(tab || '').toLowerCase();
+    if (!lower || seen.has(lower)) return false;
+    seen.add(lower);
+    return true;
+  });
+
+  const getTabHref = (tab: string): string => {
+    const lower = tab.toLowerCase().trim();
+    if (lower === 'all apps' || lower === 'all' || lower === 'home' || lower === 'apps') {
+      return '/';
+    }
+    if (lower === 'categories') {
+      return '/categories';
+    }
+    if (lower === 'top charts') {
+      return '/?tab=Top%20Charts';
+    }
+    const slug = lower.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return slug ? `/category/${slug}` : '/';
+  };
+
+  const activeLower = activeTabLabel.toLowerCase().trim();
+
+  return `
+    <div class="mb-2 sticky top-[42px] xxs:top-[46px] xs:top-[50px] sm:top-16 z-40 bg-[var(--bg-primary)] py-1 xxs:py-1.5 xs:py-2 px-0">
+      <div class="flex overflow-x-auto no-scrollbar gap-1 xxs:gap-1.5 xs:gap-2">
+        ${categories.map((c: string) => {
+          const isActive = c.toLowerCase().trim() === activeLower;
+          const link = getTabHref(c);
+          return `<a href="${link}" class="whitespace-nowrap shrink-0 px-2.5 xxs:px-3 xs:px-4 py-1 xxs:py-1.5 xs:py-2 text-[11px] xxs:text-xs xs:text-sm font-medium transition-all rounded-full border no-underline inline-flex items-center cursor-pointer ${isActive ? 'bg-blue-500 text-white border-blue-500 shadow-sm' : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-black/5 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-zinc-800'}">${escapeHtml(c)}</a>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+export function renderFilterBar(activeTabLabel: string = 'All Apps', totalCount?: number): string {
+  const activeLower = activeTabLabel.toLowerCase().trim();
+  if (activeLower === 'categories') return '';
+
+  const isHomeTab =
+    activeLower === 'all apps' ||
+    activeLower === 'all' ||
+    activeLower === 'home' ||
+    activeLower === 'apps';
+
+  return `
+    <div class="px-0 mb-3 xs:mb-4 mt-1 xs:mt-2 flex flex-wrap items-center gap-2 xs:gap-4 ${isHomeTab ? 'justify-end' : 'justify-between'}">
+      ${!isHomeTab ? `
+        <div class="flex items-baseline gap-2 min-w-0">
+          <h2 class="text-lg xs:text-xl font-bold text-zinc-900 dark:text-zinc-100 m-0 truncate">${escapeHtml(activeLower === 'top charts' ? 'Top Charts' : activeTabLabel)}</h2>
+          ${typeof totalCount === 'number' ? `<span class="text-xs font-medium text-zinc-500 dark:text-zinc-400 tabular-nums whitespace-nowrap">· ${totalCount} ${totalCount === 1 ? 'app' : 'apps'}</span>` : ''}
+        </div>
+      ` : ''}
+      <div class="flex items-center gap-2 xs:gap-3 flex-wrap">
+        <div class="relative">
+          <div class="flex items-center gap-1 xs:gap-1.5 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 rounded-xl px-2.5 xs:px-3 py-1.5 shadow-sm text-[11px] xs:text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer select-none whitespace-nowrap">
+            <span class="flex items-center gap-1">
+              <svg width="14" height="14" class="w-3 h-3 xs:w-3.5 xs:h-3.5 fill-amber-400 text-amber-400 shrink-0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <span>Rating: All</span>
+            </span>
+            <svg width="14" height="14" class="w-3 h-3 xs:w-3.5 xs:h-3.5 text-zinc-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </div>
+        <div class="relative">
+          <div class="flex items-center gap-1 xs:gap-1.5 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 rounded-xl px-2.5 xs:px-3 py-1.5 shadow-sm text-[11px] xs:text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer select-none whitespace-nowrap">
+            <span class="flex items-center gap-1">
+              <svg width="14" height="14" class="w-3 h-3 xs:w-3.5 xs:h-3.5 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
+              <span>Recommended</span>
+            </span>
+            <svg width="14" height="14" class="w-3 h-3 xs:w-3.5 xs:h-3.5 text-zinc-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+export function renderAppListRow(app: any, i: number): string {
+  const name = getField(app, 'name');
+  const slug = getField(app, 'slug');
+  const category = getField(app, 'category', 'Game');
+  const ratingRaw = getField(app, 'rating', '5.0');
+  const ratingVal = typeof ratingRaw === 'number' ? ratingRaw : (parseFloat(String(ratingRaw)) || 5.0);
+  const rating = ratingVal.toFixed(1);
+  const rawIcon = getField(app, 'icon_url') || '/logo.png';
+  const icon = optimizeImageUrl(rawIcon, 120);
+  const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
+  const isHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
+  const isVerified = getField(app, 'safety_status', 'Verified') === 'Verified';
+  const isComingSoonFlag = app.is_coming_soon === true || (app.is_coming_soon && app.is_coming_soon.booleanValue === true);
+  const isActuallyComingSoon = Boolean(
+    isComingSoonFlag && (!app.publish_date || new Date(app.publish_date).getTime() > Date.now())
+  );
+  const isTopItem = i < 6;
+  const visibilityClass = i < 8 ? 'z-1' : 'z-1 [content-visibility:auto] [contain-intrinsic-size:auto_84px]';
+
+  return `
+    <div class="relative group ${visibilityClass}">
+      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-1.5 xxs:gap-2 xs:gap-2.5 sm:gap-4 py-1.5 xxs:py-2 pl-1 pr-8 xxs:pr-9 xs:py-2.5 xs:pl-2 xs:pr-12 sm:pl-4 sm:pr-14 sm:py-3.5 mb-0 sm:mb-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 rounded-xl sm:rounded-2xl relative active:bg-black/5 dark:active:bg-white/5 w-full" title="${escapeHtml(name)}">
+        <div class="w-3.5 xxs:w-4 xs:w-5 sm:w-7 text-[11px] xxs:text-xs xs:text-[14px] sm:text-[17px] font-black text-zinc-400 dark:text-zinc-500 text-center shrink-0">
+          ${i + 1}
+        </div>
+        <div class="relative w-[52px] h-[52px] xxs:w-[60px] xxs:h-[60px] xs:w-[72px] xs:h-[72px] sm:w-[88px] sm:h-[88px] shrink-0">
+          <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[18px] sm:rounded-[22px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm border border-black/5 dark:border-white/10 relative z-10 transition-transform group-hover:-translate-y-0.5 duration-300">
+            <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" fetchpriority="low"'} decoding="async" width="88" height="88" class="w-full h-full object-cover block" alt="${escapeHtml(name)} app icon"/>
+          </div>
+          ${isHot && isNew ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="inline-flex items-center rounded-[6px] xs:rounded-[8px] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.18)] font-black text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] uppercase tracking-wider block"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span></div>` : isHot ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#d32f2f] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">HOT</span></div>` : isNew ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>` : ''}
+        </div>
+        <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+          <h3 class="font-semibold text-xs xxs:text-sm xs:text-base sm:text-[17px] tracking-tight text-zinc-900 dark:text-zinc-100 truncate w-full">${escapeHtml(name)}</h3>
+          <div class="text-[10px] xxs:text-[11px] xs:text-xs sm:text-[13px] font-normal text-zinc-500 dark:text-zinc-400 truncate">${escapeHtml(category)}</div>
+          <div class="flex items-center gap-1 text-[9px] xxs:text-[10px] xs:text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 mt-0.5">
+            <span>${rating}</span>
+            <svg width="12" height="12" class="w-2.5 h-2.5 xs:w-3 xs:h-3 fill-current text-zinc-400" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            ${isVerified ? `<svg width="12" height="12" class="w-2.5 h-2.5 xs:w-3 xs:h-3 text-blue-500 shrink-0 ml-0.5 xs:ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>` : ''}
+          </div>
+        </div>
+        ${isActuallyComingSoon ? `<div class="shrink-0 pr-1"><div class="bg-orange-500/10 text-orange-600 dark:text-orange-400 px-1.5 xxs:px-2 xs:px-3 py-0.5 xs:py-1 text-[8px] xxs:text-[9px] xs:text-[11px] font-black rounded-full tracking-wider">SOON</div></div>` : ''}
+        <div class="absolute bottom-0 right-4 left-[70px] xxs:left-[80px] xs:left-[96px] sm:left-[144px] border-b border-black/5 dark:border-white/5 opacity-50 transition-opacity group-hover:opacity-0"></div>
+      </a>
+      <div class="absolute right-1 xs:right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20">
+        <button type="button" aria-expanded="false" aria-haspopup="true" class="p-1.5 xs:p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 rounded-full transition-all cursor-pointer relative" aria-label="More options">
+          <svg width="16" height="16" class="w-3.5 h-3.5 xs:w-4 xs:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderCaughtUp(count: number): string {
+  return `
+    <div class="pt-4 pb-2 flex flex-col items-center justify-center text-center">
+      <div class="flex items-center gap-3 w-full max-w-xs justify-center mb-1">
+        <div class="h-px flex-1 bg-slate-200 dark:bg-zinc-800"></div>
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+          You're all caught up
+        </span>
+        <div class="h-px flex-1 bg-slate-200 dark:bg-zinc-800"></div>
+      </div>
+      <p class="text-xs text-slate-400 dark:text-zinc-600">
+        Showing all ${count} verified applications
+      </p>
+    </div>
+  `;
+}
+
+export function renderHome(apps: any[], settings: any, _news: any[], _videos: any[], pageNum: number = 1): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   const heroVisible = settings?.hero_title_visible !== false;
   const heroText = getField(settings, 'hero_title_text') || '';
   const heroSubtitle = getField(settings, 'hero_title_subtitle') || '';
   const bannerItems = settings?.banners || [];
 
-  let appsHtml = '';
   const sorted = [...apps].sort((a, b) => {
     const rawA = parseInt(getField(a, 'serial_number', '999999'), 10);
     const rawB = parseInt(getField(b, 'serial_number', '999999'), 10);
@@ -16,61 +174,14 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     const sb = !isNaN(rawB) && rawB > 0 ? rawB : 999999;
     return sa - sb;
   });
-  
+
   const pageSize = 24;
   const totalPages = Math.ceil(sorted.length / pageSize) || 1;
   const currentPage = Math.max(1, Math.min(pageNum, totalPages));
   const startIndex = (currentPage - 1) * pageSize;
   const pageApps = sorted.slice(startIndex, startIndex + pageSize);
 
-  // Render paginated apps with 1:1 PlayStoreUI styling matching AppListItem
-  pageApps.forEach((app, idx) => {
-    const i = startIndex + idx;
-    const name = getField(app, 'name');
-    const slug = getField(app, 'slug');
-    const category = getField(app, 'category', 'Game');
-    const ratingRaw = getField(app, 'rating', '5.0');
-    const ratingVal = typeof ratingRaw === 'number' ? ratingRaw : (parseFloat(String(ratingRaw)) || 5.0);
-    const rating = ratingVal.toFixed(1);
-    const rawIcon = getField(app, 'icon_url') || '/logo.png';
-    const icon = optimizeImageUrl(rawIcon, 120);
-    const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
-    const isHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
-    const isVerified = getField(app, 'safety_status', 'Verified') === 'Verified';
-    const isTopItem = i < 6;
-    const visibilityClass = i < 8 ? 'z-1' : 'z-1 [content-visibility:auto] [contain-intrinsic-size:auto_84px]';
-    
-    appsHtml += `
-      <div class="relative group ${visibilityClass}">
-        <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-1.5 xxs:gap-2 xs:gap-2.5 sm:gap-4 py-1.5 xxs:py-2 pl-1 pr-8 xxs:pr-9 xs:py-2.5 xs:pl-2 xs:pr-12 sm:pl-4 sm:pr-14 sm:py-3.5 mb-0 sm:mb-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 rounded-xl sm:rounded-2xl relative active:bg-black/5 dark:active:bg-white/5 w-full" title="${escapeHtml(name)}">
-          <div class="w-3.5 xxs:w-4 xs:w-5 sm:w-7 text-[11px] xxs:text-xs xs:text-[14px] sm:text-[17px] font-black text-zinc-400 dark:text-zinc-500 text-center shrink-0">
-            ${i + 1}
-          </div>
-          <div class="relative w-[52px] h-[52px] xxs:w-[60px] xxs:h-[60px] xs:w-[72px] xs:h-[72px] sm:w-[88px] sm:h-[88px] shrink-0">
-            <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[18px] sm:rounded-[22px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm border border-black/5 dark:border-white/10 relative z-10 transition-transform group-hover:-translate-y-0.5 duration-300">
-              <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" fetchpriority="low"'} decoding="async" width="88" height="88" class="w-full h-full object-cover block" alt="${escapeHtml(name)} app icon"/>
-            </div>
-            ${isHot && isNew ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="inline-flex items-center rounded-[6px] xs:rounded-[8px] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.18)] font-black text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] uppercase tracking-wider block"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span></div>` : isHot ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#d32f2f] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">HOT</span></div>` : isNew ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>` : ''}
-          </div>
-          <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-            <h3 class="font-semibold text-xs xxs:text-sm xs:text-base sm:text-[17px] tracking-tight text-zinc-900 dark:text-zinc-100 truncate w-full">${escapeHtml(name)}</h3>
-            <div class="text-[10px] xxs:text-[11px] xs:text-xs sm:text-[13px] font-normal text-zinc-500 dark:text-zinc-400 truncate">${escapeHtml(category)}</div>
-            <div class="flex items-center gap-1 text-[9px] xxs:text-[10px] xs:text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 mt-0.5">
-              <span>${rating}</span>
-              <svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 fill-current text-zinc-400" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              ${isVerified ? `<svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 text-blue-500 shrink-0 ml-0.5 xs:ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>` : ''}
-            </div>
-          </div>
-          <div class="absolute bottom-0 right-4 left-[70px] xxs:left-[80px] xs:left-[96px] sm:left-[144px] border-b border-black/5 dark:border-white/5 opacity-50 transition-opacity group-hover:opacity-0"></div>
-        </a>
-        <div class="absolute right-1 xs:right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20">
-          <button type="button" aria-expanded="false" aria-haspopup="true" class="p-1.5 xs:p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 rounded-full transition-all cursor-pointer relative" aria-label="More options">
-            <svg class="w-3.5 h-3.5 xs:w-4 xs:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-          </button>
-        </div>
-      </div>
-    `;
-  });
+  const appsHtml = pageApps.map((app, idx) => renderAppListRow(app, startIndex + idx)).join('');
 
   const newApps = sorted.filter(a => a.is_new === true || (a.is_new && a.is_new.booleanValue === true));
   let newAdditionsHtml = '';
@@ -78,7 +189,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     newAdditionsHtml = `
       <aside data-nosnippet class="px-0">
         <h2 class="text-base xxs:text-lg xs:text-xl font-bold mb-2.5 xs:mb-4 mt-3 xs:mt-6 text-zinc-900 dark:text-zinc-100 flex items-center px-0">
-          New Additions <svg class="w-4 h-4 xs:w-5 xs:h-5 text-blue-500 fill-blue-500/20 ml-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>
+          New Additions <svg width="20" height="20" class="w-4 h-4 xs:w-5 xs:h-5 text-blue-500 fill-blue-500/20 ml-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>
         </h2>
         <div class="flex overflow-x-auto gap-2 xxs:gap-2.5 xs:gap-3.5 sm:gap-4 px-2 xxs:px-3 xs:px-4 sm:px-1 pt-1.5 pb-2 mb-2 scrollbar-none snap-x snap-mandatory scroll-smooth -mx-2 xxs:-mx-3 xs:-mx-4 sm:-mx-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           ${newApps.slice(0, 10).map((app, index) => {
@@ -86,8 +197,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
             const nName = getField(app, 'name');
             const nIcon = optimizeImageUrl(getField(app, 'icon_url'), 120);
             const nIsHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
-            const nIsNew = app.is_new === true || (app.is_new && aIsNew(app));
-            function aIsNew(item: any) { return item.is_new === true || (item.is_new && item.is_new.booleanValue === true); }
+            const nIsNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
             return `
               <div class="flex-none w-[64px] xxs:w-[74px] xs:w-[88px] sm:w-[104px] snap-start">
                 <a href="/app/${encodeURIComponent(nSlug)}" class="flex flex-col gap-1 xxs:gap-1.5 xs:gap-2 group" title="${escapeHtml(nName)}">
@@ -114,6 +224,16 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     const bannerSrcSet = rawBannerImg ? `${escapeHtml(optimizeImageUrl(rawBannerImg, 400))} 400w, ${escapeHtml(optimizeImageUrl(rawBannerImg, 600))} 600w, ${escapeHtml(optimizeImageUrl(rawBannerImg, 800))} 800w` : '';
     const bannerTitle = bannerItems[0]?.title || '';
     const bannerSubtitle = bannerItems[0]?.subtitle || '';
+    const dotsHtml = bannerItems.length > 1 ? `
+      <div class="absolute bottom-1.5 left-0 right-0 flex justify-center gap-1.5 py-1 z-10">
+        ${bannerItems.map((_: any, dotIdx: number) => `
+          <button type="button" class="group/dot focus:outline-none cursor-pointer py-1" aria-label="Go to slide ${dotIdx + 1}">
+            <div class="h-1.5 rounded-full transition-all duration-300 ${dotIdx === 0 ? 'w-[18px] bg-white' : 'w-[6px] bg-white/40 group-hover/dot:bg-white/60'}"></div>
+          </button>
+        `).join('')}
+      </div>
+    ` : '';
+
     featuredBannerHtml = `
       <div class="w-full relative px-0 sm:px-4 max-w-4xl mx-auto mb-5 group/carousel select-none">
         <div class="w-full overflow-hidden rounded-2xl sm:rounded-[20px] shadow-sm sm:border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950/40 relative h-[110px] xxs:h-[120px] xs:h-[135px] sm:h-[160px] md:h-[185px]">
@@ -125,6 +245,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
                   <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pt-10 pb-3 px-4 sm:px-6 flex flex-col justify-end"></div>
                   <div class="absolute inset-x-0 bottom-0 p-4 sm:p-5 flex flex-col justify-end">
                     <div class="flex items-center gap-1.5 mb-1 bg-black/40 px-2 py-0.5 rounded-full border border-white/10 w-fit">
+                      <svg width="12" height="12" class="w-3 h-3 text-yellow-400 fill-yellow-400" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
                       <span class="text-white text-[9px] font-bold uppercase tracking-wider">Featured App</span>
                     </div>
                     <div>
@@ -137,30 +258,13 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
             </div>
           </div>
         </div>
+        ${dotsHtml}
       </div>
     `;
   }
 
-  const rawCategories = Array.isArray(settings?.categories) && settings.categories.length > 0
-    ? settings.categories
-    : ['All Apps', 'Games', 'Apps', 'Entertainment'];
-
-  const categories = rawCategories.some((c: string) => c.toLowerCase() === 'all' || c.toLowerCase() === 'all apps')
-    ? rawCategories
-    : ['All Apps', ...rawCategories];
-
-  const categoryTabsHtml = `
-    <div class="mb-2 sticky top-[42px] xxs:top-[46px] xs:top-[50px] sm:top-16 z-40 bg-[var(--bg-primary)] py-1 xxs:py-1.5 xs:py-2 px-0">
-      <div class="flex overflow-x-auto no-scrollbar gap-1 xxs:gap-1.5 xs:gap-2">
-        ${categories.map((c: string, idx: number) => {
-          const isAll = c.toLowerCase() === 'all' || c.toLowerCase() === 'all apps' || idx === 0;
-          const catSlug = c.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-          const link = isAll ? '/' : `/category/${encodeURIComponent(catSlug)}`;
-          return `<a href="${link}" class="whitespace-nowrap px-2.5 xxs:px-3 xs:px-4 py-1 xxs:py-1.5 xs:py-2 text-[11px] xxs:text-xs xs:text-sm font-medium transition-all rounded-full border ${isAll ? 'bg-blue-500 text-white border-blue-500 shadow-sm' : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-black/5 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-zinc-800'}">${escapeHtml(c)}</a>`;
-        }).join('')}
-      </div>
-    </div>
-  `;
+  const categoryTabsHtml = renderCategoryTabs(settings, 'All Apps');
+  const filterBarHtml = renderFilterBar('All Apps', sorted.length);
 
   const heroStyle = getField(settings, 'hero_title_style') || 'modern';
   const heroColor = getField(settings, 'hero_title_color') || 'classic-dark';
@@ -175,7 +279,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
 
   let heroColorClasses = 'text-zinc-900 dark:text-white';
   let heroGlowClasses = 'bg-zinc-500/15 dark:bg-zinc-700/15';
-  let heroBarClasses = 'bg-zinc-900 dark:bg-zinc-100';
+  let heroBarClasses = '';
   if (heroColor === 'emerald-indigo') {
     heroColorClasses = 'text-emerald-600 dark:text-emerald-400';
     heroGlowClasses = 'bg-emerald-500/30 dark:bg-indigo-500/15';
@@ -210,31 +314,6 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     </div>
   ` : `<h1 class="sr-only">${escapeHtml(siteTitle)}</h1>`;
 
-  const filterBarHtml = `
-    <div class="px-0 mb-3 xs:mb-4 mt-1 xs:mt-2 flex flex-wrap items-center justify-end gap-2 xs:gap-4">
-      <div class="flex items-center gap-2 xs:gap-3 flex-wrap">
-        <div class="relative">
-          <div class="flex items-center gap-1 xs:gap-1.5 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 rounded-xl px-2 xs:px-3 py-1 xs:py-1.5 shadow-sm text-[11px] xs:text-xs font-medium text-zinc-700 dark:text-zinc-300 select-none">
-            <span class="flex items-center gap-1">
-              <svg class="w-3 h-3 xs:w-3.5 xs:h-3.5 fill-amber-400 text-amber-400 shrink-0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              <span>Rating: All</span>
-            </span>
-            <svg class="w-3 h-3 xs:w-3.5 xs:h-3.5 text-zinc-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-          </div>
-        </div>
-        <div class="relative">
-          <div class="flex items-center gap-1 xs:gap-1.5 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 rounded-xl px-2 xs:px-3 py-1 xs:py-1.5 shadow-sm text-[11px] xs:text-xs font-medium text-zinc-700 dark:text-zinc-300 select-none">
-            <span class="flex items-center gap-1">
-              <svg class="w-3 h-3 xs:w-3.5 xs:h-3.5 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
-              <span>Recommended</span>
-            </span>
-            <svg class="w-3 h-3 xs:w-3.5 xs:h-3.5 text-zinc-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
   const remainingApps = sorted.slice(pageSize);
   const fullDirectoryHtml = remainingApps.length > 0 ? `
     <nav aria-label="Complete Application Directory" data-nosnippet class="mt-8 pt-6 border-t border-black/5 dark:border-white/5 px-2 max-w-5xl mx-auto">
@@ -248,6 +327,10 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
       </div>
     </nav>
   ` : '';
+
+  const validFaqs = Array.isArray(settings?.website_faqs)
+    ? settings.website_faqs.filter((f: any) => f && f.question && f.answer)
+    : [];
 
   return `
     <div class="select-none min-h-screen">
@@ -271,37 +354,39 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
         </nav>
       ` : ''}
 
+      ${currentPage === totalPages && sorted.length > 0 ? renderCaughtUp(sorted.length) : ''}
+
       ${fullDirectoryHtml}
 
-      ${Array.isArray(settings?.website_faqs) && settings.website_faqs.filter((f: any) => f && f.question && f.answer).length > 0 ? `
+      ${validFaqs.length > 0 ? `
         <section aria-labelledby="home-faq-heading" class="mt-10 sm:mt-14 mb-8 px-2 max-w-5xl mx-auto w-full select-none">
-          <div class="bg-zinc-50/80 dark:bg-[#080c18]/80 border border-zinc-200/80 dark:border-white/[0.08] rounded-2xl sm:rounded-3xl p-4 sm:p-7 shadow-xs">
+          <div class="bg-zinc-50/80 dark:bg-[#080c18]/80 border border-zinc-200/80 dark:border-white/[0.08] rounded-2xl sm:rounded-3xl p-4 sm:p-7 shadow-xs backdrop-blur-xs">
             <div class="flex items-center justify-between mb-5 sm:mb-7 pb-3.5 border-b border-zinc-200/80 dark:border-white/[0.08]">
               <div class="flex items-center gap-2.5 sm:gap-3">
                 <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-cyan-400 flex items-center justify-center shrink-0">
-                  <svg class="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+                  <svg width="20" height="20" class="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
                 </div>
                 <div>
                   <h2 id="home-faq-heading" class="text-base sm:text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Frequently Asked Questions</h2>
                 </div>
               </div>
-              <span class="text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-200/70 dark:bg-white/[0.06] px-2.5 py-1 rounded-full">${settings.website_faqs.filter((f: any) => f && f.question && f.answer).length} FAQs</span>
+              <span class="text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-200/70 dark:bg-white/[0.06] px-2.5 py-1 rounded-full">${validFaqs.length} FAQs</span>
             </div>
             <div class="space-y-2.5 sm:space-y-3">
-              ${settings.website_faqs.filter((f: any) => f && f.question && f.answer).map((faq: any) => `
-                <details class="group rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-white/[0.07] bg-white dark:bg-[#0c101d] overflow-hidden shadow-xs" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
-                  <summary class="list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-3 p-3.5 sm:p-4 text-left cursor-pointer select-none">
+              ${validFaqs.map((faq: any) => `
+                <details class="group rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-white/[0.07] bg-white dark:bg-[#0c101d] hover:border-blue-500/30 dark:hover:border-cyan-500/30 transition-all duration-200 overflow-hidden shadow-xs" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+                  <summary class="list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-3 p-3.5 sm:p-4 text-left cursor-pointer focus:outline-hidden select-none group-open:bg-zinc-50/50 dark:group-open:bg-white/[0.02]">
                     <span class="flex items-center gap-2.5 min-w-0 pr-1">
                       <span class="w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-cyan-400 text-[11px] font-black flex items-center justify-center shrink-0">Q</span>
                       <span itemprop="name" class="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">${escapeHtml(cleanFaqQuestion(faq.question))}</span>
                     </span>
-                    <div class="w-6 h-6 rounded-full bg-zinc-100 dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400 flex items-center justify-center shrink-0">
-                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    <div class="w-6 h-6 rounded-full bg-zinc-100 dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400 flex items-center justify-center shrink-0 group-open:rotate-180 group-open:bg-blue-50 dark:group-open:bg-cyan-500/20 group-open:text-blue-600 dark:group-open:text-cyan-400 transition-transform duration-200">
+                      <svg width="14" height="14" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                     </div>
                   </summary>
                   <div itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer" class="px-4 pb-4 pt-2 border-t border-zinc-100 dark:border-white/[0.05] text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed bg-zinc-50/30 dark:bg-black/10">
-                    <div itemprop="text" class="pl-7">
-                      ${escapeHtml(faq.answer)}
+                    <div itemprop="text" class="prose prose-zinc dark:prose-invert prose-xs sm:prose-sm max-w-none w-full break-words leading-relaxed pl-7">
+                      ${sanitizeHtml(faq.answer)}
                     </div>
                   </div>
                 </details>
@@ -316,8 +401,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
 
 export function renderCategory(categoryName: string, _categorySlug: string, categoryApps: any[], settings: any): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
-  
-  let appsHtml = '';
+
   const sorted = [...categoryApps].sort((a, b) => {
     const rawA = parseInt(getField(a, 'serial_number', '999999'), 10);
     const rawB = parseInt(getField(b, 'serial_number', '999999'), 10);
@@ -325,47 +409,11 @@ export function renderCategory(categoryName: string, _categorySlug: string, cate
     const sb = !isNaN(rawB) && rawB > 0 ? rawB : 999999;
     return sa - sb;
   });
-  
-  sorted.forEach((app, i) => {
-    const name = getField(app, 'name');
-    const slug = getField(app, 'slug');
-    const category = getField(app, 'category');
-    const ratingRaw = getField(app, 'rating', '5.0');
-    const ratingVal = typeof ratingRaw === 'number' ? ratingRaw : (parseFloat(String(ratingRaw)) || 5.0);
-    const rating = ratingVal.toFixed(1);
-    const rawIcon = getField(app, 'icon_url') || '/logo.png';
-    const icon = optimizeImageUrl(rawIcon, 120);
-    const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
-    const isHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
-    const isVerified = getField(app, 'safety_status', 'Verified') === 'Verified';
-    const isTopItem = i < 6;
-    
-    appsHtml += `
-      <div class="relative group z-1">
-        <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-1.5 xxs:gap-2 xs:gap-2.5 sm:gap-4 py-1.5 xxs:py-2 pl-1 pr-8 xxs:pr-9 xs:py-2.5 xs:pl-2 xs:pr-12 sm:pl-4 sm:pr-14 sm:py-3.5 mb-0 sm:mb-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 rounded-xl sm:rounded-2xl relative active:bg-black/5 dark:active:bg-white/5 w-full" title="${escapeHtml(name)}">
-          <div class="w-3.5 xxs:w-4 xs:w-5 sm:w-7 text-[11px] xxs:text-xs xs:text-[14px] sm:text-[17px] font-black text-zinc-400 dark:text-zinc-500 text-center shrink-0">
-            ${i + 1}
-          </div>
-          <div class="relative w-[52px] h-[52px] xxs:w-[60px] xxs:h-[60px] xs:w-[72px] xs:h-[72px] sm:w-[88px] sm:h-[88px] shrink-0">
-            <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[18px] sm:rounded-[22px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm border border-black/5 dark:border-white/10 relative z-10">
-              <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" fetchpriority="low"'} decoding="async" width="88" height="88" class="w-full h-full object-cover block" alt="${escapeHtml(name)} app icon"/>
-            </div>
-            ${isHot && isNew ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="inline-flex items-center rounded-[6px] xs:rounded-[8px] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.18)] font-black text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] uppercase tracking-wider block"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span></div>` : isHot ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#d32f2f] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">HOT</span></div>` : isNew ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>` : ''}
-          </div>
-          <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-            <h3 class="font-semibold text-xs xxs:text-sm xs:text-base sm:text-[17px] tracking-tight text-zinc-900 dark:text-zinc-100 truncate w-full">${escapeHtml(name)}</h3>
-            <div class="text-[10px] xxs:text-[11px] xs:text-xs sm:text-[13px] font-normal text-zinc-500 dark:text-zinc-400 truncate">${escapeHtml(category)}</div>
-            <div class="flex items-center gap-1 text-[9px] xxs:text-[10px] xs:text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 mt-0.5">
-              <span>${rating}</span>
-              <svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 fill-current text-zinc-400" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              ${isVerified ? `<svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 text-blue-500 shrink-0 ml-0.5 xs:ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>` : ''}
-            </div>
-          </div>
-          <div class="absolute bottom-0 right-4 left-[70px] xxs:left-[80px] xs:left-[96px] sm:left-[144px] border-b border-black/5 dark:border-white/5 opacity-50"></div>
-        </a>
-      </div>
-    `;
-  });
+
+  const pageSize = 24;
+  const visibleApps = sorted.slice(0, pageSize);
+  const remainingApps = sorted.slice(pageSize);
+  const appsHtml = visibleApps.map((app, i) => renderAppListRow(app, i)).join('');
 
   return `
     <div class="select-none min-h-screen">
@@ -377,56 +425,36 @@ export function renderCategory(categoryName: string, _categorySlug: string, cate
           <span>/</span>
           <span class="font-semibold text-zinc-800 dark:text-zinc-200">${escapeHtml(categoryName)}</span>
         </nav>
-        <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">${escapeHtml(categoryName)} Apps & Reviews</h1>
-        <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Explore all ${categoryApps.length} verified ${escapeHtml(categoryName)} applications, ratings, download specifications, and reviews on ${escapeHtml(siteTitle)}.</p>
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">${escapeHtml(categoryName)} Apps &amp; Reviews</h1>
+        <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Explore all ${sorted.length} verified ${escapeHtml(categoryName)} applications, ratings, download specifications, and reviews on ${escapeHtml(siteTitle)}.</p>
       </div>
-      <div class="space-y-2 px-0 sm:px-1">${appsHtml || '<p class="text-center text-zinc-400 py-10">No applications listed under this category.</p>'}</div>
+      ${renderCategoryTabs(settings, categoryName)}
+      ${renderFilterBar(categoryName, sorted.length)}
+      <div class="animate-fade-in space-y-2 px-0 sm:px-1">${appsHtml || '<div class="text-center py-20 text-slate-400"><p class="text-lg">No apps found in ' + escapeHtml(categoryName) + '</p></div>'}</div>
+      ${remainingApps.length === 0 && sorted.length > 0 ? renderCaughtUp(sorted.length) : ''}
+      ${remainingApps.length > 0 ? `
+        <nav aria-label="Complete Category Directory" data-nosnippet class="mt-8 pt-6 border-t border-black/5 dark:border-white/5 px-2 max-w-5xl mx-auto">
+          <h2 class="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-3 uppercase tracking-wider">More ${escapeHtml(categoryName)} Applications (${remainingApps.length})</h2>
+          <div class="flex flex-wrap gap-2">
+            ${remainingApps.map((app) => {
+              const rSlug = getField(app, 'slug');
+              const rName = getField(app, 'name');
+              return `<a href="/app/${encodeURIComponent(rSlug)}" class="px-2.5 py-1 rounded-lg bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 text-[11px] font-medium border border-black/5 dark:border-white/5 no-underline transition-colors">${escapeHtml(rName)}</a>`;
+            }).join('')}
+          </div>
+        </nav>
+      ` : ''}
     </div>
   `;
 }
 
 export function renderNewApps(newApps: any[], settings: any): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
-  
-  let appsHtml = '';
-  newApps.forEach((app, i) => {
-    const name = getField(app, 'name');
-    const slug = getField(app, 'slug');
-    const category = getField(app, 'category');
-    const ratingRaw = getField(app, 'rating', '5.0');
-    const ratingVal = typeof ratingRaw === 'number' ? ratingRaw : (parseFloat(String(ratingRaw)) || 5.0);
-    const rating = ratingVal.toFixed(1);
-    const rawIcon = getField(app, 'icon_url') || '/logo.png';
-    const icon = optimizeImageUrl(rawIcon, 120);
-    const isVerified = getField(app, 'safety_status', 'Verified') === 'Verified';
-    const isTopItem = i < 6;
-    
-    appsHtml += `
-      <div class="relative group z-1">
-        <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-1.5 xxs:gap-2 xs:gap-2.5 sm:gap-4 py-1.5 xxs:py-2 pl-1 pr-8 xxs:pr-9 xs:py-2.5 xs:pl-2 xs:pr-12 sm:pl-4 sm:pr-14 sm:py-3.5 mb-0 sm:mb-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 rounded-xl sm:rounded-2xl relative active:bg-black/5 dark:active:bg-white/5 w-full" title="${escapeHtml(name)}">
-          <div class="w-3.5 xxs:w-4 xs:w-5 sm:w-7 text-[11px] xxs:text-xs xs:text-[14px] sm:text-[17px] font-black text-zinc-400 dark:text-zinc-500 text-center shrink-0">
-            ${i + 1}
-          </div>
-          <div class="relative w-[52px] h-[52px] xxs:w-[60px] xxs:h-[60px] xs:w-[72px] xs:h-[72px] sm:w-[88px] sm:h-[88px] shrink-0">
-            <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[18px] sm:rounded-[22px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm border border-black/5 dark:border-white/10 relative z-10">
-              <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" fetchpriority="low"'} decoding="async" width="88" height="88" class="w-full h-full object-cover block" alt="${escapeHtml(name)} app icon"/>
-            </div>
-            <div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>
-          </div>
-          <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-            <h3 class="font-semibold text-xs xxs:text-sm xs:text-base sm:text-[17px] tracking-tight text-zinc-900 dark:text-zinc-100 truncate w-full">${escapeHtml(name)}</h3>
-            <div class="text-[10px] xxs:text-[11px] xs:text-xs sm:text-[13px] font-normal text-zinc-500 dark:text-zinc-400 truncate">${escapeHtml(category)}</div>
-            <div class="flex items-center gap-1 text-[9px] xxs:text-[10px] xs:text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 mt-0.5">
-              <span>${rating}</span>
-              <svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 fill-current text-zinc-400" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              ${isVerified ? `<svg class="w-2.5 h-2.5 xs:w-3 xs:h-3 text-blue-500 shrink-0 ml-0.5 xs:ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>` : ''}
-            </div>
-          </div>
-          <div class="absolute bottom-0 right-4 left-[70px] xxs:left-[80px] xs:left-[96px] sm:left-[144px] border-b border-black/5 dark:border-white/5 opacity-50"></div>
-        </a>
-      </div>
-    `;
-  });
+  const sorted = [...newApps];
+  const pageSize = 24;
+  const visibleApps = sorted.slice(0, pageSize);
+  const remainingApps = sorted.slice(pageSize);
+  const appsHtml = visibleApps.map((app, i) => renderAppListRow(app, i)).join('');
 
   return `
     <div class="select-none min-h-screen">
@@ -436,10 +464,25 @@ export function renderNewApps(newApps: any[], settings: any): string {
           <span>/</span>
           <span class="font-semibold text-zinc-800 dark:text-zinc-200">New Apps</span>
         </nav>
-        <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">Newly Added & Updated Applications</h1>
-        <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Discover the latest verified card, arcade, and gaming applications added to ${escapeHtml(siteTitle)}.</p>
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">Newly Added &amp; Updated Applications</h1>
+        <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">Explore all ${sorted.length} verified New Apps applications, ratings, download specifications, and reviews on ${escapeHtml(siteTitle)}.</p>
       </div>
-      <div class="space-y-2 px-0 sm:px-1">${appsHtml || '<p class="text-center text-zinc-400 py-10">No new applications available.</p>'}</div>
+      ${renderCategoryTabs(settings, 'All Apps')}
+      ${renderFilterBar('New Apps', sorted.length)}
+      <div class="animate-fade-in space-y-2 px-0 sm:px-1">${appsHtml || '<div class="text-center py-20 text-slate-400"><p class="text-lg">No apps found in New Apps</p></div>'}</div>
+      ${remainingApps.length === 0 && sorted.length > 0 ? renderCaughtUp(sorted.length) : ''}
+      ${remainingApps.length > 0 ? `
+        <nav aria-label="Complete New Apps Directory" data-nosnippet class="mt-8 pt-6 border-t border-black/5 dark:border-white/5 px-2 max-w-5xl mx-auto">
+          <h2 class="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-3 uppercase tracking-wider">More Applications in New Apps (${remainingApps.length})</h2>
+          <div class="flex flex-wrap gap-2">
+            ${remainingApps.map((app) => {
+              const rSlug = getField(app, 'slug');
+              const rName = getField(app, 'name');
+              return `<a href="/app/${encodeURIComponent(rSlug)}" class="px-2.5 py-1 rounded-lg bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 text-[11px] font-medium border border-black/5 dark:border-white/5 no-underline transition-colors">${escapeHtml(rName)}</a>`;
+            }).join('')}
+          </div>
+        </nav>
+      ` : ''}
     </div>
   `;
 }

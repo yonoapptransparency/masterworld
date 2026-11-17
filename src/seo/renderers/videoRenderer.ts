@@ -48,7 +48,7 @@ export function renderVideosList(videos: any[], _settings: any, pageNum: number 
           <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent"></div>
           <div class="absolute inset-0 flex items-center justify-center">
             <div class="w-12 h-12 rounded-full bg-black/65 text-white border border-white/25 flex items-center justify-center shadow-lg group-hover:bg-blue-600 group-hover:scale-105 transition-all">
-              <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
+              <svg width="20" height="20" class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
             </div>
           </div>
           ${duration ? `<span class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded bg-black/80 text-white text-[11px] font-mono font-semibold tabular-nums">${escapeHtml(duration)}</span>` : ''}
@@ -81,11 +81,41 @@ export function renderVideosList(videos: any[], _settings: any, pageNum: number 
         Showing <span class="text-zinc-900 dark:text-zinc-100">${startIdx + 1}</span>–<span class="text-zinc-900 dark:text-zinc-100">${Math.min(safePage * ITEMS_PER_PAGE, allVideos.length)}</span> of <span class="text-zinc-900 dark:text-zinc-100">${allVideos.length}</span> guides
       </p>
       <div class="flex items-center gap-1.5 flex-wrap justify-center">
+        ${safePage > 1 ? `
+          <a href="${safePage - 1 <= 1 ? '/videos' : `/videos?page=${safePage - 1}`}" class="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer no-underline" aria-label="Previous page">
+            <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 18l-6-6 6-6"></path></svg>
+            <span class="hidden sm:inline">Prev</span>
+          </a>
+        ` : `
+          <span class="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 opacity-40 pointer-events-none select-none" aria-disabled="true" aria-label="Previous page">
+            <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 18l-6-6 6-6"></path></svg>
+            <span class="hidden sm:inline">Prev</span>
+          </span>
+        `}
         ${Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
           const isCurr = p === safePage;
-          const href = p <= 1 ? '/videos' : `/videos?page=${p}`;
-          return `<a href="${href}" ${isCurr ? 'aria-current="page"' : ''} class="w-9 h-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center no-underline tabular-nums ${isCurr ? 'bg-blue-600 text-white shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'}">${p}</a>`;
+          if (p === 1 || p === totalPages || (p >= safePage - 1 && p <= safePage + 1)) {
+            const href = p <= 1 ? '/videos' : `/videos?page=${p}`;
+            return `<a href="${href}" ${isCurr ? 'aria-current="page"' : ''} aria-label="Go to page ${p}" class="w-9 h-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center no-underline tabular-nums ${isCurr ? 'bg-blue-600 text-white shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'}">${p}</a>`;
+          } else if (
+            (p === safePage - 2 && safePage > 3) ||
+            (p === safePage + 2 && safePage < totalPages - 2)
+          ) {
+            return `<span class="px-1 text-xs text-zinc-400 select-none">...</span>`;
+          }
+          return '';
         }).join('')}
+        ${safePage < totalPages ? `
+          <a href="/videos?page=${safePage + 1}" class="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer no-underline" aria-label="Next page">
+            <span class="hidden sm:inline">Next</span>
+            <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 18l6-6-6-6"></path></svg>
+          </a>
+        ` : `
+          <span class="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 opacity-40 pointer-events-none select-none" aria-disabled="true" aria-label="Next page">
+            <span class="hidden sm:inline">Next</span>
+            <svg width="16" height="16" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 18l6-6-6-6"></path></svg>
+          </span>
+        `}
       </div>
     </div>
   ` : '';
@@ -128,6 +158,7 @@ export function renderVideosList(videos: any[], _settings: any, pageNum: number 
             readonly
             class="block w-full py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 placeholder-zinc-400 text-sm rounded-xl px-3.5 pr-9 text-zinc-900 dark:text-zinc-100"
           />
+          <svg width="16" height="16" class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
         </div>
       </header>
 
@@ -271,7 +302,7 @@ export function renderVideoDetail(slug: string, videos: any[], _settings: any, a
           <span class="text-zinc-800 dark:text-zinc-200 font-semibold truncate max-w-[200px] sm:max-w-md">${escapeHtml(title)}</span>
         </div>
         <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all border border-black/5 dark:border-white/10 shrink-0 cursor-pointer" title="Share video guide">
-          <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+          <svg width="14" height="14" class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
           <span>Share</span>
         </button>
       </nav>
@@ -284,7 +315,7 @@ export function renderVideoDetail(slug: string, videos: any[], _settings: any, a
               <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/10"></div>
               <div class="absolute inset-0 flex flex-col items-center justify-center gap-2.5 p-4 text-center">
                 <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-600/95 group-hover:bg-blue-500 text-white flex items-center justify-center shadow-2xl border-2 border-white/30 transition-transform duration-300 group-hover:scale-105">
-                  <svg class="w-7 h-7 sm:w-8 sm:h-8 fill-current ml-1" viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
+                  <svg width="32" height="32" class="w-7 h-7 sm:w-8 sm:h-8 fill-current ml-1" viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
                 </div>
                 <span class="px-3 py-1 rounded-full bg-black/70 text-white text-xs font-semibold tracking-wide border border-white/15">Tap to Play Video</span>
               </div>
