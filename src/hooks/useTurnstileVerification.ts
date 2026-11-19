@@ -1,9 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type MutableRefObject } from 'react';
 import {
   TURNSTILE_ACTION,
   NONCE_REFRESH_MS,
   CLIENT_TAP_HOLD_MS,
   TURNSTILE_UI_TIMEOUT_MS,
+  TURNSTILE_RETRY_INTERVAL_MS,
+  TURNSTILE_SCRIPT_STALL_MS,
+  TURNSTILE_WIDGET_STALL_MS,
   SESSION_INIT_TIMEOUT_MS,
   DEFAULT_TURNSTILE_SITE_KEY,
   SESSION_RETRY_MAX,
@@ -23,12 +26,14 @@ declare global {
 export interface UseTurnstileVerificationOptions {
   appId: string;
   adminTurnstileSiteKey?: string;
+  isDispatchingRef?: MutableRefObject<boolean>;
 }
 
 const TURNSTILE_SCRIPT_SRC =
   'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
 const scriptLoadCallbacks = new Set<() => void>();
+const scriptErrorCallbacks = new Set<() => void>();
 
 function ensureTurnstilePreconnect(): void {
   if (typeof document === 'undefined' || !document.head) return;
@@ -51,6 +56,15 @@ function ensureTurnstilePreconnect(): void {
   } catch {
     // Ignore DOM injection errors
   }
+}
+
+/**
+ * Warms only the DNS/TLS connection to challenges.cloudflare.com at runtime
+ * for real mobile users without downloading api.js or touching static HTML.
+ */
+export function preconnectTurnstileOnly(): void {
+  if (typeof window === 'undefined') return;
+  ensureTurnstilePreconnect();
 }
 
 export function ensureTurnstileScriptLoaded(forceReload = false): void {
@@ -76,9 +90,16 @@ export function ensureTurnstileScriptLoaded(forceReload = false): void {
 
   try {
     const s = document.createElement('script');
-    s.src = forceReload ? `${TURNSTILE_SCRIPT_SRC}&retry=${Date.now() % 10000}` : TURNSTILE_SCRIPT_SRC;
+    s.src = forceReload
+      ? `${TURNSTILE_SCRIPT_SRC}&retry=${Date.now() % 100000}`
+      : TURNSTILE_SCRIPT_SRC;
     s.async = true;
     s.defer = true;
+    try {
+      (s as unknown as { fetchPriority?: string }).fetchPriority = 'high';
+    } catch {
+      // Older browsers without fetchPriority support
+    }
     s.onload = () => {
       s.setAttribute('data-loaded', '1');
       scriptLoadCallbacks.forEach((cb) => {
@@ -91,6 +112,13 @@ export function ensureTurnstileScriptLoaded(forceReload = false): void {
     };
     s.onerror = () => {
       s.setAttribute('data-failed', '1');
+      scriptErrorCallbacks.forEach((cb) => {
+        try {
+          cb();
+        } catch {
+          // Ignore callback error
+        }
+      });
     };
     document.head.appendChild(s);
   } catch {
@@ -103,6 +131,7 @@ interface SessionInitOutcome {
   status: number;
   nonce: string | null;
   retry: boolean;
+  aborted: boolean;
   startedAtMs: number;
   completedAtMs: number;
 }
@@ -112,31 +141,74 @@ const preflightSessionCache = new Map<
   { promise: Promise<SessionInitOutcome>; startedAtMs: number }
 >();
 
-async function fetchSessionInitOnce(safeAppId: string): Promise<SessionInitOutcome> {
+async function fetchSessionInitOnce(
+  safeAppId: string,
+  externalSignal?: AbortSignal
+): Promise<SessionInitOutcome> {
   const startedAtMs = Date.now();
   const controller = new AbortController();
+  let abortedByCaller = false;
+
+  const onExternalAbort = () => {
+    abortedByCaller = true;
+    controller.abort();
+  };
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      return {
+        ok: false,
+        status: 0,
+        nonce: null,
+        retry: false,
+        aborted: true,
+        startedAtMs,
+        completedAtMs: Date.now(),
+      };
+    }
+    externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+  }
+
   const timer = setTimeout(() => controller.abort(), SESSION_INIT_TIMEOUT_MS);
   try {
-    const res = await fetch('/api/v1/app/session-init', {
+    const reqInit: RequestInit & { priority?: string } = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify({ appId: safeAppId }),
       signal: controller.signal,
-    });
+      priority: 'high',
+    };
+    const res = await fetch('/api/v1/app/session-init', reqInit);
     const completedAtMs = Date.now();
     if (res.status === 404) {
-      return { ok: false, status: 404, nonce: null, retry: false, startedAtMs, completedAtMs };
+      return {
+        ok: false,
+        status: 404,
+        nonce: null,
+        retry: false,
+        aborted: false,
+        startedAtMs,
+        completedAtMs,
+      };
     }
     const data = await res.json().catch(() => null);
     if (!res.ok || !data || data.status === 'retry' || typeof data.nonce !== 'string') {
-      return { ok: false, status: res.status, nonce: null, retry: true, startedAtMs, completedAtMs };
+      return {
+        ok: false,
+        status: res.status,
+        nonce: null,
+        retry: true,
+        aborted: false,
+        startedAtMs,
+        completedAtMs,
+      };
     }
     return {
       ok: true,
       status: res.status,
       nonce: data.nonce.trim(),
       retry: false,
+      aborted: false,
       startedAtMs,
       completedAtMs,
     };
@@ -145,12 +217,16 @@ async function fetchSessionInitOnce(safeAppId: string): Promise<SessionInitOutco
       ok: false,
       status: 0,
       nonce: null,
-      retry: true,
+      retry: !abortedByCaller,
+      aborted: abortedByCaller,
       startedAtMs,
       completedAtMs: Date.now(),
     };
   } finally {
     clearTimeout(timer);
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort);
+    }
   }
 }
 
@@ -192,9 +268,18 @@ function isRealTurnstileKey(k: string): boolean {
   return true;
 }
 
+const KEY_OR_DOMAIN_ERROR_CODES = new Set(['110100', '110110', '110200', '400020']);
+
+function getProgressiveBackoffMs(attempt: number): number {
+  const schedule = [300, 800, 1600, 2500];
+  const base = schedule[Math.min(Math.max(0, attempt - 1), schedule.length - 1)];
+  return base + Math.floor(Math.random() * 120);
+}
+
 export function useTurnstileVerification({
   appId,
   adminTurnstileSiteKey,
+  isDispatchingRef,
 }: UseTurnstileVerificationOptions) {
   const [isReady, setIsReady] = useState(false);
   const [isBotBlocked, setIsBotBlocked] = useState(false);
@@ -209,14 +294,28 @@ export function useTurnstileVerification({
   const retryCountRef = useRef<number>(0);
   const keyIndexRef = useRef<number>(0);
   const wasHiddenRef = useRef<boolean>(false);
+  const isInteractiveRef = useRef<boolean>(false);
+  const uiTimeoutExceededRef = useRef<boolean>(false);
+  const isBotBlockedRef = useRef<boolean>(false);
+  uiTimeoutExceededRef.current = uiTimeoutExceeded;
+  isBotBlockedRef.current = isBotBlocked;
 
   const adminSiteKeyRef = useRef<string | undefined>(adminTurnstileSiteKey);
   adminSiteKeyRef.current = adminTurnstileSiteKey;
+  const prevAdminSiteKeyRef = useRef<string | undefined>(adminTurnstileSiteKey);
+
+  // Monotonic generation ID + active abort/script-callback handles to prevent overlapping flow races
+  const runIdRef = useRef<number>(0);
+  const activeAbortRef = useRef<AbortController | null>(null);
+  const activeScriptLoadCbRef = useRef<(() => void) | null>(null);
+  const activeScriptErrorCbRef = useRef<(() => void) | null>(null);
 
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uiTimeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const widgetStallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scriptWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef<boolean>(false);
 
   const clearTimers = useCallback(() => {
@@ -232,13 +331,44 @@ export function useTurnstileVerification({
       clearTimeout(uiTimeoutTimerRef.current);
       uiTimeoutTimerRef.current = null;
     }
+    if (widgetStallTimerRef.current) {
+      clearTimeout(widgetStallTimerRef.current);
+      widgetStallTimerRef.current = null;
+    }
     if (scriptWaitTimerRef.current) {
       clearTimeout(scriptWaitTimerRef.current);
       scriptWaitTimerRef.current = null;
     }
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  }, []);
+
+  const detachScriptCallbacks = useCallback(() => {
+    if (activeScriptLoadCbRef.current) {
+      scriptLoadCallbacks.delete(activeScriptLoadCbRef.current);
+      activeScriptLoadCbRef.current = null;
+    }
+    if (activeScriptErrorCbRef.current) {
+      scriptErrorCallbacks.delete(activeScriptErrorCbRef.current);
+      activeScriptErrorCbRef.current = null;
+    }
+  }, []);
+
+  const abortInFlightInit = useCallback(() => {
+    if (activeAbortRef.current) {
+      try {
+        activeAbortRef.current.abort();
+      } catch {
+        // Ignore abort errors
+      }
+      activeAbortRef.current = null;
+    }
   }, []);
 
   const removeWidget = useCallback(() => {
+    isInteractiveRef.current = false;
     if (widgetIdRef.current && window.turnstile) {
       try {
         window.turnstile.remove(widgetIdRef.current);
@@ -283,8 +413,8 @@ export function useTurnstileVerification({
     return candidates;
   }, []);
 
-  const markTokenReady = useCallback(() => {
-    if (unmountedRef.current) return;
+  const markTokenReady = useCallback((expectedRunId: number) => {
+    if (unmountedRef.current || expectedRunId !== runIdRef.current) return;
     if (!cfTokenRef.current || !nonceRef.current) {
       setIsReady(false);
       return;
@@ -293,6 +423,11 @@ export function useTurnstileVerification({
       clearTimeout(uiTimeoutTimerRef.current);
       uiTimeoutTimerRef.current = null;
     }
+    if (widgetStallTimerRef.current) {
+      clearTimeout(widgetStallTimerRef.current);
+      widgetStallTimerRef.current = null;
+    }
+    isInteractiveRef.current = false;
     setUiTimeoutExceeded(false);
 
     // Use client-monotonic midpoint of session-init RTT to prevent mobile carrier NITZ clock-skew delays
@@ -305,7 +440,12 @@ export function useTurnstileVerification({
       setIsReady(true);
     } else {
       holdTimerRef.current = setTimeout(() => {
-        if (!unmountedRef.current && cfTokenRef.current && nonceRef.current) {
+        if (
+          !unmountedRef.current &&
+          expectedRunId === runIdRef.current &&
+          cfTokenRef.current &&
+          nonceRef.current
+        ) {
           setIsReady(true);
         }
       }, remainingHold);
@@ -313,22 +453,41 @@ export function useTurnstileVerification({
   }, []);
 
   const startSessionFlow = useCallback(
-    async (isSilentRetry = false) => {
+    async (isSilentRetry = false, forceScriptReload = false) => {
       if (unmountedRef.current || !appId) return;
 
-      ensureTurnstileScriptLoaded(false);
+      // Increment generation ID so any prior overlapping run immediately yields
+      const myRunId = ++runIdRef.current;
+      const isStale = () => unmountedRef.current || myRunId !== runIdRef.current;
+
+      abortInFlightInit();
+      detachScriptCallbacks();
       clearTimers();
       removeWidget();
+      ensureTurnstileScriptLoaded(forceScriptReload);
+
       cfTokenRef.current = null;
       nonceRef.current = null;
       setIsReady(false);
-      // Always clear any prior timeout state when starting/retrying verification so an active
-      // Turnstile widget never renders alongside a stale "Verification could not be completed" box
+      // Always clear any prior timeout state when starting/retrying verification
       setUiTimeoutExceeded(false);
 
-      // UI Timeout guard (§5.5: only fires if Turnstile script/widget fails to mount or solve within window)
+      const abortController = new AbortController();
+      activeAbortRef.current = abortController;
+
+      const scheduleSafeRetry = (delayMs: number, reloadScript = false) => {
+        if (isStale()) return;
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => {
+          if (!isStale()) {
+            void startSessionFlow(true, reloadScript);
+          }
+        }, delayMs);
+      };
+
+      // UI Timeout guard (§5.5: guards script load & session-init before widget mounts)
       uiTimeoutTimerRef.current = setTimeout(() => {
-        if (!unmountedRef.current && !cfTokenRef.current && !widgetIdRef.current) {
+        if (!isStale() && !cfTokenRef.current && !widgetIdRef.current) {
           setUiTimeoutExceeded(true);
         }
       }, TURNSTILE_UI_TIMEOUT_MS);
@@ -351,14 +510,14 @@ export function useTurnstileVerification({
           sessionInitPromise = cachedPreflight.promise;
         } else {
           preflightSessionCache.delete(safeAppId);
-          sessionInitPromise = fetchSessionInitOnce(safeAppId);
+          sessionInitPromise = fetchSessionInitOnce(safeAppId, abortController.signal);
         }
 
         initResponseTimeRef.current = Date.now();
 
-        // 1 & 2. Run frozen hardware probe (§5.3) and server nonce request (§5.4) concurrently to save 1 full step on slow mobile networks
+        // 1 & 2. Run frozen hardware probe (§5.3) and server nonce request (§5.4) concurrently
         let [env, initOutcome] = await Promise.all([collectEnv(), sessionInitPromise]);
-        if (unmountedRef.current) return;
+        if (isStale()) return;
         envRef.current = env;
 
         if (env.gate.failed) {
@@ -367,11 +526,13 @@ export function useTurnstileVerification({
           return;
         }
 
-        // If a pre-warmed request failed due to a transient network blip during navigation, transparently re-try once right away
-        if (!initOutcome.ok && initOutcome.status !== 404 && cachedPreflight) {
-          initOutcome = await fetchSessionInitOnce(safeAppId);
-          if (unmountedRef.current) return;
+        // If a pre-warmed request failed due to a transient blip during navigation, transparently retry once right away
+        if (!initOutcome.ok && !initOutcome.aborted && initOutcome.status !== 404 && cachedPreflight) {
+          initOutcome = await fetchSessionInitOnce(safeAppId, abortController.signal);
+          if (isStale()) return;
         }
+
+        if (initOutcome.aborted) return;
 
         // Record client-monotonic midpoint of the session-init round-trip for clock-skew-proof dwell accounting
         initResponseTimeRef.current = Math.round(
@@ -382,9 +543,7 @@ export function useTurnstileVerification({
           clearTimers();
           if (retryCountRef.current < SESSION_RETRY_MAX) {
             retryCountRef.current += 1;
-            setTimeout(() => {
-              if (!unmountedRef.current) void startSessionFlow(true);
-            }, 350);
+            scheduleSafeRetry(getProgressiveBackoffMs(retryCountRef.current));
             return;
           }
           const hasTouch =
@@ -401,9 +560,7 @@ export function useTurnstileVerification({
         if (!initOutcome.ok || !initOutcome.nonce) {
           if (retryCountRef.current < SESSION_RETRY_MAX) {
             retryCountRef.current += 1;
-            setTimeout(() => {
-              if (!unmountedRef.current) void startSessionFlow(true);
-            }, 350);
+            scheduleSafeRetry(getProgressiveBackoffMs(retryCountRef.current));
           } else {
             clearTimers();
             setUiTimeoutExceeded(true);
@@ -422,33 +579,68 @@ export function useTurnstileVerification({
         nonceRef.current = nonce;
 
         // Schedule proactive silent refresh at NONCE_REFRESH_MS (90s) for idle tabs (§5.5)
-        refreshTimerRef.current = setTimeout(() => {
-          if (
-            !unmountedRef.current &&
-            typeof document !== 'undefined' &&
-            document.visibilityState === 'visible'
-          ) {
+        // Defers cleanly if a human is actively interacting with a challenge or dispatching clearance
+        const scheduleIdleRefresh = (delayMs: number) => {
+          if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+          refreshTimerRef.current = setTimeout(() => {
+            if (isStale()) return;
+            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+            if (isDispatchingRef?.current || isInteractiveRef.current) {
+              scheduleIdleRefresh(15000);
+              return;
+            }
             retryCountRef.current = 0;
             void startSessionFlow(true);
-          }
-        }, NONCE_REFRESH_MS);
+          }, delayMs);
+        };
+        scheduleIdleRefresh(NONCE_REFRESH_MS);
 
-        const scriptWaitStartMs = Date.now();
-        let didForceScriptReload = false;
+        let scriptAttemptStartMs = Date.now();
+        let scriptReloadAttempts = 0;
+        let localWidgetRetries = 0;
+
+        const armWidgetStallWatchdog = (delayMs: number) => {
+          if (widgetStallTimerRef.current) clearTimeout(widgetStallTimerRef.current);
+          widgetStallTimerRef.current = setTimeout(() => {
+            if (isStale() || cfTokenRef.current) return;
+            // Never interrupt a real user actively solving an interactive checkbox/challenge
+            if (isInteractiveRef.current) {
+              armWidgetStallWatchdog(15000);
+              return;
+            }
+            if (retryCountRef.current < SESSION_RETRY_MAX) {
+              retryCountRef.current += 1;
+              void startSessionFlow(true, !window.turnstile);
+            } else {
+              removeWidget();
+              setUiTimeoutExceeded(true);
+            }
+          }, delayMs);
+        };
 
         // 3. Render Turnstile with hardware commitment cData = `${appId}_${nid}_${hw}` (§5.5)
         const renderTurnstileWidget = () => {
-          if (unmountedRef.current) return;
+          if (isStale()) return;
           if (!window.turnstile || !widgetRef.current) {
-            // If Turnstile script stalled for > 7.5s on a weak 2G/3G connection, re-inject script once
-            if (!window.turnstile && !didForceScriptReload && Date.now() - scriptWaitStartMs > 7500) {
-              didForceScriptReload = true;
+            // If Turnstile script stalled for > TURNSTILE_SCRIPT_STALL_MS (4.5s), re-inject script proactively (up to 2 stall reloads)
+            if (
+              !window.turnstile &&
+              scriptReloadAttempts < 2 &&
+              Date.now() - scriptAttemptStartMs > TURNSTILE_SCRIPT_STALL_MS
+            ) {
+              scriptReloadAttempts += 1;
+              scriptAttemptStartMs = Date.now();
               ensureTurnstileScriptLoaded(true);
             }
-            scriptWaitTimerRef.current = setTimeout(renderTurnstileWidget, 40);
+            scriptWaitTimerRef.current = setTimeout(renderTurnstileWidget, 50);
             return;
           }
-          scriptLoadCallbacks.delete(renderTurnstileWidget);
+
+          detachScriptCallbacks();
+          if (scriptWaitTimerRef.current) {
+            clearTimeout(scriptWaitTimerRef.current);
+            scriptWaitTimerRef.current = null;
+          }
 
           removeWidget();
 
@@ -461,20 +653,37 @@ export function useTurnstileVerification({
           const idx = Math.min(keyIndexRef.current, currentCandidates.length - 1);
           const sitekey = currentCandidates[idx];
 
-          const onWidgetError = () => {
-            if (unmountedRef.current) return;
+          const onWidgetError = (errorCode?: string | number) => {
+            if (isStale()) return;
             cfTokenRef.current = null;
             widgetIdRef.current = null;
+            isInteractiveRef.current = false;
             setIsReady(false);
-            // If another candidate key in the cascade is available (e.g., env key or non-prod fallback), try it immediately
-            if (keyIndexRef.current + 1 < currentCandidates.length) {
+
+            const codeStr = String(errorCode ?? '').trim();
+            const isKeyOrDomainErr = KEY_OR_DOMAIN_ERROR_CODES.has(codeStr);
+
+            // Rotate sitekey ONLY on key/domain errors (reusing the still-valid nonce with 0 extra RTT!)
+            if (isKeyOrDomainErr && keyIndexRef.current + 1 < currentCandidates.length) {
               keyIndexRef.current += 1;
               renderTurnstileWidget();
               return;
             }
+
+            // On transient network/challenge error while nonce is still fresh (<60s), re-render directly without wasting a session-init RTT
+            const nonceAgeMs = Date.now() - initResponseTimeRef.current;
+            if (nonceRef.current && nonceAgeMs < 60000 && localWidgetRetries < 2) {
+              localWidgetRetries += 1;
+              if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+              retryTimerRef.current = setTimeout(() => {
+                if (!isStale()) renderTurnstileWidget();
+              }, 450 * localWidgetRetries);
+              return;
+            }
+
             if (retryCountRef.current < SESSION_RETRY_MAX) {
               retryCountRef.current += 1;
-              void startSessionFlow(true);
+              scheduleSafeRetry(getProgressiveBackoffMs(retryCountRef.current));
             } else {
               removeWidget();
               setUiTimeoutExceeded(true);
@@ -482,13 +691,14 @@ export function useTurnstileVerification({
           };
 
           const softReinit = () => {
-            if (unmountedRef.current) return;
+            if (isStale()) return;
             cfTokenRef.current = null;
             widgetIdRef.current = null;
+            isInteractiveRef.current = false;
             setIsReady(false);
             if (retryCountRef.current < SESSION_RETRY_MAX) {
               retryCountRef.current += 1;
-              void startSessionFlow(true);
+              scheduleSafeRetry(300);
             } else {
               removeWidget();
               setUiTimeoutExceeded(true);
@@ -507,33 +717,66 @@ export function useTurnstileVerification({
               appearance: 'always',
               size: 'flexible',
               theme: 'auto',
+              retry: 'auto',
+              'retry-interval': TURNSTILE_RETRY_INTERVAL_MS,
+              'refresh-expired': 'auto',
+              'refresh-timeout': 'auto',
+              'before-interactive-callback': () => {
+                if (!isStale()) isInteractiveRef.current = true;
+              },
+              'after-interactive-callback': () => {
+                if (!isStale()) isInteractiveRef.current = false;
+              },
               callback: (t: string) => {
-                if (unmountedRef.current) return;
+                if (isStale()) return;
                 cfTokenRef.current = t;
                 retryCountRef.current = 0;
-                markTokenReady();
+                localWidgetRetries = 0;
+                markTokenReady(myRunId);
               },
               'error-callback': onWidgetError,
               'expired-callback': softReinit,
               'timeout-callback': softReinit,
             });
             widgetIdRef.current = id;
+            armWidgetStallWatchdog(TURNSTILE_WIDGET_STALL_MS);
           } catch {
             onWidgetError();
           }
         };
 
+        // React immediately to script load OR network error (eliminates 7.5s dead-silence wait on script failure!)
+        const onScriptError = () => {
+          if (isStale() || window.turnstile) return;
+          if (scriptReloadAttempts < 3) {
+            scriptReloadAttempts += 1;
+            const backoffMs = scriptReloadAttempts === 1 ? 600 : scriptReloadAttempts === 2 ? 1500 : 3000;
+            if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+            retryTimerRef.current = setTimeout(() => {
+              if (!isStale() && !window.turnstile) {
+                scriptAttemptStartMs = Date.now();
+                ensureTurnstileScriptLoaded(true);
+              }
+            }, backoffMs);
+          } else {
+            detachScriptCallbacks();
+            clearTimers();
+            setUiTimeoutExceeded(true);
+          }
+        };
+
         if (!window.turnstile) {
+          activeScriptLoadCbRef.current = renderTurnstileWidget;
+          activeScriptErrorCbRef.current = onScriptError;
           scriptLoadCallbacks.add(renderTurnstileWidget);
+          scriptErrorCallbacks.add(onScriptError);
         }
         renderTurnstileWidget();
       } catch {
-        if (!unmountedRef.current) {
+        if (!isStale()) {
           if (retryCountRef.current < SESSION_RETRY_MAX) {
             retryCountRef.current += 1;
-            setTimeout(() => {
-              if (!unmountedRef.current) void startSessionFlow(true);
-            }, 350);
+            scheduleSafeRetry(getProgressiveBackoffMs(retryCountRef.current));
           } else {
             clearTimers();
             setUiTimeoutExceeded(true);
@@ -541,13 +784,26 @@ export function useTurnstileVerification({
         }
       }
     },
-    [appId, clearTimers, markTokenReady, removeWidget, resolveCandidateSiteKeys]
+    [
+      abortInFlightInit,
+      appId,
+      clearTimers,
+      detachScriptCallbacks,
+      isDispatchingRef,
+      markTokenReady,
+      removeWidget,
+      resolveCandidateSiteKeys,
+    ]
   );
 
-  // If adminTurnstileSiteKey hydrates asynchronously while no token/widget is active, restart automatically
+  // Only restart if adminTurnstileSiteKey ACTUALLY changes after initial mount to a different real key
+  // (Prevents the duplicate concurrent mount race that previously aborted preflightSessionCache)
   useEffect(() => {
+    const prevKey = prevAdminSiteKeyRef.current;
+    prevAdminSiteKeyRef.current = adminTurnstileSiteKey;
     if (
       adminTurnstileSiteKey &&
+      adminTurnstileSiteKey !== prevKey &&
       isRealTurnstileKey(adminTurnstileSiteKey) &&
       !cfTokenRef.current &&
       !widgetIdRef.current
@@ -558,7 +814,7 @@ export function useTurnstileVerification({
     }
   }, [adminTurnstileSiteKey, startSessionFlow]);
 
-  // Initial mount + visibilitychange (hidden -> visible) & pageshow (persisted) re-verification (§5.9)
+  // Initial mount + visibilitychange (hidden -> visible), pageshow (persisted), and online auto-recovery (§5.9)
   useEffect(() => {
     unmountedRef.current = false;
     retryCountRef.current = 0;
@@ -571,11 +827,35 @@ export function useTurnstileVerification({
         wasHiddenRef.current = true;
       } else if (document.visibilityState === 'visible' && wasHiddenRef.current) {
         wasHiddenRef.current = false;
-        const tokenAgeMs = Date.now() - initResponseTimeRef.current;
-        if (!cfTokenRef.current || !nonceRef.current || tokenAgeMs > 60000) {
-          retryCountRef.current = 0;
-          void startSessionFlow(true);
+        if (isDispatchingRef?.current || isInteractiveRef.current || isBotBlockedRef.current) {
+          return;
         }
+        const tokenAgeMs = Date.now() - initResponseTimeRef.current;
+        const needsRecovery =
+          uiTimeoutExceededRef.current ||
+          !nonceRef.current ||
+          (!cfTokenRef.current && !widgetIdRef.current) ||
+          tokenAgeMs > 60000;
+        if (needsRecovery) {
+          retryCountRef.current = 0;
+          void startSessionFlow(true, !window.turnstile);
+        }
+      }
+    };
+
+    const onOnline = () => {
+      if (
+        unmountedRef.current ||
+        isBotBlockedRef.current ||
+        isDispatchingRef?.current ||
+        cfTokenRef.current
+      ) {
+        return;
+      }
+      // Mobile device just regained cellular/Wi-Fi signal — recover immediately instead of staying stalled
+      if (uiTimeoutExceededRef.current || !window.turnstile || !nonceRef.current) {
+        retryCountRef.current = 0;
+        void startSessionFlow(true, !window.turnstile);
       }
     };
 
@@ -597,20 +877,32 @@ export function useTurnstileVerification({
     };
 
     document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', onOnline);
     window.addEventListener('pageshow', onPageShow);
     window.addEventListener('pointerdown', onGlobalPointerDown, { passive: true });
 
     return () => {
       unmountedRef.current = true;
+      runIdRef.current += 1;
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('online', onOnline);
       window.removeEventListener('pageshow', onPageShow);
       window.removeEventListener('pointerdown', onGlobalPointerDown);
+      abortInFlightInit();
+      detachScriptCallbacks();
       clearTimers();
       removeWidget();
       cfTokenRef.current = null;
       nonceRef.current = null;
     };
-  }, [clearTimers, removeWidget, startSessionFlow]);
+  }, [
+    abortInFlightInit,
+    clearTimers,
+    detachScriptCallbacks,
+    isDispatchingRef,
+    removeWidget,
+    startSessionFlow,
+  ]);
 
   const restartVerification = useCallback(
     (manualReset = false) => {
@@ -618,18 +910,22 @@ export function useTurnstileVerification({
         retryCountRef.current = 0;
         keyIndexRef.current = 0;
       }
-      void startSessionFlow(!manualReset);
+      const needsScriptReload = manualReset && !window.turnstile;
+      void startSessionFlow(!manualReset, needsScriptReload);
     },
     [startSessionFlow]
   );
 
   const wipeSessionSecrets = useCallback(() => {
+    runIdRef.current += 1;
+    abortInFlightInit();
+    detachScriptCallbacks();
     clearTimers();
     removeWidget();
     cfTokenRef.current = null;
     nonceRef.current = null;
     setIsReady(false);
-  }, [clearTimers, removeWidget]);
+  }, [abortInFlightInit, clearTimers, detachScriptCallbacks, removeWidget]);
 
   return {
     isReady,

@@ -240,15 +240,20 @@ export function collectEnv(): Promise<FrozenEnvProbe> {
     const n = (typeof navigator !== 'undefined' ? navigator : {}) as Record<string, any>;
     const hi =
       n.userAgentData && typeof n.userAgentData.getHighEntropyValues === 'function'
-        ? await n.userAgentData
-            .getHighEntropyValues(['platform', 'architecture', 'model'])
-            .catch(() => null)
+        ? await Promise.race([
+            n.userAgentData
+              .getHighEntropyValues(['platform', 'architecture', 'model'])
+              .catch(() => null),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 400)),
+          ])
         : null;
 
     let gl: WebGLRenderingContext | null = null;
     try {
       if (typeof document !== 'undefined') {
         const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
         gl =
           (canvas.getContext('webgl') as WebGLRenderingContext | null) ||
           (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null);

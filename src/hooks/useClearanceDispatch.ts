@@ -30,6 +30,7 @@ export interface UseClearanceDispatchOptions {
   cfTokenRef: MutableRefObject<string | null>;
   nonceRef: MutableRefObject<string | null>;
   envRef: MutableRefObject<FrozenEnvProbe | null>;
+  isDispatchingRef?: MutableRefObject<boolean>;
   setIsBotBlocked: (blocked: boolean) => void;
   restartVerification: (manualReset?: boolean) => void;
   wipeSessionSecrets: () => void;
@@ -51,6 +52,7 @@ export function useClearanceDispatch({
   cfTokenRef,
   nonceRef,
   envRef,
+  isDispatchingRef,
   setIsBotBlocked,
   restartVerification,
   wipeSessionSecrets,
@@ -61,8 +63,20 @@ export function useClearanceDispatch({
   const [buttonElement, setButtonElement] = useState<HTMLButtonElement | null>(null);
 
   const inFlightRef = useRef(false);
+  const activeAbortRef = useRef<AbortController | null>(null);
   const isReadyRef = useRef(isReady);
   isReadyRef.current = isReady;
+
+  const setFlightState = useCallback(
+    (active: boolean) => {
+      inFlightRef.current = active;
+      if (isDispatchingRef) {
+        isDispatchingRef.current = active;
+      }
+      setIsDispatching(active);
+    },
+    [isDispatchingRef]
+  );
 
   const clickTimestampsRef = useRef<number[]>([]);
   const clearanceRetriesRef = useRef(0);
@@ -179,8 +193,7 @@ export function useClearanceDispatch({
         return;
       }
 
-      inFlightRef.current = true;
-      setIsDispatching(true);
+      setFlightState(true);
       setNeedsManualRetry(false);
 
       const safeAppId = appId.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 64);
@@ -228,22 +241,27 @@ export function useClearanceDispatch({
       const encodedToken = utf8ToBase64Url(JSON.stringify(tokenObj));
 
       const controller = new AbortController();
+      activeAbortRef.current = controller;
       const timeoutId = setTimeout(() => controller.abort(), CLEARANCE_FETCH_TIMEOUT_MS);
 
       try {
-        const res = await fetch('/api/v1/app/session-clearance', {
+        const reqInit: RequestInit & { priority?: string } = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
           body: JSON.stringify({ token: encodedToken, cf }),
           signal: controller.signal,
-        });
+          priority: 'high',
+        };
+        const res = await fetch('/api/v1/app/session-clearance', reqInit);
 
         clearTimeout(timeoutId);
+        if (activeAbortRef.current === controller) {
+          activeAbortRef.current = null;
+        }
 
         if (res.status === 404) {
-          inFlightRef.current = false;
-          setIsDispatching(false);
+          setFlightState(false);
           resetTapBuffer();
           // If this is a real touch device without webdriver/headless flags, allow clean re-verification
           // instead of trapping the user on a permanent 404 screen
@@ -273,15 +291,13 @@ export function useClearanceDispatch({
           window.location.replace(destinationUrl);
           destinationUrl = null;
           setTimeout(() => {
-            inFlightRef.current = false;
-            setIsDispatching(false);
+            setFlightState(false);
           }, 1500);
           return;
         }
 
         if (data?.status === 'unavailable') {
-          inFlightRef.current = false;
-          setIsDispatching(false);
+          setFlightState(false);
           wipeSessionSecrets();
           setUnavailableMessage(
             typeof data.message === 'string' && data.message
@@ -292,8 +308,7 @@ export function useClearanceDispatch({
         }
 
         // SOFT retry handling (§5.9)
-        inFlightRef.current = false;
-        setIsDispatching(false);
+        setFlightState(false);
         resetTapBuffer();
 
         if (data?.reload === 1) {
@@ -317,8 +332,10 @@ export function useClearanceDispatch({
         }
       } catch {
         clearTimeout(timeoutId);
-        inFlightRef.current = false;
-        setIsDispatching(false);
+        if (activeAbortRef.current === controller) {
+          activeAbortRef.current = null;
+        }
+        setFlightState(false);
         resetTapBuffer();
 
         if (clearanceRetriesRef.current < SESSION_RETRY_MAX) {
@@ -338,6 +355,7 @@ export function useClearanceDispatch({
       nv,
       resetTapBuffer,
       restartVerification,
+      setFlightState,
       setIsBotBlocked,
       wipeSessionSecrets,
     ]
@@ -458,12 +476,37 @@ export function useClearanceDispatch({
     };
   }, [buttonElement, executeClearance, resetTapBuffer]);
 
+  useEffect(() => {
+    return () => {
+      if (activeAbortRef.current) {
+        try {
+          activeAbortRef.current.abort();
+        } catch {
+          // Ignore abort errors
+        }
+        activeAbortRef.current = null;
+      }
+      if (isDispatchingRef) {
+        isDispatchingRef.current = false;
+      }
+    };
+  }, [isDispatchingRef]);
+
   const handleManualRetry = useCallback(() => {
+    if (activeAbortRef.current) {
+      try {
+        activeAbortRef.current.abort();
+      } catch {
+        // Ignore abort errors
+      }
+      activeAbortRef.current = null;
+    }
+    setFlightState(false);
     clearanceRetriesRef.current = 0;
     setNeedsManualRetry(false);
     resetTapBuffer();
     restartVerification(true);
-  }, [resetTapBuffer, restartVerification]);
+  }, [resetTapBuffer, restartVerification, setFlightState]);
 
   return {
     setButtonRef,

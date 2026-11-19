@@ -351,7 +351,7 @@ function emitGateCounter(
   void runRedisPipeline(
     [
       ['INCRBY', key, inc],
-      ['EXPIRE', key, ttlS, 'NX'],
+      ['EXPIRE', key, ttlS],
     ],
     env
   );
@@ -800,18 +800,11 @@ async function recordSoftStrike(
   }
 }
 
-async function getSignalModes(
-  env: Record<string, string | undefined>
-): Promise<Record<string, SignalMode>> {
-  const now = Date.now();
-  if (cachedSignalModes && now < cachedSignalModes.expiresAt) {
-    return cachedSignalModes.modes;
-  }
+function parseAndCacheSignalModes(raw: unknown): Record<string, SignalMode> {
   const modes = { ...DEFAULT_SIGNAL_MODES };
-  const pipe = await runRedisPipeline([['GET', 'cfg:signal_modes']], env);
-  if (pipe.ok && typeof pipe.results[0] === 'string' && pipe.results[0]) {
+  if (typeof raw === 'string' && raw) {
     try {
-      const parsed = JSON.parse(pipe.results[0]);
+      const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
         for (const [k, v] of Object.entries(parsed)) {
           if (v === 'enforce' || v === 'shadow') {
@@ -823,8 +816,19 @@ async function getSignalModes(
       // Keep default signal modes
     }
   }
-  cachedSignalModes = { modes, expiresAt: now + 30000 };
+  cachedSignalModes = { modes, expiresAt: Date.now() + 30000 };
   return modes;
+}
+
+async function getSignalModes(
+  env: Record<string, string | undefined>
+): Promise<Record<string, SignalMode>> {
+  const now = Date.now();
+  if (cachedSignalModes && now < cachedSignalModes.expiresAt) {
+    return cachedSignalModes.modes;
+  }
+  const pipe = await runRedisPipeline([['GET', 'cfg:signal_modes']], env);
+  return parseAndCacheSignalModes(pipe.ok ? pipe.results[0] : null);
 }
 
 // ============================================================================
@@ -991,6 +995,8 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     }
   }
 
+  const needSignalModesRefresh = !cachedSignalModes || Date.now() >= cachedSignalModes.expiresAt;
+
   if (did) {
     const memExp = isolateQuarantineCache.get(did);
     if (memExp && Date.now() < memExp && !isMobileFamily) {
@@ -998,20 +1004,25 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       return hard404Response();
     }
 
-    const g2Pipe = await runRedisPipeline(
-      [
-        ['GET', `quarantine:${did}`],
-        ['GET', `softcool:did:${did}`],
-        ['INCR', `burst2s:did:${did}`],
-        ['PEXPIRE', `burst2s:did:${did}`, CLEARANCE_BURST.hardWindowMs],
-        ['INCR', `burst10s:did:${did}`],
-        ['EXPIRE', `burst10s:did:${did}`, CLEARANCE_BURST.softWindowS],
-      ],
-      ctx.env
-    );
+    const g2Cmds: (string | number)[][] = [
+      ['GET', `quarantine:${did}`],
+      ['GET', `softcool:did:${did}`],
+      ['INCR', `burst2s:did:${did}`],
+      ['PEXPIRE', `burst2s:did:${did}`, CLEARANCE_BURST.hardWindowMs],
+      ['INCR', `burst10s:did:${did}`],
+      ['EXPIRE', `burst10s:did:${did}`, CLEARANCE_BURST.softWindowS],
+    ];
+    if (needSignalModesRefresh) {
+      g2Cmds.push(['GET', 'cfg:signal_modes']);
+    }
+
+    const g2Pipe = await runRedisPipeline(g2Cmds, ctx.env);
     if (!g2Pipe.ok) {
       emitGateCounter(ctx.env, 'G2', 'redis_error', 'fail', family);
       return softRetryResponse({ setCookie: setCookieHeader });
+    }
+    if (needSignalModesRefresh) {
+      parseAndCacheSignalModes(g2Pipe.results[6]);
     }
     const [isQuarantined, isSoftCool, burst2s, , burst10s] = g2Pipe.results;
     if (isQuarantined && !isMobileFamily) {
@@ -1034,19 +1045,24 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     }
   } else {
     // Cookie-less client: governed by net burst ceiling (never block shared mobile CGNAT via netcool)
-    const g2Pipe = await runRedisPipeline(
-      [
-        ['GET', `netcool:${netKey}`],
-        ['INCR', `burst2s:net:${netKey}`],
-        ['PEXPIRE', `burst2s:net:${netKey}`, CLEARANCE_BURST.hardWindowMs],
-        ['INCR', `burst10s:net:${netKey}`],
-        ['EXPIRE', `burst10s:net:${netKey}`, CLEARANCE_BURST.softWindowS],
-      ],
-      ctx.env
-    );
+    const g2Cmds: (string | number)[][] = [
+      ['GET', `netcool:${netKey}`],
+      ['INCR', `burst2s:net:${netKey}`],
+      ['PEXPIRE', `burst2s:net:${netKey}`, CLEARANCE_BURST.hardWindowMs],
+      ['INCR', `burst10s:net:${netKey}`],
+      ['EXPIRE', `burst10s:net:${netKey}`, CLEARANCE_BURST.softWindowS],
+    ];
+    if (needSignalModesRefresh) {
+      g2Cmds.push(['GET', 'cfg:signal_modes']);
+    }
+
+    const g2Pipe = await runRedisPipeline(g2Cmds, ctx.env);
     if (!g2Pipe.ok) {
       emitGateCounter(ctx.env, 'G2', 'redis_error', 'fail', family);
       return softRetryResponse();
+    }
+    if (needSignalModesRefresh) {
+      parseAndCacheSignalModes(g2Pipe.results[5]);
     }
     const [isNetCool, burst2s, , burst10s] = g2Pipe.results;
     if (isNetCool && !isMobileFamily) {
@@ -1440,10 +1456,17 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   // Gate G6 — Nonce Burn FIRST, Then Turnstile siteverify
   // --------------------------------------------------------------------------
   // 1. Burn nonce in Upstash Redis: SET nonce:<nid> 1 EX 150 NX
-  const burnPipe = await runRedisPipeline(
-    [['SET', `nonce:${nid}`, '1', 'EX', NONCE_BURN_TTL_S, 'NX']],
-    ctx.env
-  );
+  // Piggyback G7 read-only pause/cap checks onto the same pipeline to eliminate an extra Redis RTT.
+  const dateStamp = getUtcDateStamp();
+  const dailyCap = Number(ctx.env.APP_DAILY_ISSUE_CAP ?? APP_DAILY_ISSUE_CAP_DEFAULT);
+  const g6BurnCmds: (string | number)[][] = [
+    ['SET', `nonce:${nid}`, '1', 'EX', NONCE_BURN_TTL_S, 'NX'],
+    ['GET', `paused:${appId}`],
+  ];
+  if (dailyCap > 0) {
+    g6BurnCmds.push(['GET', `issued:${appId}:${dateStamp}`]);
+  }
+  const burnPipe = await runRedisPipeline(g6BurnCmds, ctx.env);
   if (!burnPipe.ok) {
     emitGateCounter(ctx.env, 'G6', 'redis_burn_error', 'fail', family);
     return softRetryResponse();
@@ -1454,6 +1477,8 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     await recordHardFailure(did, netKey, ctx.env, false);
     return paddedHard404Response();
   }
+  const preloadedIsPaused = burnPipe.results[1];
+  const preloadedIssuedToday = dailyCap > 0 ? burnPipe.results[2] : 0;
 
   // 2. Turnstile siteverify (supports sealed ENCRYPTED_TURNSTILE_SECRET, local backup, and env TURNSTILE_SECRET_KEY)
   const rawHost = (ctx.headers['x-forwarded-host'] || ctx.headers['host'] || '')
@@ -1534,6 +1559,13 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       ) {
         sawSoftTokenError = true;
       }
+      // Only try the next candidate secret if Cloudflare reported a secret mismatch;
+      // token-level failures (timeout-or-duplicate / invalid-input-response / internal-error) won't succeed with another secret.
+      const isSecretError =
+        codes.includes('invalid-input-secret') || codes.includes('missing-input-secret');
+      if (!isSecretError) {
+        break;
+      }
     } catch {
       emitGateCounter(ctx.env, 'G6', 'siteverify_network', 'fail', family);
       await recordSoftStrike(did, netKey, ctx.env);
@@ -1603,34 +1635,21 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   // --------------------------------------------------------------------------
   // Gate G7 — Late Decrypt & Dispatch (< 0.5 ms)
   // --------------------------------------------------------------------------
-  const dateStamp = getUtcDateStamp();
-  const dailyCap = Number(ctx.env.APP_DAILY_ISSUE_CAP ?? APP_DAILY_ISSUE_CAP_DEFAULT);
-
-  const g7Check = await runRedisPipeline(
-    [
-      ['GET', `paused:${appId}`],
-      ['GET', `issued:${appId}:${dateStamp}`],
-    ],
-    ctx.env
-  );
-  if (g7Check.ok) {
-    const [isPaused, issuedToday] = g7Check.results;
-    if (
-      isPaused === '1' ||
-      isPaused === 'true' ||
-      (dailyCap > 0 && Number(issuedToday ?? 0) >= dailyCap)
-    ) {
-      emitGateCounter(ctx.env, 'G7', 'paused_or_capped', 'fail', family);
-      return {
-        status: 200,
-        headers: baseSecurityHeaders(setCookieHeader),
-        body: JSON.stringify({
-          status: 'unavailable',
-          message:
-            'The package link is currently not available. It will be updated soon by the admin.',
-        }),
-      };
-    }
+  if (
+    preloadedIsPaused === '1' ||
+    preloadedIsPaused === 'true' ||
+    (dailyCap > 0 && Number(preloadedIssuedToday ?? 0) >= dailyCap)
+  ) {
+    emitGateCounter(ctx.env, 'G7', 'paused_or_capped', 'fail', family);
+    return {
+      status: 200,
+      headers: baseSecurityHeaders(setCookieHeader),
+      body: JSON.stringify({
+        status: 'unavailable',
+        message:
+          'The package link is currently not available. It will be updated soon by the admin.',
+      }),
+    };
   }
 
   const resolved = await resolveDestinationUrl(appId, ctx.env);
@@ -1650,7 +1669,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   void runRedisPipeline(
     [
       ['INCR', `issued:${appId}:${dateStamp}`],
-      ['EXPIRE', `issued:${appId}:${dateStamp}`, 172800, 'NX'],
+      ['EXPIRE', `issued:${appId}:${dateStamp}`, 172800],
     ],
     ctx.env
   );
