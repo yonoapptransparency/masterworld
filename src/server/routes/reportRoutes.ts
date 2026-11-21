@@ -5,7 +5,33 @@ export const reportRouter = Router();
 
 reportRouter.post('/api/v1/public/reports', async (req, res) => {
   try {
-    const success = await submitLiveReport(req.body);
+    const body = req.body;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return res.status(400).json({ success: false, error: 'Invalid report payload.' });
+    }
+
+    const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 200) : '';
+    const details = typeof body.details === 'string' ? body.details.trim().slice(0, 1500) : '';
+    const description = typeof body.description === 'string' ? body.description.trim().slice(0, 1500) : '';
+
+    if (!reason && !details && !description) {
+      return res.status(400).json({ success: false, error: 'Report reason or details are required.' });
+    }
+
+    const sanitizedPayload = {
+      ...body,
+      type: typeof body.type === 'string' ? body.type.trim().slice(0, 40) : 'app_flag',
+      appId: typeof body.appId === 'string' ? body.appId.trim().slice(0, 128) : undefined,
+      appSlug: typeof body.appSlug === 'string' ? body.appSlug.trim().slice(0, 128) : undefined,
+      appName: typeof body.appName === 'string' ? body.appName.trim().slice(0, 160) : undefined,
+      reviewId: typeof body.reviewId === 'string' ? body.reviewId.trim().slice(0, 128) : undefined,
+      reason,
+      details,
+      description,
+      reporterEmail: typeof body.reporterEmail === 'string' ? body.reporterEmail.trim().slice(0, 160) : undefined
+    };
+
+    const success = await submitLiveReport(sanitizedPayload);
     res.json({ success });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e?.message });
@@ -14,12 +40,13 @@ reportRouter.post('/api/v1/public/reports', async (req, res) => {
 
 reportRouter.get('/api/v1/admin/reports', async (req, res) => {
   try {
+    const parsedLimit = Math.max(1, Math.min(200, Number(req.query.limit) || 20));
     const result = await fetchAdminReportsList({
       status: req.query.status as string,
       type: req.query.type as string,
       appId: req.query.appId as string,
       search: req.query.search as string,
-      limit: Number(req.query.limit) || 20
+      limit: parsedLimit
     });
     res.json(result);
   } catch (e: any) {

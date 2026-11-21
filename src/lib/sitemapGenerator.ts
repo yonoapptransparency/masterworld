@@ -345,6 +345,29 @@ export interface StaticSitemapDates {
   latestNewsDate?: string;
   latestVideoDate?: string;
   settingsDate?: string;
+  apps?: any[];
+}
+
+const EXCLUDED_CATEGORY_TOKENS = new Set(['all apps', 'all', 'apps', 'general']);
+
+export function extractCanonicalCategories(apps: any[] = []): Array<{ name: string; slug: string }> {
+  const seen = new Map<string, string>();
+  for (const app of apps || []) {
+    if (!app || app.sync_to_public === false) continue;
+    const rawCat = app.category || app.category_name;
+    if (typeof rawCat !== 'string' || !rawCat.trim()) continue;
+    for (const part of rawCat.split(',')) {
+      const trimmed = part.trim();
+      if (!trimmed || EXCLUDED_CATEGORY_TOKENS.has(trimmed.toLowerCase())) continue;
+      const slug = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      if (slug && !seen.has(slug)) {
+        seen.set(slug, trimmed);
+      }
+    }
+  }
+  return Array.from(seen.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([slug, name]) => ({ name, slug }));
 }
 
 // 5. Static Pages Sitemap (sitemap-static.xml)
@@ -361,11 +384,20 @@ export function generateStaticSitemapXml(
   const infoDate = isObj ? formatSitemapDate(datesOrFallback.settingsDate, STABLE_BASELINE_DATE) : fallback;
   const newsDate = isObj && datesOrFallback.latestNewsDate ? formatSitemapDate(datesOrFallback.latestNewsDate, infoDate) : infoDate;
   const videoDate = isObj && datesOrFallback.latestVideoDate ? formatSitemapDate(datesOrFallback.latestVideoDate, infoDate) : infoDate;
+  const categoryPages = isObj && Array.isArray(datesOrFallback.apps)
+    ? extractCanonicalCategories(datesOrFallback.apps).map((cat) => ({
+        path: `/category/${cat.slug}`,
+        priority: '0.7',
+        changefreq: 'weekly',
+        lastmod: infoDate
+      }))
+    : [];
 
   const staticPages = [
     { path: '/', priority: '1.0', changefreq: 'daily', lastmod: infoDate },
     { path: '/new-apps', priority: '0.8', changefreq: 'daily', lastmod: infoDate },
     { path: '/categories', priority: '0.8', changefreq: 'weekly', lastmod: infoDate },
+    ...categoryPages,
     { path: '/news', priority: '0.8', changefreq: 'daily', lastmod: newsDate },
     { path: '/videos', priority: '0.7', changefreq: 'weekly', lastmod: videoDate },
     { path: '/about', priority: '0.5', changefreq: 'monthly', lastmod: infoDate },
@@ -413,6 +445,67 @@ export function generateDevelopersSitemapXml(
 `;
 }
 
+// 7. Authoritative RFC 9309 robots.txt (Single Source of Truth for Express, Cloudflare Pages & GitHub Split-Sync)
+export function generateRobotsTxt(host: string = 'https://www.rummydex.com'): string {
+  const cleanHost = host.replace(/\/$/, '');
+  const sharedRules = [
+    'Allow: /',
+    'Allow: /api/v1/public/',
+    'Disallow: /api/',
+    'Disallow: /admin/',
+    'Disallow: /login/',
+    'Disallow: /masterworld/',
+    'Disallow: /s/',
+    'Disallow: /s/*',
+    'Disallow: /dl/',
+    'Disallow: /dl/*',
+    'Disallow: /out/',
+    'Disallow: /out/*',
+    'Disallow: /download/',
+    'Disallow: /download/*',
+    'Disallow: /gateway/',
+    'Disallow: /gateway/*',
+    'Disallow: /info/',
+    'Disallow: /info/*',
+    'Disallow: /moreinfo/',
+    'Disallow: /moreinfo/*',
+    'Disallow: /moredetail/',
+    'Disallow: /moredetail/*',
+    'Disallow: /safety',
+    'Disallow: /safety-status'
+  ].join('\n');
+
+  const userAgents = [
+    '*',
+    'Googlebot',
+    'Bingbot',
+    'Applebot',
+    'DuckDuckBot',
+    'Baiduspider',
+    'YandexBot',
+    'SemrushBot',
+    'AhrefsBot',
+    'GPTBot',
+    'ClaudeBot',
+    'PerplexityBot'
+  ];
+
+  const agentSections = userAgents
+    .map((ua) => `User-agent: ${ua}\n${sharedRules}`)
+    .join('\n\n');
+
+  const sitemapLines = [
+    `Sitemap: ${cleanHost}/sitemap.xml`,
+    `Sitemap: ${cleanHost}/sitemap-apps.xml`,
+    `Sitemap: ${cleanHost}/sitemap-news.xml`,
+    `Sitemap: ${cleanHost}/sitemap-static.xml`,
+    `Sitemap: ${cleanHost}/sitemap-videos.xml`,
+    `Sitemap: ${cleanHost}/sitemap-developers.xml`
+  ].join('\n');
+
+  return `${agentSections}\n\n${sitemapLines}\n`;
+}
+
 // Helper to generate all sitemaps into a dictionary
 export function generateAllSitemaps(
   data: { apps?: any[]; news?: any[]; videos?: any[]; settings?: any },
@@ -438,7 +531,8 @@ export function generateAllSitemaps(
       latestAppDate,
       latestNewsDate,
       latestVideoDate,
-      settingsDate
+      settingsDate,
+      apps
     }),
     'sitemap-developers.xml': generateDevelopersSitemapXml(host, latestDevDate)
   };

@@ -3,10 +3,12 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
 
 import { injectSeoTags, fetchStoreData, resolveAppSlug, cleanRootContainer } from './src/seoHelper';
+import { requireAdminAuth } from './src/server/middleware/adminAuth';
 import { adminAuthRouter } from './src/server/routes/adminAuthRoutes';
 import { communityRouter } from './src/server/routes/communityRoutes';
 import { reportRouter } from './src/server/routes/reportRoutes';
@@ -80,22 +82,47 @@ async function startServer() {
     console.warn("[SECURITY] AES_SECRET environment variable is not set. Using secure internal fallback secret.");
   }
 
-  // Request logger
-  app.use((req, res, next) => {
-    if (req.originalUrl.startsWith('/api/')) {
-      
-    }
-    next();
-  });
-
-  // Admin routes anti-caching middleware
-  app.use('/api/v1/admin', (req, res, next) => {
+  // Admin routes anti-caching + fail-closed authentication middleware
+  app.use(['/api/v1/admin', '/api/github-sync'], (req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     res.setHeader('Surrogate-Control', 'no-store');
     next();
   });
+
+  // Brute-force protection for admin authentication endpoints
+  const adminLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 15,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { ok: false, error: 'Too many login attempts. Please try again later.' }
+  });
+  app.use(['/api/v1/admin/login', '/api/v1/admin/auth/login', '/api/v1/admin/google-login'], adminLoginLimiter);
+
+  // Abuse protection for public community write endpoints
+  const publicWriteLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: 'Too many requests. Please slow down and try again shortly.' }
+  });
+  app.use([
+    '/api/v1/public/community/reviews',
+    '/api/v1/public/community/reviews/helpful',
+    '/api/v1/public/community/reviews/report',
+    '/api/v1/public/reports'
+  ], (req, res, next) => {
+    if (req.method === 'POST') {
+      return publicWriteLimiter(req, res, next);
+    }
+    return next();
+  });
+
+  // Enforce verified administrator session on all /api/v1/admin/* (except auth handshakes) and /api/github-sync/*
+  app.use(['/api/v1/admin', '/api/github-sync'], requireAdminAuth);
 
   // 301 Redirect non-www rummydex.com -> www.rummydex.com
   app.use((req, res, next) => {
@@ -199,9 +226,21 @@ async function startServer() {
 
   if (process.env.NODE_ENV === "production") {
     // 1. Direct streaming of pre-compressed Brotli & Gzip assets for maximum Pingdom & Lighthouse scores
+    const assetsRoot = path.resolve(distPath, 'assets');
     app.get(/^\/assets\/(.+)$/, (req, res, next) => {
-      const assetFile = req.params[0];
-      const filePath = path.join(distPath, 'assets', assetFile);
+      let assetFile = req.params[0];
+      try {
+        assetFile = decodeURIComponent(assetFile);
+      } catch {
+        return res.status(400).end();
+      }
+      if (!assetFile || assetFile.includes('\0')) {
+        return res.status(403).end();
+      }
+      const filePath = path.resolve(assetsRoot, assetFile);
+      if (!filePath.startsWith(assetsRoot + path.sep)) {
+        return res.status(403).end();
+      }
       const acceptEncoding = (req.headers['accept-encoding'] as string || '').toLowerCase();
       const farFuture = new Date(Date.now() + 31536000000).toUTCString();
 
@@ -736,18 +775,30 @@ async function startServer() {
 
   // Global Express Error Handler
   app.use((err: any, req: any, res: any, next: any) => {
-    
-if (err.status !== 404 && err.statusCode !== 404) {
-  console.error(`[EXPRESS GLOBAL ERROR] ${req.method} ${req.originalUrl}:`, err);
-}
+    if (res.headersSent) {
+      return next(err);
+    }
+
+    const isBadRequest =
+      err instanceof URIError ||
+      err?.status === 400 ||
+      err?.statusCode === 400 ||
+      err?.type === 'entity.parse.failed';
+
+    if (isBadRequest) {
+      if (req.originalUrl.startsWith('/api/')) {
+        return res.status(400).json({ status: 'BAD_REQUEST', error: 'Malformed request' });
+      }
+      return res.status(400).send('<h1>400 Bad Request</h1><p>Malformed URL or request.</p>');
+    }
+
+    if (err.status !== 404 && err.statusCode !== 404) {
+      console.error(`[EXPRESS GLOBAL ERROR] ${req.method} ${req.originalUrl}:`, err);
+    }
     try {
       const logFile = path.join(process.cwd(), 'server_requests.log');
       fs.appendFile(logFile, `[${new Date().toISOString()}] ERROR in ${req.method} ${req.originalUrl}: ${err.message || err}\n`, 'utf8', () => {});
     } catch (e) {}
-
-    if (res.headersSent) {
-      return next(err);
-    }
 
     if (req.originalUrl.startsWith('/api/')) {
       return res.status(500).json({ error: "Internal server error" });

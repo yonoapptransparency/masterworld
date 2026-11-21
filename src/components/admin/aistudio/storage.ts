@@ -1,4 +1,5 @@
 import { StudioConfig, BrainMemoryDirective, ChatMessage, StagedReview } from './types';
+import { adminFetch } from '../../../services/adminAuthService';
 
 export const KEY_STUDIO_CONFIG = 'rummydex_ai_studio_config';
 export const KEY_STORE_BRAIN_DIRECTIVES = 'rummydex_ai_brain_directives';
@@ -197,7 +198,7 @@ export async function saveBrainDirectivesToCloud(directives: BrainMemoryDirectiv
   };
 
   try {
-    const res = await fetch('/api/v1/admin/community/aistudio-settings', {
+    const res = await adminFetch('/api/v1/admin/community/aistudio-settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -224,7 +225,7 @@ export async function saveBrainDirectivesToCloud(directives: BrainMemoryDirectiv
 
 export async function loadBrainDirectivesFromCloud(): Promise<BrainMemoryDirective[] | null> {
   try {
-    const res = await fetch('/api/v1/admin/community/aistudio-settings');
+    const res = await adminFetch('/api/v1/admin/community/aistudio-settings');
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json?.data?.directives) && json.data.directives.length > 0) {
@@ -294,7 +295,7 @@ export async function saveStudioConfigToCloud(config: StudioConfig): Promise<boo
   };
 
   try {
-    const res = await fetch('/api/v1/admin/community/aistudio-settings', {
+    const res = await adminFetch('/api/v1/admin/community/aistudio-settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ config: payload })
@@ -327,7 +328,7 @@ export async function saveStudioConfigToCloud(config: StudioConfig): Promise<boo
  */
 export async function loadStudioConfigFromCloud(): Promise<{ config: Partial<StudioConfig>; hasServerKey: boolean } | null> {
   try {
-    const res = await fetch('/api/v1/admin/community/aistudio-settings');
+    const res = await adminFetch('/api/v1/admin/community/aistudio-settings');
     if (res.ok) {
       const json = await res.json();
       const cfg = json?.data?.config;

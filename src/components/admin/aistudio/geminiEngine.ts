@@ -7,6 +7,7 @@ import {
   PlatformCommentStyle
 } from './types';
 import { generateRealisticPastDates } from './dateEngine';
+import { adminFetch } from '../../../services/adminAuthService';
 
 const REALISTIC_USER_NAMES = [
   'Rahul Sharma', 'Amit Patel', 'Priya Verma', 'Vikas Yadav', 'Suresh Raina',
@@ -819,7 +820,7 @@ ${videosBrief ? `\nPLATFORM VIDEOS / TUTORIALS CONTEXT:\n${videosBrief}` : ''}`;
   const srvController = new AbortController();
   const srvTimer = setTimeout(() => srvController.abort(), 15000);
   try {
-    const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
+    const srvRes = await adminFetch('/api/v1/admin/community/aistudio-gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1042,7 +1043,7 @@ Return ONLY a valid JSON array of ${chunkCount} objects with keys: "userName" (s
       const srvController = new AbortController();
       const srvTimer = setTimeout(() => srvController.abort(), 15000);
       try {
-        const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
+        const srvRes = await adminFetch('/api/v1/admin/community/aistudio-gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

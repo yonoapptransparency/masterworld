@@ -1,5 +1,5 @@
 import { getField, optimizeImageUrl } from '../utils';
-import { structureHtmlFragment } from '../../lib/safeHtmlPublic';
+import { safeHtml } from '../../lib/safeHtmlPublic';
 
 export function escapeHtml(unsafe: string): string {
   if (!unsafe) return '';
@@ -13,15 +13,7 @@ export function escapeHtml(unsafe: string): string {
 
 export function sanitizeHtml(html: string): string {
   if (!html) return '';
-  let clean = structureHtmlFragment(html);
-  clean = clean.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  clean = clean.replace(/<([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g, (_match, tag, attrs) => {
-    const safeAttrs = String(attrs || '').replace(/\s+on\w+\s*=\s*(['"][^'"]*['"]|[^>\s]+)/gi, '');
-    return `<${tag}${safeAttrs}>`;
-  });
-  clean = clean.replace(/href\s*=\s*['"]\s*javascript:[^'"]*['"]/gi, 'href="#"');
-  clean = clean.replace(/<(iframe|object|embed|form|meta|link|style)\b[^>]*>([\s\S]*?)<\/\1>/gi, '');
-  clean = clean.replace(/<(iframe|object|embed|form|meta|link|style)\b[^>]*>/gi, '');
+  let clean = safeHtml(html, '');
   clean = clean.replace(/<!DOCTYPE\s+html[^>]*>/gi, '');
   clean = clean.replace(/<title>[^<]*<\/title>/gi, '');
   clean = clean.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '');
@@ -31,9 +23,12 @@ export function sanitizeHtml(html: string): string {
   return clean.trim();
 }
 
-export function renderHeader(settings: any): string {
+export function renderHeader(settings: any, activePath: string = '/'): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   const isDefaultBrand = siteTitle.toLowerCase() === 'rummydex';
+  const normalizedPath = (activePath || '/').toLowerCase().replace(/\/+$/, '') || '/';
+  const isHomeActive = normalizedPath === '/';
+  const isNewsActive = normalizedPath === '/news';
   const brandAttr = isDefaultBrand ? 'class="rd-brand-full text-xs xxs:text-sm xs:text-base sm:text-xl md:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white truncate max-w-[90px] xxs:max-w-[120px] xs:max-w-[170px] sm:max-w-none"' : `data-brand-text="${escapeHtml(siteTitle)}" class="text-xs xxs:text-sm xs:text-base sm:text-xl md:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white truncate max-w-[90px] xxs:max-w-[120px] xs:max-w-[170px] sm:max-w-none"`;
   const logoUrl = getField(settings, 'logo_url');
   const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 120) : '';
@@ -61,8 +56,8 @@ export function renderHeader(settings: any): string {
           </div>
         </a>
         <nav class="hidden md:flex items-center gap-4 lg:gap-8 text-sm font-medium" aria-label="Primary Navigation">
-          <a href="/" class="transition-all p-2 tracking-wide relative text-zinc-600 hover:text-blue-500 dark:text-zinc-300">Home</a>
-          <a href="/news" class="transition-all p-2 tracking-wide relative text-zinc-600 hover:text-blue-500 dark:text-zinc-300">News</a>
+          <a href="/" class="transition-all p-2 tracking-wide relative ${isHomeActive ? 'text-blue-600' : 'text-zinc-600 hover:text-blue-500 dark:text-zinc-300'}">Home${isHomeActive ? '<div class="absolute -bottom-1 left-2 right-2 h-[2px] bg-blue-600 rounded-t-full transition-all duration-300"></div>' : ''}</a>
+          <a href="/news" class="transition-all p-2 tracking-wide relative ${isNewsActive ? 'text-blue-600' : 'text-zinc-600 hover:text-blue-500 dark:text-zinc-300'}">News${isNewsActive ? '<div class="absolute -bottom-1 left-2 right-2 h-[2px] bg-blue-600 rounded-t-full transition-all duration-300"></div>' : ''}</a>
           <a href="/new-apps" class="sr-only">New Apps</a>
           <a href="/categories" class="sr-only">Categories</a>
           <a href="/about" class="sr-only">About</a>

@@ -292,12 +292,14 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     title = getField(settings, 'categories_meta_title') || `App Categories & Genres`;
     description = getField(settings, 'categories_meta_description') || `Browse all gaming and entertainment application categories.`;
     customCanonicalUrl = `https://www.rummydex.com/categories`;
+    const excludedCatTokens = new Set(['all apps', 'all', 'apps', 'general']);
     const catMap = new Map<string, string>();
     for (const a of apps) {
       const rawCat = getField(a, 'category', '');
       if (!rawCat) continue;
       const parts = rawCat.split(',').map((p: string) => p.trim()).filter(Boolean);
       for (const p of parts) {
+        if (excludedCatTokens.has(p.toLowerCase())) continue;
         const slug = p.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
         if (slug && !catMap.has(slug)) {
           catMap.set(slug, p);
@@ -516,6 +518,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     } else if (cleanPathLower === '/faq' || cleanPathLower === '/faqs') {
       title = getField(settings, 'faq_meta_title') || `Frequently Asked Questions`;
       description = getField(settings, 'faq_meta_description') || `Answers to common questions about application verification, ratings, and downloads.`;
+      customCanonicalUrl = `https://www.rummydex.com/faq`;
     } else if (cleanPathLower === '/safety' || cleanPathLower === '/safety-status') {
       title = getField(settings, 'safety_meta_title') || `Platform Safety & Integrity Status`;
       description = getField(settings, 'safety_meta_description') || `Live verification, integrity hash checks, and safety ratings for catalog applications.`;
@@ -671,10 +674,17 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   // Generate full pre-rendered semantic HTML directly from database for all public catalog & detail pages
   const isAdminPath = cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld') || cleanPathLower === '/login' || cleanPathLower.startsWith('/login/');
+  const isNoIndexRoute =
+    isAdminPath ||
+    cleanPathLower === '/safety' ||
+    cleanPathLower === '/safety-status' ||
+    cleanPathLower.startsWith('/s/') ||
+    cleanPathLower.startsWith('/dl/') ||
+    cleanPathLower.startsWith('/out/');
   const preRenderedBody = (!isAdminPath && pageType !== 'gateway') ? await getPagePreRender(urlPath, data) : '';
 
   // Generate Schema.org JSON-LD structured data
-  const jsonLdSchema = pageType === 'gateway' ? '' : await buildJsonLdSchema({
+  const jsonLdSchema = (pageType === 'gateway' || isNoIndexRoute) ? '' : await buildJsonLdSchema({
     pageType,
     title,
     description,
@@ -706,6 +716,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     favicon180,
     jsonLdSchema,
     isNotFound,
+    isNoIndex: isNoIndexRoute,
     getField,
     pageType
   });

@@ -232,168 +232,228 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loadedFromServer, setLoadedFromServer] = useState(() => apps.length > 0 || Boolean(initialCache));
   const [isLive, setIsLive] = useState(true);
 
+  const appsLengthRef = React.useRef<number>(apps.length);
+  appsLengthRef.current = apps.length;
+
+  const newsInFlightRef = React.useRef<Promise<void> | null>(null);
+  const settingsInFlightRef = React.useRef<Promise<void> | null>(null);
+  const videosInFlightRef = React.useRef<Promise<void> | null>(null);
+  const backupInFlightRef = React.useRef<Promise<void> | null>(null);
+
+  const mergeSettingsIfChanged = (prev: GlobalSettings, incoming: Partial<GlobalSettings>): GlobalSettings => {
+    let changed = false;
+    const prevRec = prev as Record<string, any>;
+    const incRec = incoming as Record<string, any>;
+    for (const key of Object.keys(incRec)) {
+      const nextVal = incRec[key];
+      const prevVal = prevRec[key];
+      if (prevVal === nextVal) continue;
+      if (
+        prevVal &&
+        nextVal &&
+        typeof prevVal === 'object' &&
+        typeof nextVal === 'object' &&
+        Array.isArray(prevVal) === Array.isArray(nextVal)
+      ) {
+        if (Array.isArray(prevVal) && prevVal.length === nextVal.length && prevVal.length === 0) continue;
+      }
+      changed = true;
+      break;
+    }
+    return changed ? { ...prev, ...incoming } : prev;
+  };
+
   // Dedicated lightweight fetchers for each section on-demand when URL/route changes
   const fetchNews = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/public/news', {
-        headers: { 'Accept': 'application/json' }
-      });
-      if (res.ok) {
-        const payload = await res.json();
-        if (payload?.news && Array.isArray(payload.news) && payload.news.length > 0) {
-          setNews(prev => mergeUniqueNews(prev, payload.news));
-          return;
+    if (newsInFlightRef.current) return newsInFlightRef.current;
+    const task = (async () => {
+      try {
+        const res = await fetch('/api/v1/public/news', {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+          const payload = await res.json();
+          if (payload?.news && Array.isArray(payload.news) && payload.news.length > 0) {
+            setNews(prev => mergeUniqueNews(prev, payload.news));
+            return;
+          }
         }
+      } catch (e) {
+        console.warn("Public news fetch warning:", e);
       }
-    } catch (e) {
-      console.warn("Public news fetch warning:", e);
-    }
-    try {
-      const full = await loadFullStaticDataset();
-      if (full?.news && Array.isArray(full.news) && full.news.length > 0) {
-        setNews(prev => mergeUniqueNews(prev, full.news));
-      }
-    } catch (_) {}
+      try {
+        const full = await loadFullStaticDataset();
+        if (full?.news && Array.isArray(full.news) && full.news.length > 0) {
+          setNews(prev => mergeUniqueNews(prev, full.news));
+        }
+      } catch (_) {}
+    })().finally(() => {
+      newsInFlightRef.current = null;
+    });
+    newsInFlightRef.current = task;
+    return task;
   }, []);
 
   const fetchSettings = useCallback(async () => {
-    // Immediately hydrate any stripped legal/static HTML fields from static dataset in 0ms
-    loadFullStaticDataset().then(full => {
-      if (full?.settings && Object.keys(full.settings).length > 0) {
-        setSettings(prev => ({ ...full.settings, ...prev }));
-      }
-    }).catch(() => {});
-
-    try {
-      const res = await fetch('/api/v1/public/settings', {
-        headers: { 'Accept': 'application/json' }
-      });
-      if (res.ok) {
-        const payload = await res.json();
-        if (payload?.settings && Object.keys(payload.settings).length > 0) {
-          setSettings(prev => ({ ...prev, ...payload.settings }));
-          return;
+    if (settingsInFlightRef.current) return settingsInFlightRef.current;
+    const task = (async () => {
+      // Immediately hydrate any stripped legal/static HTML fields from static dataset in 0ms
+      loadFullStaticDataset().then(full => {
+        if (full?.settings && Object.keys(full.settings).length > 0) {
+          setSettings(prev => {
+            const prevRec = prev as Record<string, any>;
+            const fullRec = full.settings as Record<string, any>;
+            const hasMissing = Object.keys(fullRec).some(k => prevRec[k] === undefined && fullRec[k] !== undefined);
+            return hasMissing ? { ...full.settings, ...prev } : prev;
+          });
         }
+      }).catch(() => {});
+
+      try {
+        const res = await fetch('/api/v1/public/settings', {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+          const payload = await res.json();
+          if (payload?.settings && Object.keys(payload.settings).length > 0) {
+            setSettings(prev => mergeSettingsIfChanged(prev, payload.settings));
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Public settings fetch warning:", e);
       }
-    } catch (e) {
-      console.warn("Public settings fetch warning:", e);
-    }
+    })().finally(() => {
+      settingsInFlightRef.current = null;
+    });
+    settingsInFlightRef.current = task;
+    return task;
   }, []);
 
   const fetchVideos = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/public/videos', {
-        headers: { 'Accept': 'application/json' }
-      });
-      if (res.ok) {
-        const payload = await res.json();
-        if (payload?.videos && Array.isArray(payload.videos) && payload.videos.length > 0) {
-          setVideos(payload.videos);
-          return;
+    if (videosInFlightRef.current) return videosInFlightRef.current;
+    const task = (async () => {
+      try {
+        const res = await fetch('/api/v1/public/videos', {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+          const payload = await res.json();
+          if (payload?.videos && Array.isArray(payload.videos) && payload.videos.length > 0) {
+            setVideos(payload.videos);
+            return;
+          }
         }
+      } catch (e) {
+        console.warn("Public videos fetch warning:", e);
       }
-    } catch (e) {
-      console.warn("Public videos fetch warning:", e);
-    }
-    try {
-      const full = await loadFullStaticDataset();
-      if (full?.videos && Array.isArray(full.videos) && full.videos.length > 0) {
-        setVideos(full.videos);
-      }
-    } catch (_) {}
+      try {
+        const full = await loadFullStaticDataset();
+        if (full?.videos && Array.isArray(full.videos) && full.videos.length > 0) {
+          setVideos(full.videos);
+        }
+      } catch (_) {}
+    })().finally(() => {
+      videosInFlightRef.current = null;
+    });
+    videosInFlightRef.current = task;
+    return task;
   }, []);
 
-  // Fetch from server backup endpoint with fast memory caching (zero main-thread localStorage serialization stall)
+  // Fetch from server backup endpoint with fast memory caching & in-flight deduplication
   const fetchBackupData = useCallback(async (silent = false) => {
-    try {
-      if (!silent && apps.length === 0) setLoading(true);
-      if (apps.length < 50) {
+    if (backupInFlightRef.current) return backupInFlightRef.current;
+    const task = (async () => {
+      try {
+        if (!silent && appsLengthRef.current === 0) setLoading(true);
+        if (appsLengthRef.current < 50) {
+          loadFullStaticDataset().then(full => {
+            if (full?.apps && full.apps.length > 0) {
+              setApps(prev => (prev.length >= 50 ? prev : mergeUniqueApps(prev, full.apps)));
+            }
+          }).catch(() => {});
+        }
+        const res = await fetch('/api/v1/public/backup-data', {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+          const backup = await res.json();
+          if (backup) {
+            try {
+              // Remove legacy multi-megabyte localStorage entry if present to free browser storage and avoid main-thread stalls
+              localStorage.removeItem(DATA_CACHE_KEY);
+            } catch (e) {}
+
+            if (backup.apps && Array.isArray(backup.apps) && backup.apps.length >= 50) {
+              setApps(prev => {
+                if (prev.length === backup.apps.length) {
+                  const prevHasNewerOrEqual = prev.every((p, idx) => {
+                    const b = backup.apps[idx];
+                    return b && p.slug === b.slug && p.seo_title === b.seo_title && p.updated_at === b.updated_at && Boolean(p.description_html) === Boolean(b.description_html);
+                  });
+                  if (prevHasNewerOrEqual) return prev;
+                }
+                return mergeUniqueApps(prev, backup.apps);
+              });
+            } else {
+              // Server backup was incomplete or offline; guarantee 100% catalog availability from static dataset
+              loadFullStaticDataset().then(full => {
+                if (full?.apps && full.apps.length > 0) {
+                  setApps(prev => mergeUniqueApps(prev, full.apps));
+                }
+              }).catch(() => {});
+            }
+            if (backup.settings && Object.keys(backup.settings).length > 0) {
+              setSettings(prev => mergeSettingsIfChanged(prev, backup.settings));
+            }
+            if (backup.news && Array.isArray(backup.news) && backup.news.length > 0) {
+              setNews(prev => {
+                if (prev.length === backup.news.length && prev[0]?.slug === backup.news[0]?.slug && prev[0]?.updated_at === backup.news[0]?.updated_at) {
+                  return prev;
+                }
+                return mergeUniqueNews(prev, backup.news);
+              });
+            }
+            if (backup.videos && Array.isArray(backup.videos) && backup.videos.length > 0) {
+              setVideos(prev => {
+                if (prev.length === backup.videos.length && prev[0]?.id === backup.videos[0]?.id) {
+                  return prev;
+                }
+                return backup.videos;
+              });
+            }
+            setLoadedFromServer(true);
+          }
+        }
+      } catch (e) {
+        console.warn("Public backup data fetch failed, falling back to static dataset:", e);
         loadFullStaticDataset().then(full => {
           if (full?.apps && full.apps.length > 0) {
-            setApps(prev => (prev.length >= 50 ? prev : mergeUniqueApps(prev, full.apps)));
+            setApps(prev => mergeUniqueApps(prev, full.apps));
           }
         }).catch(() => {});
+      } finally {
+        setLoading(false);
       }
-      const res = await fetch('/api/v1/public/backup-data', {
-        headers: { 'Accept': 'application/json' }
-      });
-      if (res.ok) {
-        const backup = await res.json();
-        if (backup) {
-          try {
-            // Remove legacy multi-megabyte localStorage entry if present to free browser storage and avoid main-thread stalls
-            localStorage.removeItem(DATA_CACHE_KEY);
-          } catch (e) {}
-
-          if (backup.apps && Array.isArray(backup.apps) && backup.apps.length >= 50) {
-            setApps(prev => {
-              if (prev.length === backup.apps.length) {
-                const prevHasNewerOrEqual = prev.every((p, idx) => {
-                  const b = backup.apps[idx];
-                  return b && p.slug === b.slug && p.seo_title === b.seo_title && p.updated_at === b.updated_at && Boolean(p.description_html) === Boolean(b.description_html);
-                });
-                if (prevHasNewerOrEqual) return prev;
-              }
-              return mergeUniqueApps(prev, backup.apps);
-            });
-          } else {
-            // Server backup was incomplete or offline; guarantee 100% catalog availability from static dataset
-            loadFullStaticDataset().then(full => {
-              if (full?.apps && full.apps.length > 0) {
-                setApps(prev => mergeUniqueApps(prev, full.apps));
-              }
-            });
-          }
-          if (backup.settings && Object.keys(backup.settings).length > 0) {
-            setSettings(prev => {
-              const prevStr = JSON.stringify(prev);
-              const nextObj = { ...prev, ...backup.settings };
-              return JSON.stringify(nextObj) === prevStr ? prev : nextObj;
-            });
-          }
-          if (backup.news && Array.isArray(backup.news) && backup.news.length > 0) {
-            setNews(prev => {
-              if (prev.length === backup.news.length && prev[0]?.slug === backup.news[0]?.slug && prev[0]?.updated_at === backup.news[0]?.updated_at) {
-                return prev;
-              }
-              return mergeUniqueNews(prev, backup.news);
-            });
-          }
-          if (backup.videos && Array.isArray(backup.videos) && backup.videos.length > 0) {
-            setVideos(prev => {
-              if (prev.length === backup.videos.length && prev[0]?.id === backup.videos[0]?.id) {
-                return prev;
-              }
-              return backup.videos;
-            });
-          }
-          setLoadedFromServer(true);
-        }
-      }
-    } catch (e) {
-      console.warn("Public backup data fetch failed, falling back to static dataset:", e);
-      loadFullStaticDataset().then(full => {
-        if (full?.apps && full.apps.length > 0) {
-          setApps(prev => mergeUniqueApps(prev, full.apps));
-        }
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [apps.length]);
+    })().finally(() => {
+      backupInFlightRef.current = null;
+    });
+    backupInFlightRef.current = task;
+    return task;
+  }, []);
 
   useEffect(() => {
     // Only fetch full catalog backup data on catalog routes or if SSR cache was completely absent
     const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/' : '';
     const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category') || p.startsWith('/safety');
-    if (isCatalog && apps.length < 50) {
+    if (isCatalog && appsLengthRef.current < 50) {
       loadFullStaticDataset().then(full => {
         if (full?.apps && full.apps.length > 0) {
           setApps(prev => mergeUniqueApps(prev, full.apps));
         }
       }).catch(() => {});
       fetchBackupData(false);
-    } else if (!initialCache && apps.length === 0) {
+    } else if (!initialCache && appsLengthRef.current === 0) {
       loadFullStaticDataset().then(full => {
         if (full?.apps && full.apps.length > 0) {
           setApps(prev => mergeUniqueApps(prev, full.apps));
@@ -401,7 +461,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }).catch(() => {});
       fetchBackupData(true);
     }
-  }, [apps.length, fetchBackupData, initialCache]);
+  }, [fetchBackupData, initialCache]);
 
   // Ensure full catalog is loaded if user navigates to catalog listing routes or opens search
   useEffect(() => {
@@ -409,12 +469,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkCatalogRoute = () => {
       const p = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
       const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category') || p.startsWith('/safety');
-      if (isCatalog && apps.length < 50) {
+      if (isCatalog && appsLengthRef.current < 50) {
         fetchBackupData(true);
       }
     };
     const handleSearchOpen = () => {
-      if (apps.length < 50) {
+      if (appsLengthRef.current < 50) {
         loadFullStaticDataset().then(full => {
           if (full?.apps && full.apps.length > 0) {
             setApps(prev => mergeUniqueApps(prev, full.apps));
@@ -429,7 +489,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.removeEventListener('popstate', checkCatalogRoute);
       window.removeEventListener('open-search-modal', handleSearchOpen);
     };
-  }, [apps.length, fetchBackupData]);
+  }, [fetchBackupData]);
 
   const resolvedSettings = React.useMemo(() => {
     const defaultLogo = "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png";

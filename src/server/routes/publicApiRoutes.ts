@@ -189,7 +189,13 @@ publicApiRouter.get('/api/v1/public/news', async (req, res) => {
 });
 
 publicApiRouter.get('/api/v1/public/news/:slug', async (req, res) => {
-  const slugParam = decodeURIComponent(req.params.slug || '').toLowerCase().trim();
+  let decodedSlug = req.params.slug || '';
+  try {
+    decodedSlug = decodeURIComponent(decodedSlug);
+  } catch {
+    decodedSlug = req.params.slug || '';
+  }
+  const slugParam = decodedSlug.toLowerCase().trim();
   if (!slugParam) {
     return res.status(400).json({ status: 'ERROR', error: 'Slug parameter is required' });
   }

@@ -220,7 +220,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         "@type": "ListItem",
         "position": 2,
         "name": specificCat,
-        "item": `${hostOrigin}/category/${encodeURIComponent(specificCat.toLowerCase().replace(/\s+/g, '-'))}`
+        "item": `${hostOrigin}/category/${encodeURIComponent(specificCat.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''))}`
       });
       breadcrumbs.push({
         "@type": "ListItem",

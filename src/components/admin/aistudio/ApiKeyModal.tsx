@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Key, X, ExternalLink, ShieldCheck, RefreshCw, Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { StudioConfig } from './types';
+import { adminFetch } from '../../../services/adminAuthService';
 
 export const PRESET_GEMINI_MODELS = [
   { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (gemini-3.8-flash — Fastest & Latest Free Tier)' },
@@ -78,7 +79,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     const srvController = new AbortController();
     const srvTimer = setTimeout(() => srvController.abort(), 6000);
     try {
-      const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
+      const srvRes = await adminFetch('/api/v1/admin/community/aistudio-gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -187,7 +188,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     setIsSaving(true);
 
     // Fire server persistence in background with timeout so UI never hangs
-    fetch('/api/v1/admin/community/aistudio-settings', {
+    adminFetch('/api/v1/admin/community/aistudio-settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

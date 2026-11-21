@@ -73,7 +73,9 @@ const Meta: React.FC<MetaProps> = ({
     cleanPathLower.startsWith('/download/') ||
     cleanPathLower.startsWith('/admin') ||
     cleanPathLower.startsWith('/login') ||
-    cleanPathLower.startsWith('/masterworld');
+    cleanPathLower.startsWith('/masterworld') ||
+    cleanPathLower === '/safety' ||
+    cleanPathLower === '/safety-status';
 
   const isIndexable = !noindex && !isDisallowedPrefix;
   const robotsDirective = isIndexable 
@@ -83,16 +85,20 @@ const Meta: React.FC<MetaProps> = ({
   useEffect(() => {
     if (typeof document === 'undefined') return;
 
-    // 1. Update document title and purge any duplicate title elements
-    document.title = fullTitle;
+    // 1. Update document title only if changed and purge any duplicate title elements
+    if (document.title !== fullTitle) {
+      document.title = fullTitle;
+    }
     const extraTitles = document.head.querySelectorAll('title');
-    extraTitles.forEach((titleEl, idx) => {
-      if (idx > 0) titleEl.remove();
-    });
+    if (extraTitles.length > 1) {
+      extraTitles.forEach((titleEl, idx) => {
+        if (idx > 0) titleEl.remove();
+      });
+    }
 
     // Helper to update exactly ONE meta tag in document.head and purge any duplicates (checking both name and property)
     const setMetaTag = (attrName: 'name' | 'property', attrVal: string, contentVal: string) => {
-      // Find all matches across name, property, or case variations
+      const targetContent = contentVal || '';
       const allMatches = document.head.querySelectorAll(
         `meta[${attrName}="${attrVal}" i], meta[${attrName === 'name' ? 'property' : 'name'}="${attrVal}" i]`
       );
@@ -108,10 +114,17 @@ const Meta: React.FC<MetaProps> = ({
 
       if (!primaryMeta) {
         primaryMeta = document.createElement('meta');
+        primaryMeta.setAttribute(attrName, attrVal);
+        primaryMeta.setAttribute('content', targetContent);
         document.head.appendChild(primaryMeta);
+        return;
       }
-      (primaryMeta as HTMLMetaElement).setAttribute(attrName, attrVal);
-      (primaryMeta as HTMLMetaElement).setAttribute('content', contentVal || '');
+      if (primaryMeta.getAttribute(attrName) !== attrVal) {
+        primaryMeta.setAttribute(attrName, attrVal);
+      }
+      if (primaryMeta.getAttribute('content') !== targetContent) {
+        primaryMeta.setAttribute('content', targetContent);
+      }
     };
 
     // 2. Standard Meta Tags
@@ -155,7 +168,9 @@ const Meta: React.FC<MetaProps> = ({
     });
 
     if (headCanonical) {
-      (headCanonical as HTMLLinkElement).setAttribute('href', canonicalUrl);
+      if ((headCanonical as HTMLLinkElement).getAttribute('href') !== canonicalUrl) {
+        (headCanonical as HTMLLinkElement).setAttribute('href', canonicalUrl);
+      }
     } else {
       const link = document.createElement('link');
       link.setAttribute('rel', 'canonical');
@@ -178,7 +193,9 @@ const Meta: React.FC<MetaProps> = ({
 
     if (squareThumbnail) {
       if (headImageLink) {
-        (headImageLink as HTMLLinkElement).setAttribute('href', squareThumbnail);
+        if ((headImageLink as HTMLLinkElement).getAttribute('href') !== squareThumbnail) {
+          (headImageLink as HTMLLinkElement).setAttribute('href', squareThumbnail);
+        }
       } else {
         const link = document.createElement('link');
         link.setAttribute('rel', 'image_src');

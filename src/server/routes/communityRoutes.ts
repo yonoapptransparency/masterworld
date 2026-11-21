@@ -741,7 +741,36 @@ communityRouter.get('/api/v1/public/community/stats/:appId', async (req, res) =>
 
 communityRouter.post('/api/v1/public/community/reviews', async (req, res) => {
   try {
-    const result = await submitLiveReview(req.body);
+    const body = req.body;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return res.status(400).json({ success: false, error: 'Invalid review payload.' });
+    }
+
+    const appId = typeof body.appId === 'string' ? body.appId.trim().slice(0, 128) : '';
+    const appSlug = typeof body.appSlug === 'string' ? body.appSlug.trim().slice(0, 128) : '';
+    const userName = typeof body.userName === 'string' ? body.userName.trim().slice(0, 80) : '';
+    const reviewText = typeof body.reviewText === 'string' ? body.reviewText.trim().slice(0, 2000) : '';
+    const rating = Number(body.rating);
+
+    if (!appId && !appSlug) {
+      return res.status(400).json({ success: false, error: 'Target application identifier is required.' });
+    }
+    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, error: 'Rating must be between 1 and 5.' });
+    }
+    if (!reviewText || reviewText.length < 2) {
+      return res.status(400).json({ success: false, error: 'Review text is required.' });
+    }
+
+    const result = await submitLiveReview({
+      ...body,
+      appId: appId || appSlug,
+      appSlug: appSlug || appId,
+      appName: typeof body.appName === 'string' ? body.appName.trim().slice(0, 160) : undefined,
+      userName: userName || 'Anonymous User',
+      rating: Math.round(rating),
+      reviewText
+    });
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error submitting review' });
@@ -751,7 +780,11 @@ communityRouter.post('/api/v1/public/community/reviews', async (req, res) => {
 communityRouter.post('/api/v1/public/community/reviews/helpful', async (req, res) => {
   try {
     const { reviewId, appId } = req.body || {};
-    const success = await voteLiveReviewHelpful(reviewId, appId);
+    if (typeof reviewId !== 'string' || !reviewId.trim() || reviewId.length > 128) {
+      return res.status(400).json({ success: false, error: 'Valid reviewId is required.' });
+    }
+    const cleanAppId = typeof appId === 'string' ? appId.trim().slice(0, 128) : undefined;
+    const success = await voteLiveReviewHelpful(reviewId.trim(), cleanAppId);
     res.json({ success });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
@@ -760,7 +793,20 @@ communityRouter.post('/api/v1/public/community/reviews/helpful', async (req, res
 
 communityRouter.post('/api/v1/public/community/reviews/report', async (req, res) => {
   try {
-    const success = await reportLiveReview(req.body);
+    const body = req.body;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return res.status(400).json({ success: false, error: 'Invalid report payload.' });
+    }
+    const reviewId = typeof body.reviewId === 'string' ? body.reviewId.trim().slice(0, 128) : '';
+    if (!reviewId) {
+      return res.status(400).json({ success: false, error: 'Valid reviewId is required.' });
+    }
+    const success = await reportLiveReview({
+      ...body,
+      reviewId,
+      appId: typeof body.appId === 'string' ? body.appId.trim().slice(0, 128) : undefined,
+      reason: typeof body.reason === 'string' ? body.reason.trim().slice(0, 300) : 'Flagged by user'
+    });
     res.json({ success });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });

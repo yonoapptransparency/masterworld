@@ -9,6 +9,8 @@ import {
   generateVideosSitemapXml,
   generateStaticSitemapXml,
   generateDevelopersSitemapXml,
+  generateRobotsTxt,
+  extractCanonicalCategories,
   getLatestItemDate
 } from '../../lib/sitemapGenerator';
 
@@ -45,76 +47,7 @@ seoRouter.get('/robots.txt', (req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=604800, s-maxage=604800');
   res.setHeader('Expires', farFuture);
   res.type('text/plain');
-  const namedAgents = [
-    'Googlebot',
-    'Bingbot',
-    'Applebot',
-    'DuckDuckBot',
-    'Baiduspider',
-    'YandexBot',
-    'SemrushBot',
-    'AhrefsBot',
-    'GPTBot',
-    'ClaudeBot',
-    'PerplexityBot',
-  ];
-  const blockRules = `Allow: /
-Allow: /api/v1/public/
-Disallow: /api/
-Disallow: /admin/
-Disallow: /login/
-Disallow: /masterworld/
-Disallow: /download/
-Disallow: /download/*
-Disallow: /gateway/
-Disallow: /gateway/*
-Disallow: /info/
-Disallow: /info/*
-Disallow: /moreinfo/
-Disallow: /moreinfo/*
-Disallow: /moredetail/
-Disallow: /moredetail/*`;
-
-  const agentBlocks = namedAgents
-    .map((ua) => `User-agent: ${ua}\n${blockRules}`)
-    .join('\n\n');
-
-  res.send(`User-agent: *
-Allow: /
-Allow: /api/v1/public/
-Disallow: /api/
-Disallow: /admin/
-Disallow: /login/
-Disallow: /masterworld/
-Disallow: /s/
-Disallow: /s/*
-Disallow: /dl/
-Disallow: /dl/*
-Disallow: /out/
-Disallow: /out/*
-Disallow: /download/
-Disallow: /download/*
-Disallow: /gateway/
-Disallow: /gateway/*
-Disallow: /info/
-Disallow: /info/*
-Disallow: /moreinfo/
-Disallow: /moreinfo/*
-Disallow: /moredetail/
-Disallow: /moredetail/*
-Disallow: /safety
-Disallow: /safety-status
-
-${agentBlocks}
-
-Sitemap: https://www.rummydex.com/sitemap.xml
-Sitemap: https://www.rummydex.com/sitemap-news.xml
-Sitemap: https://www.rummydex.com/sitemap-apps.xml
-Sitemap: https://www.rummydex.com/sitemap-static.xml
-Sitemap: https://www.rummydex.com/sitemap-videos.xml
-Sitemap: https://www.rummydex.com/sitemap-developers.xml
-Sitemap: https://www.rummydex.com/sitemap-categories.xml
-`);
+  res.send(generateRobotsTxt(HOST));
 });
 
 // Master Sitemap Index
@@ -138,7 +71,7 @@ seoRouter.get(['/sitemap-apps.xml', '/sitemap_apps.xml', '/sitemap-apps.xml.gz',
   sendXmlOrGzip(req, res, xml, 3600);
 });
 
-// Dedicated Static Pages Sitemap
+// Dedicated Static Pages Sitemap (Includes canonical /category/* listing URLs)
 seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-static.xml.gz', '/sitemap_static.xml.gz'], async (req, res) => {
   const data = await getLiveData();
   const latestAppDate = getLatestItemDate(data.apps || []);
@@ -149,7 +82,8 @@ seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-static.xm
     latestAppDate,
     latestNewsDate,
     latestVideoDate,
-    settingsDate
+    settingsDate,
+    apps: data.apps || []
   });
   sendXmlOrGzip(req, res, xml, 86400);
 });
@@ -169,10 +103,12 @@ seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml', '/sitemap-d
   sendXmlOrGzip(req, res, xml, 86400);
 });
 
-// Dedicated Categories Sitemap (Ensures valid XML for crawlers requesting /sitemap-categories.xml)
+// Legacy Categories Sitemap Endpoint (serves valid XML of canonical categories if previously cached by a crawler)
 seoRouter.get(['/sitemap-categories.xml', '/sitemap_categories.xml', '/sitemap-categories.xml.gz', '/sitemap_categories.xml.gz'], async (req, res) => {
   const data = await getLiveData();
   const latestAppDate = getLatestItemDate(data.apps || []);
+  const categories = extractCanonicalCategories(data.apps || []);
+  const categoryEntries = categories.map((cat) => `  <url>\n    <loc>${HOST}/category/${cat.slug}</loc>\n    <lastmod>${latestAppDate}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>`).join('\n');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -181,12 +117,7 @@ seoRouter.get(['/sitemap-categories.xml', '/sitemap_categories.xml', '/sitemap-c
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
-  <url>
-    <loc>${HOST}/new-apps</loc>
-    <lastmod>${latestAppDate}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
+${categoryEntries}
 </urlset>`;
   sendXmlOrGzip(req, res, xml, 86400);
 });

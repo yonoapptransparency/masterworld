@@ -4,7 +4,7 @@ import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '.
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
 import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, commitMultiFilesToGitHub, encryptUrlIfNeeded, compileCanonicalApp, compileCanonicalNews, generateSecureVaultFile, sanitizePublicSettings } from '../lib/githubSync';
 import { getAesSecret, safeDecrypt, safeEncrypt } from '../lib/cryptoUtils';
-import { generateAllSitemaps } from '../lib/sitemapGenerator';
+import { generateAllSitemaps, generateRobotsTxt } from '../lib/sitemapGenerator';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { getResolvedCommunityFirebaseConfig, parseFirestoreFields } from '../lib/communityFirebase';
@@ -756,7 +756,7 @@ export function useGitHubSync(
           });
         }
 
-        const robotsContent = `User-agent: *\nAllow: /\nAllow: /api/v1/public/\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nDisallow: /s/\nDisallow: /s/*\nDisallow: /dl/\nDisallow: /dl/*\nDisallow: /out/\nDisallow: /out/*\nDisallow: /download/\nDisallow: /download/*\nDisallow: /gateway/\nDisallow: /gateway/*\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /info/\nDisallow: /info/*\nDisallow: /moredetail/\nDisallow: /moredetail/*\n\nSitemap: https://www.rummydex.com/sitemap.xml\nSitemap: https://www.rummydex.com/sitemap-news.xml\nSitemap: https://www.rummydex.com/sitemap-apps.xml\nSitemap: https://www.rummydex.com/sitemap-static.xml\nSitemap: https://www.rummydex.com/sitemap-videos.xml\nSitemap: https://www.rummydex.com/sitemap-developers.xml\n`;
+        const robotsContent = generateRobotsTxt('https://www.rummydex.com');
         primaryBatchFiles.push({
           path: 'public/robots.txt',
           content: robotsContent

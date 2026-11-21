@@ -161,12 +161,6 @@
   Cloudflare-CDN-Cache-Control: public, max-age=300, stale-while-revalidate=3600
   X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
-/faqs
-  Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
-  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-  Cloudflare-CDN-Cache-Control: public, max-age=300, stale-while-revalidate=3600
-  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
-
 # 5. Clearance Gateway & Non-Indexed Security Routes (Strict no-store & noindex)
 /moreinfo/*
   Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0

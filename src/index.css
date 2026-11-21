@@ -203,11 +203,9 @@ a {
   transform: none;
 }
 
-/* Hardware accelerated horizontal scroll containers for maximum touch smoothness */
+/* Smooth native horizontal scroll containers without unnecessary GPU layer promotion */
 .overflow-x-auto {
   -webkit-overflow-scrolling: touch !important;
-  
-  transform: translateZ(0);
 }
 
 @keyframes marquee {

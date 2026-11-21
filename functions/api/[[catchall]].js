@@ -31,9 +31,21 @@ async function hmacSign(secret, message) {
     .replace(/=+$/, '');
 }
 
+function timingSafeEqualStr(a, b) {
+  const strA = String(a || '');
+  const strB = String(b || '');
+  const len = Math.max(strA.length, strB.length);
+  let diff = strA.length ^ strB.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (strA.charCodeAt(i) || 0) ^ (strB.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
 async function hmacVerify(secret, message, expectedSig) {
+  if (!secret || !expectedSig) return false;
   const actualSig = await hmacSign(secret, message);
-  return actualSig === expectedSig;
+  return timingSafeEqualStr(actualSig, expectedSig);
 }
 
 function parseAdminConfig(env) {
@@ -58,7 +70,7 @@ async function getAdminSessionSecret(env, configuredPassword) {
     env?.SESSION_SECRET ||
     (configuredPassword
       ? await sha256Hex(configuredPassword + '_salt_rummydex')
-      : 'rummydex_admin_fallback_secret_key_2026')
+      : '')
   );
 }
 
@@ -179,19 +191,19 @@ export async function onRequest(context) {
       });
     }
 
-    if (normalizedEmail !== configuredEmail) {
-      return new Response(JSON.stringify({ ok: false, error: 'Invalid administrator email address.' }), {
+    if (!timingSafeEqualStr(normalizedEmail, configuredEmail)) {
+      return new Response(JSON.stringify({ ok: false, error: 'Invalid administrator credentials.' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
       });
     }
 
     const inputHash = await sha256Hex(inputPass);
-    const isDirectMatch = inputPass === configuredPassword;
-    const isHashMatch = inputHash === configuredPassword.toLowerCase();
+    const isDirectMatch = timingSafeEqualStr(inputPass, configuredPassword);
+    const isHashMatch = timingSafeEqualStr(inputHash, configuredPassword.toLowerCase());
 
     if (!isDirectMatch && !isHashMatch) {
-      return new Response(JSON.stringify({ ok: false, error: 'Incorrect administrator password.' }), {
+      return new Response(JSON.stringify({ ok: false, error: 'Invalid administrator credentials.' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
       });
@@ -287,6 +299,27 @@ export async function onRequest(context) {
   }
 
   // 6. Admin AI Review Studio Edge Endpoints (/api/v1/admin/community/aistudio-settings & aistudio-gemini)
+  if (
+    url.pathname === '/api/v1/admin/community/aistudio-settings' ||
+    url.pathname === '/api/v1/admin/community/aistudio-gemini'
+  ) {
+    const authHeader = headers['authorization'] || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const { configuredEmail, configuredPassword } = parseAdminConfig(env);
+    const sessionSecret = await getAdminSessionSecret(env, configuredPassword);
+    const authCheck = await verifyAdminToken(token, sessionSecret, configuredEmail);
+    if (!authCheck.valid) {
+      return new Response(JSON.stringify({
+        success: false,
+        ok: false,
+        error: 'Administrator authentication required.'
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
+      });
+    }
+  }
+
   if (url.pathname === '/api/v1/admin/community/aistudio-settings') {
     const envKey = (env?.GEMINI_API_KEY || env?.VITE_GEMINI_API_KEY || '').trim();
     if (request.method === 'GET') {
@@ -295,7 +328,6 @@ export async function onRequest(context) {
         data: {
           hasServerKey: Boolean(envKey),
           config: {
-            ...(envKey ? { apiKey: envKey } : {}),
             model: 'gemini-3.8-flash'
           }
         }
@@ -430,11 +462,84 @@ export async function onRequest(context) {
     });
   }
 
-  // 7. Public APIs (Catalog, App Details, Settings, News, Videos)
+  // 7. Public APIs (Health, Catalog, App Details, Settings, News, Videos, Developers, FAQs)
+  const safeDecodeSegment = (raw) => {
+    try {
+      return decodeURIComponent(raw || '');
+    } catch {
+      return String(raw || '');
+    }
+  };
+
+  const getPublicApps = () =>
+    (Array.isArray(staticData?.apps) ? staticData.apps : []).filter((a) => a && a.sync_to_public !== false);
+
+  const getPublicNews = () =>
+    (Array.isArray(staticData?.news) ? staticData.news : []).filter((n) => n && n.sync_to_public !== false);
+
+  const sanitizePublicSettingsEdge = (rawSettings) => {
+    if (!rawSettings || typeof rawSettings !== 'object') return {};
+    const out = { ...rawSettings };
+    const privateKeys = [
+      'turnstile_secret_key',
+      'cloudinary_api_secret',
+      'cloudinary_api_key',
+      'cloudinary_cloud_name',
+      'cloudinary_upload_preset',
+      'gemini_api_key',
+      'gemini_model',
+      '_rest_admin_bypass',
+      'test_ping',
+      'github_token',
+      'admin_email',
+      'admin_password',
+    ];
+    for (const k of privateKeys) delete out[k];
+    return out;
+  };
+
+  const stripRichAppFields = (app) => {
+    if (!app || typeof app !== 'object') return app;
+    const {
+      description_html,
+      features_html,
+      screenshots,
+      faqs,
+      custom_admin_box_html,
+      custom_admin_box_heading,
+      yellow_box_msg,
+      red_box_msg,
+      idea_box_msg,
+      release_notes,
+      more_information_url,
+      encrypted_link,
+      encrypted_download_url,
+      download_url,
+      ...card
+    } = app;
+    return card;
+  };
+
+  const stripRichNewsFields = (item) => {
+    if (!item || typeof item !== 'object') return item;
+    const { content, description_html, ...card } = item;
+    return card;
+  };
+
+  if (url.pathname === '/api/ping' || url.pathname === '/api/health') {
+    return new Response(JSON.stringify({ status: 'OK', ok: true, edge: true }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
+
   if (url.pathname.startsWith('/api/v1/public/app/')) {
     const rawSlug = url.pathname.replace(/^\/api\/v1\/public\/app\//, '').trim();
-    const clean = decodeURIComponent(rawSlug).toLowerCase().trim();
-    const apps = Array.isArray(staticData?.apps) ? staticData.apps : [];
+    const clean = safeDecodeSegment(rawSlug).toLowerCase().trim().replace(/\/+$/, '');
+    const apps = getPublicApps();
     const app =
       apps.find((a) => {
         const s = String(a.slug || a.id || '').toLowerCase().trim();
@@ -445,37 +550,53 @@ export async function onRequest(context) {
         status: 200,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'Cache-Control': 'public, max-age=60, s-maxage=300',
+          'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800',
         },
       });
     }
-    return new Response(JSON.stringify({ status: 'ERROR', error: 'App not found' }), {
+    return new Response(JSON.stringify({ status: 'NOT_FOUND', error: 'App not found' }), {
       status: 404,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
     });
   }
 
   if (url.pathname === '/api/v1/public/backup-data') {
-    return new Response(JSON.stringify(staticData), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'public, max-age=120, s-maxage=600',
-      },
-    });
+    const publicApps = getPublicApps().map(stripRichAppFields);
+    const publicNews = getPublicNews().map(stripRichNewsFields);
+    const publicVideos = Array.isArray(staticData?.videos) ? staticData.videos.filter(Boolean) : [];
+    const publicSettings = sanitizePublicSettingsEdge(staticData?.settings || {});
+    return new Response(
+      JSON.stringify({
+        apps: publicApps,
+        settings: publicSettings,
+        news: publicNews,
+        videos: publicVideos,
+        reviews: [],
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'public, max-age=120, s-maxage=600, stale-while-revalidate=600',
+        },
+      }
+    );
   }
 
   if (url.pathname === '/api/v1/public/settings') {
-    return new Response(JSON.stringify({ status: 'OK', settings: staticData?.settings || {} }), {
+    return new Response(JSON.stringify({ status: 'OK', settings: sanitizePublicSettingsEdge(staticData?.settings || {}) }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=600, s-maxage=1800, stale-while-revalidate=86400',
+      },
     });
   }
 
   if (url.pathname.startsWith('/api/v1/public/news/')) {
     const rawSlug = url.pathname.replace(/^\/api\/v1\/public\/news\//, '').trim();
-    const clean = decodeURIComponent(rawSlug).toLowerCase().trim().replace(/\/+$/, '');
-    const newsList = Array.isArray(staticData?.news) ? staticData.news : [];
+    const clean = safeDecodeSegment(rawSlug).toLowerCase().trim().replace(/\/+$/, '');
+    const newsList = getPublicNews();
     const newsItem = newsList.find((n) => {
       const s = String(n.slug || '').toLowerCase().trim();
       const id = String(n.id || '').toLowerCase().trim();
@@ -486,27 +607,56 @@ export async function onRequest(context) {
         status: 200,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'Cache-Control': 'public, max-age=60, s-maxage=300',
+          'Cache-Control': 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=604800',
         },
       });
     }
-    return new Response(JSON.stringify({ status: 'ERROR', error: 'News article not found' }), {
+    return new Response(JSON.stringify({ status: 'NOT_FOUND', error: 'News article not found' }), {
       status: 404,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
     });
   }
 
   if (url.pathname === '/api/v1/public/news') {
-    return new Response(JSON.stringify({ status: 'OK', news: staticData?.news || [] }), {
+    return new Response(JSON.stringify({ status: 'OK', news: getPublicNews().map(stripRichNewsFields) }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400',
+      },
     });
   }
 
   if (url.pathname === '/api/v1/public/videos') {
-    return new Response(JSON.stringify({ status: 'OK', videos: staticData?.videos || [] }), {
+    const videos = Array.isArray(staticData?.videos) ? staticData.videos.filter(Boolean) : [];
+    return new Response(JSON.stringify({ status: 'OK', videos }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=600, s-maxage=1200, stale-while-revalidate=86400',
+      },
+    });
+  }
+
+  if (url.pathname === '/api/v1/public/developers') {
+    const developers = staticData?.developers || staticData?.settings?.developers || [];
+    return new Response(JSON.stringify({ status: 'OK', developers }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400',
+      },
+    });
+  }
+
+  if (url.pathname === '/api/v1/public/faqs') {
+    const faqs = staticData?.settings?.website_faqs || [];
+    return new Response(JSON.stringify({ status: 'OK', faqs }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400',
+      },
     });
   }
 

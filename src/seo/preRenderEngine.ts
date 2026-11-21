@@ -3,8 +3,8 @@ import { resolveAppSlug } from '../lib/slugResolver';
 import * as renderers from './renderers/index';
 import { getLocalFallbackReviewsForApp } from './reviewFallback';
 
-function wrapWithLayout(bodyContent: string, settings: any): string {
-  const headerHtml = renderers.renderHeader(settings);
+function wrapWithLayout(bodyContent: string, settings: any, activePath: string = '/'): string {
+  const headerHtml = renderers.renderHeader(settings, activePath);
   const tickerHtml = renderers.renderTicker(settings);
   const footerHtml = renderers.renderFooter(settings);
   return `
@@ -189,5 +189,5 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
     }
   }
 
-  return wrapWithLayout(bodyHtml, settings);
+  return wrapWithLayout(bodyHtml, settings, cleanPathLower);
 }

@@ -16,6 +16,8 @@ export const appDetailMemoryCache = new Map<string, any>();
 // In-flight request tracking to deduplicate concurrent network roundtrips
 const inFlightFetches = new Map<string, Promise<any>>();
 const prefetchedKeys = new Set<string>();
+const warmedIconUrls = new Set<string>();
+const MAX_WARMED_ICONS = 150;
 
 /**
  * Preload AppDetails component chunk and rich JSON payload ahead of time
@@ -25,12 +27,10 @@ export const preloadAppDetails = (slugOrApp?: string | { slug?: string; id?: str
 
   let rawSlug = '';
   let iconUrl = '';
-  let passedObject: any = null;
 
   if (typeof slugOrApp === 'string') {
     rawSlug = slugOrApp;
   } else if (typeof slugOrApp === 'object' && slugOrApp !== null) {
-    passedObject = slugOrApp;
     rawSlug = slugOrApp.slug || slugOrApp.id || '';
     iconUrl = slugOrApp.icon_url || '';
 
@@ -48,29 +48,36 @@ export const preloadAppDetails = (slugOrApp?: string | { slug?: string; id?: str
   const cleanKey = String(rawSlug).toLowerCase().trim();
   if (!cleanKey) return;
 
-  // 1. Prefetch AppDetails dynamic chunk ahead of time for 0ms transitions
-  try {
-    import('../pages/AppDetails');
-  } catch (_) {}
-
-  // 2. Preload app icon image into browser memory cache if available
+  // 1. Preload app icon image once into browser memory cache if not already warmed
   if (iconUrl && typeof Image !== 'undefined') {
     try {
-      const img = new Image();
-      img.src = getOptimizedImageUrl(iconUrl, 200);
+      const optIcon = getOptimizedImageUrl(iconUrl, 200);
+      if (optIcon && !warmedIconUrls.has(optIcon)) {
+        if (warmedIconUrls.size >= MAX_WARMED_ICONS) {
+          warmedIconUrls.clear();
+        }
+        warmedIconUrls.add(optIcon);
+        const img = new Image();
+        img.src = optIcon;
+      }
     } catch (_) {}
   }
 
-  // 3. If already cached in memory with rich description_html, no network fetch needed
+  // 2. If already cached in memory with rich description_html, no network fetch needed
   const existingCached = appDetailMemoryCache.get(cleanKey);
   if (existingCached && existingCached.description_html) {
     return;
   }
 
-  // 4. If fetch is already in flight or prefetched, reuse existing promise
+  // 3. If fetch is already in flight or prefetched, reuse existing promise
   if (inFlightFetches.has(cleanKey) || prefetchedKeys.has(cleanKey)) {
     return;
   }
+
+  // 4. Prefetch AppDetails dynamic chunk ahead of time for 0ms transitions
+  try {
+    import('../pages/AppDetails');
+  } catch (_) {}
 
   prefetchedKeys.add(cleanKey);
 
@@ -94,9 +101,13 @@ export const preloadAppDetails = (slugOrApp?: string | { slug?: string; id?: str
           }
           return app;
         }
+        prefetchedKeys.delete(cleanKey);
         return null;
       })
-      .catch(() => null)
+      .catch(() => {
+        prefetchedKeys.delete(cleanKey);
+        return null;
+      })
       .finally(() => {
         inFlightFetches.delete(cleanKey);
       });

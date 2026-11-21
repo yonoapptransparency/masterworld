@@ -2,6 +2,10 @@
 # Note: Cloudflare Pages natively routes unmatched SPA requests to /index.html (200 OK) when no top-level 404.html is present.
 /developer        /developers   301
 /developer/*      /developers/:splat 301
+/faqs             /faq          301
+/apps/*           /app/:splat   301
+/game/*           /app/:splat   301
+/apk/*            /app/:splat   301
 /blogs/*          /             301
 /blog/*           /             301
 /blogs            /             301

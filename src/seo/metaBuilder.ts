@@ -18,6 +18,7 @@ export interface MetaBuilderParams {
   cssPreloadTag?: string;
   jsonLdSchema: string;
   isNotFound: boolean;
+  isNoIndex?: boolean;
   getField: (obj: any, key: string, fallback?: any) => any;
   pageType?: string;
 }
@@ -40,6 +41,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     favicon180,
     jsonLdSchema,
     isNotFound,
+    isNoIndex,
     getField,
     pageType
   } = params;
@@ -111,6 +113,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
   }
 
   const isHomePage = pageType === 'home';
+  const shouldNoIndex = Boolean(isNotFound || isNoIndex);
 
   return `
     <title>${escapedTitle}</title>
@@ -118,7 +121,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     ${keywords ? `<meta name="keywords" content="${escapedKeywords}">` : ''}
     ${isHomePage ? `<meta data-rh="true" name="application-name" content="${resolvedSiteName}">` : ''}
     <meta data-rh="true" name="color-scheme" content="light dark">
-    ${isNotFound
+    ${shouldNoIndex
       ? `<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet">`
       : `<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">`
     }
@@ -143,7 +146,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <meta data-rh="true" itemprop="image" content="${searchThumbnail}">
     <meta data-rh="true" itemprop="thumbnailUrl" content="${searchThumbnail}">
     <link data-rh="true" rel="image_src" href="${searchThumbnail}">
-    ${!isNotFound ? `<link data-rh="true" rel="canonical" href="${canonicalUrl}">` : ''}
+    ${!shouldNoIndex ? `<link data-rh="true" rel="canonical" href="${canonicalUrl}">` : ''}
     <link data-rh="true" rel="icon" type="image/x-icon" href="${faviconIco}">
     <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${favicon32}">
     <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
@@ -180,7 +183,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
       }
       return '';
     })()}
-    ${!isNotFound ? jsonLdSchema : ''}
+    ${!shouldNoIndex ? jsonLdSchema : ''}
   `;
 }
 

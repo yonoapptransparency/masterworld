@@ -6,6 +6,7 @@ import { SeoFieldWithLimit } from './SeoFieldWithLimit';
 import { toast } from '../Toast';
 import { generateSha1 } from '../../lib/cryptoUtils';
 import { syncStudioConfigFromGlobalSettings } from './aistudio/storage';
+import { adminFetch } from '../../services/adminAuthService';
 
 interface AdminSettingsTabProps {
   settings: any;
@@ -42,7 +43,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 4500);
-      const res = await fetch('/api/v1/admin/community/aistudio-gemini', {
+      const res = await adminFetch('/api/v1/admin/community/aistudio-gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -196,10 +197,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
       // Test 3: Backend Server Upload Endpoint Test
       if (!verified) {
         try {
-          const idToken = (await (globalThis as any).firebaseAuthUser?.getIdToken?.()) || undefined;
-          const sigRes = await fetch('/api/v1/admin/upload/signature', {
-            headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
-          });
+          const sigRes = await adminFetch('/api/v1/admin/upload/signature');
           if (sigRes.ok) {
             const sigData = await sigRes.json();
             if (sigData.status === 'OK' && sigData.cloud_name) {

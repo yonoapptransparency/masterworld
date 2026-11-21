@@ -13,7 +13,13 @@ function getFieldSafe(obj: any, field: string): any {
 
 export function resolveAppSlug(rawSlug: string, appsList: any[]): any | null {
   if (!rawSlug || !Array.isArray(appsList) || appsList.length === 0) return null;
-  let clean = decodeURIComponent(rawSlug).replace(/^\/+|\/+$/g, '').toLowerCase().trim();
+  let decoded = rawSlug;
+  try {
+    decoded = decodeURIComponent(rawSlug);
+  } catch {
+    decoded = rawSlug;
+  }
+  let clean = decoded.replace(/^\/+|\/+$/g, '').toLowerCase().trim();
   clean = clean.replace(/[-_]+$/g, ''); // Strip trailing hyphens like "uno-" -> "uno"
 
   if (!clean) return null;

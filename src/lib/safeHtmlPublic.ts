@@ -52,26 +52,55 @@ function normalizeEmbeddedHtmlHygiene(html: string): string {
         nextAttrs += ' target="_blank"';
       }
       if (!/\brel\s*=/i.test(nextAttrs)) {
-        nextAttrs += ' rel="noopener"';
+        nextAttrs += ' rel="noopener noreferrer"';
       }
       return `<a${nextAttrs}>`;
     });
 }
 
+function decodeNumericHtmlEntities(input: string): string {
+  return input
+    .replace(/&#x([0-9a-f]+);?/gi, (_, hex) => {
+      const code = parseInt(hex, 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : '';
+    })
+    .replace(/&#(\d+);?/g, (_, dec) => {
+      const code = parseInt(dec, 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : '';
+    });
+}
+
+function neutralizeDangerousUrls(html: string): string {
+  return html.replace(
+    /\b(href|src|xlink:href|formaction|action)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    (match, attr, dq, sq, unq) => {
+      const rawVal = dq ?? sq ?? unq ?? '';
+      const decoded = decodeNumericHtmlEntities(rawVal).replace(/[\u0000-\u0020]+/g, '').toLowerCase();
+      if (
+        decoded.startsWith('javascript:') ||
+        decoded.startsWith('vbscript:') ||
+        decoded.startsWith('data:text/html') ||
+        decoded.startsWith('data:image/svg+xml')
+      ) {
+        return `${attr}="#"`;
+      }
+      return match;
+    }
+  );
+}
+
 function serverSanitize(html: string): string {
   if (!html || typeof html !== 'string') return '';
-  return normalizeEmbeddedHtmlHygiene(html)
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
-    .replace(/<applet\b[^<]*(?:(?!<\/applet>)<[^<]*)*<\/applet>/gi, '')
-    .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '')
-    .replace(/\son\w+\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '')
+  let clean = normalizeEmbeddedHtmlHygiene(html)
+    .replace(/\s+srcdoc\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/<(script|style|iframe|object|embed|applet|form|base|meta|link)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<\/?(script|style|iframe|object|embed|applet|form|base|meta|link)\b[^>]*>/gi, '')
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  clean = neutralizeDangerousUrls(clean)
     .replace(/javascript:/gi, 'blocked-scheme:')
     .replace(/vbscript:/gi, 'blocked-scheme:')
     .replace(/data:\s*text\/html/gi, 'blocked-data:');
+  return clean;
 }
 
 const STRUCTURE_CACHE = new Map<string, string>();

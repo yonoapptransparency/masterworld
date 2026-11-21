@@ -12,6 +12,32 @@ if (!fs.existsSync(configPath)) {
 }
 
 function adminAuthDevPlugin(env: Record<string, string>) {
+  const devSecret = crypto.randomBytes(32).toString('hex');
+  const signDevToken = (email: string) => {
+    const payloadB64 = Buffer.from(JSON.stringify({ email, exp: Date.now() + 55 * 60 * 1000 })).toString('base64url');
+    const sig = crypto.createHmac('sha256', devSecret).update(payloadB64).digest('base64url');
+    return `adm_dev.${payloadB64}.${sig}`;
+  };
+  const isValidDevAdminHeader = (authHeader: string): boolean => {
+    const token = String(authHeader || '').replace(/^Bearer\s+/i, '').trim();
+    if (!token) return false;
+    if (token.startsWith('adm_dev.')) {
+      const parts = token.split('.');
+      if (parts.length !== 3) return false;
+      const expected = crypto.createHmac('sha256', devSecret).update(parts[1]).digest('base64url');
+      const a = Buffer.from(parts[2]);
+      const b = Buffer.from(expected);
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
+      try {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+        return Boolean(payload && payload.exp > Date.now());
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  };
+
   return {
     name: 'admin-auth-dev-api',
     configureServer(server: any) {
@@ -28,7 +54,7 @@ function adminAuthDevPlugin(env: Record<string, string>) {
               const inputPass = String(password || '').trim();
 
               if (cfgEmail && inputEmail === cfgEmail && cfgPass && inputPass === cfgPass) {
-                const token = 'adm_dev_' + Buffer.from(inputEmail + ':' + Date.now()).toString('base64');
+                const token = signDevToken(inputEmail);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
                   ok: true,
@@ -56,9 +82,7 @@ function adminAuthDevPlugin(env: Record<string, string>) {
         }
 
         if (req.url === '/api/v1/admin/verify' || req.url === '/api/v1/admin/verify-session') {
-          const authHeader = req.headers['authorization'] || '';
-          const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-          if (token && (token.startsWith('adm_dev_') || token.startsWith('eyJ') || token.length > 20)) {
+          if (isValidDevAdminHeader(req.headers['authorization'] || '')) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ authorized: true, valid: true, authenticated: true, role: 'admin' }));
           } else {
@@ -69,6 +93,11 @@ function adminAuthDevPlugin(env: Record<string, string>) {
         }
 
         if (req.url && req.url.startsWith('/api/v1/admin/community/app-counts')) {
+          if (!isValidDevAdminHeader(req.headers['authorization'] || '')) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'ERROR', error: 'UNAUTHORIZED' }));
+            return;
+          }
           const isForce = req.url.includes('force=true');
           const fetchFirestore = async () => {
             const apiKey = env.VITE_COMMUNITY_FIREBASE_API_KEY || process.env.VITE_COMMUNITY_FIREBASE_API_KEY || '';
@@ -265,8 +294,10 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           const HOST = 'https://www.rummydex.com';
 
           if (req.url === '/robots.txt') {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /masterworld\nDisallow: /moreinfo/\n\nSitemap: https://www.rummydex.com/sitemap.xml\nSitemap: https://www.rummydex.com/sitemap-news.xml\nSitemap: https://www.rummydex.com/sitemap-apps.xml\n`);
+            import('./src/lib/sitemapGenerator').then(({ generateRobotsTxt }) => {
+              res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+              res.end(generateRobotsTxt(HOST));
+            });
             return;
           }
 
@@ -296,8 +327,9 @@ function adminAuthDevPlugin(env: Record<string, string>) {
 
           if (req.url === '/sitemap-static.xml' || req.url === '/sitemap_static.xml') {
             import('./src/lib/sitemapGenerator').then(({ generateStaticSitemapXml }) => {
+              const settingsDate = staticData?.settings?.last_updated || staticData?.settings?.updated_at;
               res.writeHead(200, { 'Content-Type': 'application/xml' });
-              res.end(generateStaticSitemapXml(HOST));
+              res.end(generateStaticSitemapXml(HOST, { settingsDate, apps: staticData.apps || [] }));
             });
             return;
           }
@@ -320,6 +352,11 @@ function adminAuthDevPlugin(env: Record<string, string>) {
         }
 
         if (req.url && req.url.startsWith('/api/v1/admin/community/aistudio-settings')) {
+          if (!isValidDevAdminHeader(req.headers['authorization'] || '')) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'UNAUTHORIZED' }));
+            return;
+          }
           const dataDir = path.resolve(__dirname, '.data');
           const persistentBrainPath = path.join(dataDir, 'aiStudioBrain.json');
           const seedBrainPath = path.resolve(__dirname, 'src/lib/aiStudioBrain.json');
@@ -397,6 +434,11 @@ function adminAuthDevPlugin(env: Record<string, string>) {
         }
 
         if (req.url && req.url.startsWith('/api/v1/admin/community/aistudio-gemini') && req.method === 'POST') {
+          if (!isValidDevAdminHeader(req.headers['authorization'] || '')) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'UNAUTHORIZED' }));
+            return;
+          }
           let body = '';
           req.on('data', (chunk: any) => { body += chunk; });
           req.on('end', async () => {
@@ -448,8 +490,7 @@ function adminAuthDevPlugin(env: Record<string, string>) {
         }
 
         if (req.url && req.url.startsWith('/api/v1/admin/upload/signature')) {
-          const authHeader = req.headers['authorization'] || '';
-          if (!authHeader.includes('Bearer')) {
+          if (!isValidDevAdminHeader(req.headers['authorization'] || '')) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ status: 'ERROR', error: 'UNAUTHORIZED' }));
             return;
@@ -483,8 +524,7 @@ function adminAuthDevPlugin(env: Record<string, string>) {
         }
 
         if (req.method === 'POST' && req.url === '/api/v1/admin/upload') {
-          const authHeader = req.headers['authorization'] || '';
-          if (!authHeader.includes('Bearer')) {
+          if (!isValidDevAdminHeader(req.headers['authorization'] || '')) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ status: 'ERROR', error: 'UNAUTHORIZED' }));
             return;

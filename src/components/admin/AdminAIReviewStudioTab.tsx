@@ -14,6 +14,7 @@ import {
   Cpu
 } from 'lucide-react';
 import { toast } from '../Toast';
+import { adminFetch } from '../../services/adminAuthService';
 import {
   StudioConfig,
   BrainMemoryDirective,
@@ -117,7 +118,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 6000);
     try {
-      const res = await fetch('/api/v1/admin/community/aistudio-gemini', {
+      const res = await adminFetch('/api/v1/admin/community/aistudio-gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
