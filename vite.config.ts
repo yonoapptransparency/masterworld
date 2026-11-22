@@ -244,14 +244,29 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           }
 
           if (req.url.startsWith('/api/v1/public/app/')) {
-            const slug = decodeURIComponent(req.url.replace('/api/v1/public/app/', '').split('?')[0] || '').toLowerCase().trim();
+            const [rawPath, rawQuery = ''] = req.url.replace('/api/v1/public/app/', '').split('?');
+            const slug = decodeURIComponent(rawPath || '').toLowerCase().trim();
+            const isLite = new URLSearchParams(rawQuery).get('lite') === '1';
             const appsList = staticData.apps || [];
             const found = appsList.find((a: any) => {
               const s = String(a.slug || a.id || '').toLowerCase().trim();
               return s === slug || String(a.id || '').toLowerCase().trim() === slug;
             });
+            const payloadApp =
+              found && isLite
+                ? {
+                    id: found.id,
+                    name: found.name,
+                    slug: found.slug,
+                    icon_url: found.icon_url || '',
+                    version: found.version || '1.0',
+                    serial_number: found.serial_number ?? undefined,
+                    safety_status: found.safety_status || 'Verified',
+                    is_coming_soon: Boolean(found.is_coming_soon),
+                  }
+                : found;
             res.writeHead(found ? 200 : 404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(found ? { status: 'OK', app: found } : { status: 'NOT_FOUND', error: 'App not found' }));
+            res.end(JSON.stringify(found ? { status: 'OK', app: payloadApp } : { status: 'NOT_FOUND', error: 'App not found' }));
             return;
           }
 

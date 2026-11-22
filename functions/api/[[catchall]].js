@@ -546,7 +546,20 @@ export async function onRequest(context) {
         return s === clean;
       }) || resolveAppSlug(clean, apps);
     if (app) {
-      return new Response(JSON.stringify({ status: 'OK', app }), {
+      const payloadApp =
+        url.searchParams.get('lite') === '1'
+          ? {
+              id: app.id,
+              name: app.name,
+              slug: app.slug,
+              icon_url: app.icon_url || '',
+              version: app.version || '1.0',
+              serial_number: app.serial_number ?? undefined,
+              safety_status: app.safety_status || 'Verified',
+              is_coming_soon: Boolean(app.is_coming_soon),
+            }
+          : app;
+      return new Response(JSON.stringify({ status: 'OK', app: payloadApp }), {
         status: 200,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',

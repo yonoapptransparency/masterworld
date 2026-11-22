@@ -51,12 +51,12 @@ export const SOFT_STRIKES_NET = {
 } as const;
 
 export const SITEVERIFY_TIMEOUT_MS = 8500 as const;
-export const TURNSTILE_UI_TIMEOUT_MS = 30000 as const;
-export const TURNSTILE_RETRY_INTERVAL_MS = 2000 as const;
-export const TURNSTILE_SCRIPT_STALL_MS = 4500 as const;
-export const TURNSTILE_WIDGET_STALL_MS = 28000 as const;
-export const SESSION_INIT_TIMEOUT_MS = 9500 as const;
-export const CLEARANCE_FETCH_TIMEOUT_MS = 22000 as const;
+export const TURNSTILE_UI_TIMEOUT_MS = 35000 as const;
+export const TURNSTILE_RETRY_INTERVAL_MS = 3000 as const;
+export const TURNSTILE_SCRIPT_STALL_MS = 12000 as const;
+export const TURNSTILE_WIDGET_STALL_MS = 35000 as const;
+export const SESSION_INIT_TIMEOUT_MS = 12000 as const;
+export const CLEARANCE_FETCH_TIMEOUT_MS = 28000 as const;
 export const DEFAULT_TURNSTILE_SITE_KEY = '0x4AAAAAAFADYWIcbiDcPvh7' as const;
 export const SESSION_RETRY_MAX = 3 as const;
 export const REQUEST_BODY_MAX_BYTES = 8192 as const;

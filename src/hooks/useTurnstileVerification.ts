@@ -67,7 +67,37 @@ export function preconnectTurnstileOnly(): void {
   ensureTurnstilePreconnect();
 }
 
-export function ensureTurnstileScriptLoaded(forceReload = false): void {
+function isConstrainedClient(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  try {
+    const conn = (
+      navigator as unknown as {
+        connection?: {
+          saveData?: boolean;
+          effectiveType?: string;
+          rtt?: number;
+          downlink?: number;
+        };
+      }
+    ).connection;
+    if (conn) {
+      if (conn.saveData) return true;
+      const et = String(conn.effectiveType || '').toLowerCase();
+      if (et === 'slow-2g' || et === '2g' || et === '3g') return true;
+      if (typeof conn.rtt === 'number' && conn.rtt >= 400) return true;
+      if (typeof conn.downlink === 'number' && conn.downlink > 0 && conn.downlink < 1.5) return true;
+    }
+    const dm = (navigator as unknown as { deviceMemory?: number }).deviceMemory;
+    if (typeof dm === 'number' && dm > 0 && dm <= 3) return true;
+    const hc = navigator.hardwareConcurrency;
+    if (typeof hc === 'number' && hc > 0 && hc <= 4) return true;
+  } catch {
+    // Ignore capability read errors
+  }
+  return false;
+}
+
+export function ensureTurnstileScriptLoaded(forceReload = false, bustCache = false): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   ensureTurnstilePreconnect();
   if (window.turnstile && !forceReload) return;
@@ -90,7 +120,8 @@ export function ensureTurnstileScriptLoaded(forceReload = false): void {
 
   try {
     const s = document.createElement('script');
-    s.src = forceReload
+    // Only cache-bust when an actual script load error occurred so slow cellular connections reuse browser HTTP cache
+    s.src = bustCache
       ? `${TURNSTILE_SCRIPT_SRC}&retry=${Date.now() % 100000}`
       : TURNSTILE_SCRIPT_SRC;
     s.async = true;
@@ -168,7 +199,10 @@ async function fetchSessionInitOnce(
     externalSignal.addEventListener('abort', onExternalAbort, { once: true });
   }
 
-  const timer = setTimeout(() => controller.abort(), SESSION_INIT_TIMEOUT_MS);
+  const initTimeoutMs = isConstrainedClient()
+    ? Math.max(SESSION_INIT_TIMEOUT_MS, 18000)
+    : SESSION_INIT_TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(), initTimeoutMs);
   try {
     const reqInit: RequestInit & { priority?: string } = {
       method: 'POST',
@@ -485,12 +519,23 @@ export function useTurnstileVerification({
         }, delayMs);
       };
 
+      const constrained = isConstrainedClient();
+      const adaptiveUiTimeoutMs = constrained
+        ? Math.max(TURNSTILE_UI_TIMEOUT_MS, 55000)
+        : TURNSTILE_UI_TIMEOUT_MS;
+      const adaptiveScriptStallMs = constrained
+        ? Math.max(TURNSTILE_SCRIPT_STALL_MS, 18000)
+        : TURNSTILE_SCRIPT_STALL_MS;
+      const adaptiveWidgetStallMs = constrained
+        ? Math.max(TURNSTILE_WIDGET_STALL_MS, 55000)
+        : TURNSTILE_WIDGET_STALL_MS;
+
       // UI Timeout guard (§5.5: guards script load & session-init before widget mounts)
       uiTimeoutTimerRef.current = setTimeout(() => {
         if (!isStale() && !cfTokenRef.current && !widgetIdRef.current) {
           setUiTimeoutExceeded(true);
         }
-      }, TURNSTILE_UI_TIMEOUT_MS);
+      }, adaptiveUiTimeoutMs);
 
       try {
         const candidateKeys = resolveCandidateSiteKeys();
@@ -622,17 +667,20 @@ export function useTurnstileVerification({
         const renderTurnstileWidget = () => {
           if (isStale()) return;
           if (!window.turnstile || !widgetRef.current) {
-            // If Turnstile script stalled for > TURNSTILE_SCRIPT_STALL_MS (4.5s), re-inject script proactively (up to 2 stall reloads)
+            // Only re-inject if script genuinely stalled while online (never kill a live slow download prematurely)
+            const isOnline = typeof navigator === 'undefined' || navigator.onLine !== false;
             if (
               !window.turnstile &&
+              isOnline &&
               scriptReloadAttempts < 2 &&
-              Date.now() - scriptAttemptStartMs > TURNSTILE_SCRIPT_STALL_MS
+              Date.now() - scriptAttemptStartMs > adaptiveScriptStallMs
             ) {
               scriptReloadAttempts += 1;
               scriptAttemptStartMs = Date.now();
-              ensureTurnstileScriptLoaded(true);
+              ensureTurnstileScriptLoaded(true, false);
             }
-            scriptWaitTimerRef.current = setTimeout(renderTurnstileWidget, 50);
+            // s.onload triggers renderTurnstileWidget immediately at 0ms; 250ms fallback saves 80% timer wakeups on low-end CPUs
+            scriptWaitTimerRef.current = setTimeout(renderTurnstileWidget, 250);
             return;
           }
 
@@ -670,14 +718,20 @@ export function useTurnstileVerification({
               return;
             }
 
-            // On transient network/challenge error while nonce is still fresh (<60s), re-render directly without wasting a session-init RTT
+            // If device just lost cellular signal, let the online event listener recover cleanly instead of burning retries
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+              return;
+            }
+
+            // On transient network/challenge error while nonce is still fresh (<75s), re-render gently without wasting a session-init RTT
             const nonceAgeMs = Date.now() - initResponseTimeRef.current;
-            if (nonceRef.current && nonceAgeMs < 60000 && localWidgetRetries < 2) {
+            if (nonceRef.current && nonceAgeMs < 75000 && localWidgetRetries < 2) {
               localWidgetRetries += 1;
+              const backoffMs = (constrained ? 2000 : 1200) * localWidgetRetries;
               if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
               retryTimerRef.current = setTimeout(() => {
                 if (!isStale()) renderTurnstileWidget();
-              }, 450 * localWidgetRetries);
+              }, backoffMs);
               return;
             }
 
@@ -739,23 +793,24 @@ export function useTurnstileVerification({
               'timeout-callback': softReinit,
             });
             widgetIdRef.current = id;
-            armWidgetStallWatchdog(TURNSTILE_WIDGET_STALL_MS);
+            armWidgetStallWatchdog(adaptiveWidgetStallMs);
           } catch {
             onWidgetError();
           }
         };
 
-        // React immediately to script load OR network error (eliminates 7.5s dead-silence wait on script failure!)
+        // React immediately to script load OR network error
         const onScriptError = () => {
           if (isStale() || window.turnstile) return;
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
           if (scriptReloadAttempts < 3) {
             scriptReloadAttempts += 1;
-            const backoffMs = scriptReloadAttempts === 1 ? 600 : scriptReloadAttempts === 2 ? 1500 : 3000;
+            const backoffMs = scriptReloadAttempts === 1 ? 1000 : scriptReloadAttempts === 2 ? 2500 : 4500;
             if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
             retryTimerRef.current = setTimeout(() => {
               if (!isStale() && !window.turnstile) {
                 scriptAttemptStartMs = Date.now();
-                ensureTurnstileScriptLoaded(true);
+                ensureTurnstileScriptLoaded(true, true);
               }
             }, backoffMs);
           } else {

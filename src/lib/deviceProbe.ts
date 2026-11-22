@@ -59,15 +59,19 @@ export function textPhysics(): [number, number, number, number, number, number] 
       '"Roboto", monospace',
       '"-apple-system", monospace',
     ];
-    const widths: number[] = [];
+    const spans: HTMLSpanElement[] = [];
+    const frag = document.createDocumentFragment();
 
     for (const font of fonts) {
       const span = document.createElement('span');
       span.style.cssText = `font-family:${font};font-size:16px;white-space:nowrap;display:inline-block;`;
       span.textContent = 'mmmmmmmmmmlliWW1234567890';
-      wrap.appendChild(span);
-      widths.push(round2(span.getBoundingClientRect().width));
+      spans.push(span);
+      frag.appendChild(span);
     }
+
+    wrap.appendChild(frag);
+    const widths = spans.map((span) => round2(span.getBoundingClientRect().width));
 
     document.body.removeChild(wrap);
     return [
@@ -249,9 +253,10 @@ export function collectEnv(): Promise<FrozenEnvProbe> {
         : null;
 
     let gl: WebGLRenderingContext | null = null;
+    let canvas: HTMLCanvasElement | null = null;
     try {
       if (typeof document !== 'undefined') {
-        const canvas = document.createElement('canvas');
+        canvas = document.createElement('canvas');
         canvas.width = 1;
         canvas.height = 1;
         gl =
@@ -268,6 +273,19 @@ export function collectEnv(): Promise<FrozenEnvProbe> {
       : null;
     const ext = gl ? gl.getSupportedExtensions() ?? [] : [];
     const gpu = dbg && gl ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) ?? '') : '';
+
+    // Release temporary WebGL context immediately so low-RAM phones free GPU resources before Turnstile runs
+    if (gl) {
+      try {
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
+      } catch {
+        // Ignore context loss errors
+      }
+    }
+    if (canvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
 
     const hard: HardEnvObj = Object.freeze({
       plat: String(n.platform ?? ''),

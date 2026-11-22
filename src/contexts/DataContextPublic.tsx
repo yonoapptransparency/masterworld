@@ -443,8 +443,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    // Only fetch full catalog backup data on catalog routes or if SSR cache was completely absent
+    // Only fetch full catalog backup data on catalog routes or non-gateway routes when SSR cache was completely absent
     const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/' : '';
+    const isGateway =
+      p.startsWith('/moreinfo/') ||
+      p.startsWith('/gateway/') ||
+      p.startsWith('/info/') ||
+      p.startsWith('/moredetail/') ||
+      p.startsWith('/download/');
+    if (isGateway) return;
+
     const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category') || p.startsWith('/safety');
     if (isCatalog && appsLengthRef.current < 50) {
       loadFullStaticDataset().then(full => {

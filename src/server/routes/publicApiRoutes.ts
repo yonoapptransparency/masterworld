@@ -171,6 +171,21 @@ publicApiRouter.get('/api/v1/public/app/:slug', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');
     res.setHeader('CDN-Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
     res.setHeader('Cloudflare-CDN-Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    if (String(req.query.lite || '') === '1') {
+      return res.json({
+        status: 'OK',
+        app: {
+          id: app.id,
+          name: app.name,
+          slug: app.slug,
+          icon_url: app.icon_url || '',
+          version: app.version || '1.0',
+          serial_number: app.serial_number ?? undefined,
+          safety_status: app.safety_status || 'Verified',
+          is_coming_soon: Boolean(app.is_coming_soon),
+        },
+      });
+    }
     const catalogApps = apps.map((a: any) => sanitizeAppForPublicClient(a, false));
     return res.json({ status: 'OK', app: sanitizeAppForPublicClient(app, true), catalogApps });
   }
