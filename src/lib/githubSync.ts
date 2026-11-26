@@ -32,6 +32,140 @@ export interface GitConfig {
   autoSync: boolean;
 }
 
+const CLIENT_FORBIDDEN_PUBLIC_PREFIXES = [
+  '.git/',
+  '.github/',
+  '.aistudio/',
+  'src/components/admin/',
+  'src/server/middleware/',
+  'src/server/routes/admin',
+  'public/assets/aistudio/',
+  'docs/'
+];
+
+const CLIENT_FORBIDDEN_PUBLIC_EXACT = new Set<string>([
+  'server.ts',
+  'firestore.rules',
+  'firebase.json',
+  '.firebaserc',
+  'mock-2fa-state.json',
+  'community_local_backup.json',
+  'src/AppAdmin.tsx',
+  'src/pages/AdminDashboard.tsx',
+  'src/pages/AdminLogin.tsx',
+  'src/lib/public_backup.json',
+  'src/lib/secure_links_backup.json',
+  'src/lib/aiStudioBrain.json',
+  'src/lib/totp.ts',
+  'src/lib/secureStorage.ts',
+  'src/lib/firebase.ts',
+  'src/server/routes/githubSyncRoutes.ts'
+]);
+
+const REMOTE_PRUNE_PATHS = new Set<string>([
+  'src/lib/public_backup.json',
+  'src/lib/secure_links_backup.json',
+  'src/lib/aiStudioBrain.json'
+]);
+
+function normalizeAndValidatePublicPath(rawPath: string): string {
+  const clean = String(rawPath || '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
+  if (!clean || clean.includes('\0')) {
+    throw new Error(`Invalid file path in sync bundle: "${rawPath}"`);
+  }
+  const segments = clean.split('/');
+  if (segments.some(seg => seg === '' || seg === '.' || seg === '..')) {
+    throw new Error(`Unsafe traversal path blocked from sync bundle: "${clean}"`);
+  }
+  const baseName = segments[segments.length - 1].toLowerCase();
+  if (baseName === '.env' || baseName.startsWith('.env.')) {
+    throw new Error(`Environment secret file blocked from public sync: "${clean}"`);
+  }
+  const lower = clean.toLowerCase();
+  for (const prefix of CLIENT_FORBIDDEN_PUBLIC_PREFIXES) {
+    if (lower.startsWith(prefix.toLowerCase())) {
+      throw new Error(`Admin/internal path blocked from public sync: "${clean}"`);
+    }
+  }
+  if (CLIENT_FORBIDDEN_PUBLIC_EXACT.has(clean)) {
+    throw new Error(`Admin/internal file blocked from public sync: "${clean}"`);
+  }
+  return clean;
+}
+
+function buildAuthHeader(token: string): string {
+  const clean = token.trim();
+  return clean.toLowerCase().startsWith('ghp_') ? `token ${clean}` : `Bearer ${clean}`;
+}
+
+async function fetchGitHubWithTimeout(
+  url: string,
+  init: RequestInit = {},
+  options: { timeoutMs?: number; maxRetries?: number } = {}
+): Promise<Response> {
+  const timeoutMs = options.timeoutMs ?? 20000;
+  const maxRetries = options.maxRetries ?? 3;
+  let lastError: any = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const res = await fetch(url, {
+        ...init,
+        ...(controller ? { signal: controller.signal } : {})
+      });
+      if (timer) clearTimeout(timer);
+
+      if ((res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxRetries) {
+        const retryAfterSec = parseInt(res.headers.get('retry-after') || '', 10);
+        const waitMs = Number.isFinite(retryAfterSec) && retryAfterSec > 0
+          ? Math.min(retryAfterSec * 1000, 8000)
+          : 700 * attempt;
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+      return res;
+    } catch (err: any) {
+      if (timer) clearTimeout(timer);
+      lastError = err;
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 700 * attempt));
+        continue;
+      }
+    }
+  }
+
+  throw new Error(
+    lastError?.name === 'AbortError'
+      ? `GitHub API request timed out after ${timeoutMs}ms`
+      : (lastError?.message || 'GitHub network request failed')
+  );
+}
+
+/**
+ * Computes the exact deterministic Git blob SHA-1 hash ("blob <byteLen>\0<utf8Bytes>")
+ * so unchanged files already present on GitHub can reuse their existing blob SHA
+ * without burning POST /git/blobs quota or triggering secondary rate limits.
+ */
+export async function computeGitBlobSha1(content: string): Promise<string | null> {
+  try {
+    if (typeof crypto === 'undefined' || !crypto.subtle) return null;
+    const encoder = new TextEncoder();
+    const contentBytes = encoder.encode(content || '');
+    const headerBytes = encoder.encode(`blob ${contentBytes.byteLength}\0`);
+    const combined = new Uint8Array(headerBytes.byteLength + contentBytes.byteLength);
+    combined.set(headerBytes, 0);
+    combined.set(contentBytes, headerBytes.byteLength);
+    const digest = await crypto.subtle.digest('SHA-1', combined);
+    return Array.from(new Uint8Array(digest))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Encodes string to UTF-8 base64 properly for GitHub API content submission
  * Supports unicode, emojis and large multi-megabyte payloads without stack overflow
@@ -62,7 +196,7 @@ export function b64EncodeUnicode(str: string): string {
 }
 
 /**
- * Commits a file content update directly to Github via REST API
+ * Commits a single file content update atomically via the standard multi-file Git Data API.
  */
 export async function commitFileToGitHub({
   owner,
@@ -81,38 +215,111 @@ export async function commitFileToGitHub({
   content: string;
   message: string;
 }) {
-  const response = await adminFetch('/api/github-sync/commit', {
-    method: 'POST',
-    body: JSON.stringify({
-      owner,
-      repo,
-      token,
-      branch,
-      path,
-      content,
-      message
-    })
+  return commitMultiFilesToGitHub({
+    owner,
+    repo,
+    token,
+    branch: branch || 'main',
+    files: [{ path, content }],
+    message
   });
+}
 
-  if (!response.ok) {
-    const contentType = response.headers.get('content-type');
-    const errText = await response.text();
-    let errMsg = errText || `Server returned ${response.status} ${response.statusText}`;
+/**
+ * Fetches a map of `path -> blobSha` from the target branch's latest commit tree
+ * so incremental syncs can safely skip uploading unchanged blobs.
+ */
+async function fetchRemoteBranchTreeShas({
+  owner,
+  repo,
+  token,
+  branch = 'main'
+}: {
+  owner: string;
+  repo: string;
+  token?: string;
+  branch: string;
+}): Promise<Record<string, string> | null> {
+  const cleanOwner = owner.trim();
+  const cleanRepo = repo.trim();
+  const cleanBranch = branch.replace(/^refs\/heads\//, '').trim() || 'main';
+  const cleanToken = (token || '').trim();
 
-    if (contentType && contentType.includes('text/html')) {
-      throw new Error(`Server returned HTML instead of JSON (${response.status}). This usually indicates a routing issue or a backend crash. Check if the /api routes are correctly deployed. Details: ${errText.substring(0, 100)}...`);
-    }
-
+  if (cleanToken) {
     try {
-      const errJSON = JSON.parse(errText);
-      errMsg = errJSON.message || errJSON.error || errMsg;
-    } catch (e) {
-      if (!errMsg || errMsg.trim() === '') errMsg = `HTTP Error ${response.status}`;
+      const headers = {
+        'Authorization': buildAuthHeader(cleanToken),
+        'Accept': 'application/vnd.github.v3+json'
+      };
+      let parentCommitSha = '';
+      const refRes = await fetchGitHubWithTimeout(
+        `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/ref/heads/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
+        { headers },
+        { timeoutMs: 12000, maxRetries: 2 }
+      );
+      if (refRes.ok) {
+        const refData: any = await refRes.json();
+        parentCommitSha = refData?.object?.sha || '';
+      }
+      if (!parentCommitSha) {
+        const brRes = await fetchGitHubWithTimeout(
+          `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/branches/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
+          { headers },
+          { timeoutMs: 12000, maxRetries: 2 }
+        );
+        if (brRes.ok) {
+          const brData: any = await brRes.json();
+          parentCommitSha = brData?.commit?.sha || '';
+        }
+      }
+      if (!parentCommitSha) return null;
+
+      const commitRes = await fetchGitHubWithTimeout(
+        `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/commits/${encodeURIComponent(parentCommitSha)}`,
+        { headers },
+        { timeoutMs: 12000, maxRetries: 2 }
+      );
+      if (!commitRes.ok) return null;
+      const commitData: any = await commitRes.json();
+      const baseTreeSha = commitData?.tree?.sha;
+      if (!baseTreeSha) return null;
+
+      const treeRes = await fetchGitHubWithTimeout(
+        `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/trees/${encodeURIComponent(baseTreeSha)}?recursive=1`,
+        { headers },
+        { timeoutMs: 15000, maxRetries: 2 }
+      );
+      if (!treeRes.ok) return null;
+      const treeData: any = await treeRes.json();
+      const blobShas: Record<string, string> = {};
+      if (Array.isArray(treeData?.tree)) {
+        for (const entry of treeData.tree) {
+          if (entry?.type === 'blob' && typeof entry.path === 'string' && typeof entry.sha === 'string') {
+            blobShas[entry.path] = entry.sha;
+          }
+        }
+      }
+      return blobShas;
+    } catch {
+      // Fall through to proxy fallback or full upload
     }
-    throw new Error(errMsg);
   }
 
-  return response.json();
+  try {
+    const res = await adminFetch('/api/github-sync/remote-tree', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ owner: cleanOwner, repo: cleanRepo, token: cleanToken, branch: cleanBranch })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.success && data.blobShas && typeof data.blobShas === 'object') {
+        return data.blobShas;
+      }
+    }
+  } catch {}
+
+  return null;
 }
 
 /**
@@ -132,7 +339,7 @@ export async function uploadBlobToGitHub({
   path: string;
   content: string;
 }): Promise<{ path: string; sha: string }> {
-  const cleanPath = filePath.replace(/^\/+/g, '');
+  const cleanPath = normalizeAndValidatePublicPath(filePath);
   let lastError: any = null;
 
   // Retry up to 3 times for rock-solid network resilience
@@ -141,15 +348,12 @@ export async function uploadBlobToGitHub({
       // 1. Direct GitHub Git Blobs API (CORS enabled, 0 middleman bottleneck, works on static hosts)
       if (token && token.trim()) {
         try {
-          const cleanToken = token.trim();
-          const authHeader = cleanToken.toLowerCase().startsWith('ghp_')
-            ? `token ${cleanToken}`
-            : `Bearer ${cleanToken}`;
+          const authHeader = buildAuthHeader(token);
 
           // Always prefer base64 encoding for blobs: avoids utf8 parsing failures and corrupted emojis
           const b64 = b64EncodeUnicode(content || '');
 
-          const directRes = await fetch(
+          const directRes = await fetchGitHubWithTimeout(
             `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`,
             {
               method: 'POST',
@@ -162,7 +366,8 @@ export async function uploadBlobToGitHub({
                 content: b64,
                 encoding: 'base64'
               })
-            }
+            },
+            { timeoutMs: 25000, maxRetries: 2 }
           );
 
           if (directRes.ok) {
@@ -182,7 +387,7 @@ export async function uploadBlobToGitHub({
               throw new Error(`Repository "${owner}/${repo}" not found or token lacks access.`);
             } else {
               // Try utf-8 fallback if base64 failed
-              const utf8Res = await fetch(
+              const utf8Res = await fetchGitHubWithTimeout(
                 `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`,
                 {
                   method: 'POST',
@@ -195,7 +400,8 @@ export async function uploadBlobToGitHub({
                     content,
                     encoding: 'utf-8'
                   })
-                }
+                },
+                { timeoutMs: 25000, maxRetries: 1 }
               );
               if (utf8Res.ok) {
                 const utf8Data = await utf8Res.json();
@@ -207,7 +413,7 @@ export async function uploadBlobToGitHub({
             }
           }
         } catch (directErr: any) {
-          if (directErr.message && (directErr.message.includes('GitHub') || directErr.message.includes('Personal Access Token') || directErr.message.includes('Repository'))) {
+          if (directErr.message && (directErr.message.includes('Invalid GitHub Personal Access Token') || directErr.message.includes('GitHub write permission error') || directErr.message.includes('Repository'))) {
             throw directErr;
           }
           console.warn(`[GitHub Sync] Direct blob upload network notice for ${cleanPath}:`, directErr?.message || directErr);
@@ -218,6 +424,7 @@ export async function uploadBlobToGitHub({
       try {
         const response = await adminFetch('/api/github-sync/create-blob', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             owner,
             repo,
@@ -232,16 +439,34 @@ export async function uploadBlobToGitHub({
           if (data?.sha) {
             return { path: cleanPath, sha: data.sha };
           }
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          if (errData?.error) {
+            throw new Error(errData.error);
+          }
         }
-      } catch (_) {}
+      } catch (proxyErr: any) {
+        if (proxyErr?.message && proxyErr.message.includes('blocked from public sync')) {
+          throw proxyErr;
+        }
+      }
 
       throw new Error(`Failed to upload blob for ${cleanPath}`);
     } catch (err: any) {
       lastError = err;
+      // Don't retry auth/permission/path errors
+      if (err?.message && (
+        err.message.includes('Invalid GitHub Personal Access Token') ||
+        err.message.includes('GitHub write permission error') ||
+        err.message.includes('blocked from public sync') ||
+        err.message.includes('Repository')
+      )) {
+        throw err;
+      }
     }
 
     if (attempt < 3) {
-      await new Promise(r => setTimeout(r, 600 * attempt));
+      await new Promise(r => setTimeout(r, 700 * attempt));
     }
   }
 
@@ -276,16 +501,18 @@ export async function testGitHubConnection(config: {
   // 1. Direct GitHub REST API connection (CORS enabled, 0ms proxy overhead, works everywhere)
   if (cleanToken) {
     try {
-      const authHeader = cleanToken.toLowerCase().startsWith('ghp_')
-        ? `token ${cleanToken}`
-        : `Bearer ${cleanToken}`;
+      const authHeader = buildAuthHeader(cleanToken);
 
-      const res = await fetch(`https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}`, {
-        headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      });
+      const res = await fetchGitHubWithTimeout(
+        `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}`,
+        {
+          headers: {
+            'Authorization': authHeader,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        },
+        { timeoutMs: 15000, maxRetries: 2 }
+      );
 
       if (res.ok) {
         const repoData = await res.json();
@@ -293,12 +520,16 @@ export async function testGitHubConnection(config: {
 
         let branchVerified = true;
         try {
-          const branchRes = await fetch(`https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/branches/${encodeURIComponent(cleanBranch)}`, {
-            headers: {
-              'Authorization': authHeader,
-              'Accept': 'application/vnd.github.v3+json'
-            }
-          });
+          const branchRes = await fetchGitHubWithTimeout(
+            `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/branches/${encodeURIComponent(cleanBranch)}`,
+            {
+              headers: {
+                'Authorization': authHeader,
+                'Accept': 'application/vnd.github.v3+json'
+              }
+            },
+            { timeoutMs: 10000, maxRetries: 1 }
+          );
           branchVerified = branchRes.ok;
         } catch (_) {}
 
@@ -327,7 +558,7 @@ export async function testGitHubConnection(config: {
         throw new Error(`GitHub API returned HTTP ${res.status}: ${errJson.message || 'Unknown error'}`);
       }
     } catch (directErr: any) {
-      if (directErr.message && !directErr.message.includes('Failed to fetch')) {
+      if (directErr.message && !directErr.message.includes('Failed to fetch') && !directErr.message.includes('timed out')) {
         throw directErr;
       }
       console.warn('[GitHub Sync] Direct test fetch network notice, trying server proxy fallback:', directErr);
@@ -338,6 +569,7 @@ export async function testGitHubConnection(config: {
   try {
     const res = await adminFetch('/api/github-sync/test', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config)
     });
     if (res.ok) {
@@ -350,8 +582,8 @@ export async function testGitHubConnection(config: {
 
 /**
  * Seals previously created file blobs into a single atomic Git commit.
- * Payload is tiny, directly creating the commit via GitHub Git Data API (CORS enabled)
- * with automatic fallback to server proxy.
+ * Uses non-force fast-forward ref updates with automatic rebase retry on HTTP 422
+ * so concurrent GitHub Actions commits are never silently overwritten.
  */
 export async function commitTreeToGitHub({
   owner,
@@ -373,216 +605,223 @@ export async function commitTreeToGitHub({
   const cleanBranch = branch.replace(/^refs\/heads\//, '').trim() || 'main';
   const cleanToken = (token || '').trim();
 
+  if (cleanRepo.toLowerCase() === 'masterworld') {
+    throw new Error('Refused to push public static bundle to admin repository "masterworld".');
+  }
+
+  // Deduplicate tree entries by normalized public path (last-write-wins)
+  const dedupedMap = new Map<string, { path: string; mode: string; type: 'blob'; sha: string }>();
+  for (const entry of tree || []) {
+    if (!entry) continue;
+    const cleanPath = normalizeAndValidatePublicPath(entry.path);
+    dedupedMap.set(cleanPath, {
+      path: cleanPath,
+      mode: (entry as any).mode === '100755' ? '100755' : '100644',
+      type: 'blob',
+      sha: entry.sha
+    });
+  }
+
+  if (dedupedMap.size === 0) {
+    throw new Error('No valid tree entries provided to commit.');
+  }
+
   // 1. Direct GitHub Git Data API (100% works on static hosts, Cloudflare Pages, Vercel Edge with zero 405 errors)
   if (cleanToken) {
     try {
-      const authHeader = cleanToken.toLowerCase().startsWith('ghp_')
-        ? `token ${cleanToken}`
-        : `Bearer ${cleanToken}`;
+      const authHeader = buildAuthHeader(cleanToken);
+      const readHeaders = {
+        'Authorization': authHeader,
+        'Accept': 'application/vnd.github.v3+json'
+      };
+      const writeHeaders = {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json'
+      };
 
-      // Step A: Get latest commit SHA for target branch
-      let parentCommitSha = '';
-      let baseTreeSha = '';
+      const MAX_REBASE_ATTEMPTS = 3;
+      for (let attempt = 1; attempt <= MAX_REBASE_ATTEMPTS; attempt++) {
+        // Step A: Get latest commit SHA for target branch
+        let parentCommitSha = '';
+        let baseTreeSha = '';
 
-      try {
-        const refRes = await fetch(
-          `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/ref/heads/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
-          {
-            headers: {
-              'Authorization': authHeader,
-              'Accept': 'application/vnd.github.v3+json'
-            }
-          }
-        );
-        if (refRes.ok) {
-          const refData = await refRes.json() as any;
-          parentCommitSha = refData.object?.sha || '';
-        }
-      } catch (_) {}
-
-      if (!parentCommitSha) {
         try {
-          const refRes2 = await fetch(
-            `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/refs/heads/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
-            {
-              headers: {
-                'Authorization': authHeader,
-                'Accept': 'application/vnd.github.v3+json'
-              }
-            }
+          const refRes = await fetchGitHubWithTimeout(
+            `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/ref/heads/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
+            { headers: readHeaders },
+            { timeoutMs: 15000, maxRetries: 2 }
           );
-          if (refRes2.ok) {
-            const refData2 = await refRes2.json() as any;
-            parentCommitSha = refData2.object?.sha || '';
+          if (refRes.ok) {
+            const refData = await refRes.json() as any;
+            parentCommitSha = refData.object?.sha || '';
           }
         } catch (_) {}
-      }
 
-      if (!parentCommitSha) {
-        const branchRes = await fetch(
-          `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/branches/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
-          {
-            headers: {
-              'Authorization': authHeader,
-              'Accept': 'application/vnd.github.v3+json'
-            }
-          }
-        );
-        if (branchRes.ok) {
-          const branchData = await branchRes.json() as any;
-          parentCommitSha = branchData.commit?.sha || '';
-        }
-      }
-
-      if (!parentCommitSha) {
-        throw new Error(`Could not find latest commit SHA for branch "${cleanBranch}" on ${cleanOwner}/${cleanRepo}. Please check branch name and permissions.`);
-      }
-
-      // Step B: Get base tree SHA from parent commit
-      const parentCommitRes = await fetch(
-        `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/commits/${parentCommitSha}`,
-        {
-          headers: {
-            'Authorization': authHeader,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        }
-      );
-      if (!parentCommitRes.ok) {
-        throw new Error(`Failed to read parent commit ${parentCommitSha}`);
-      }
-      const parentCommitData = await parentCommitRes.json() as any;
-      baseTreeSha = parentCommitData.tree?.sha;
-      if (!baseTreeSha) {
-        throw new Error(`Parent commit did not return a valid tree SHA.`);
-      }
-
-      // Step C: Format tree entries
-      const treeEntries: any[] = tree.map((entry: any) => ({
-        path: String(entry.path).replace(/^\/+/g, ''),
-        mode: entry.mode || '100644',
-        type: 'blob',
-        sha: entry.sha
-      }));
-
-      // Prune any legacy public/data/ files from the remote git tree so only atomic files remain
-      try {
-        const baseTreeDetailsRes = await fetch(
-          `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/trees/${baseTreeSha}?recursive=1`,
-          {
-            headers: {
-              'Authorization': authHeader,
-              'Accept': 'application/vnd.github.v3+json'
-            }
-          }
-        );
-        if (baseTreeDetailsRes.ok) {
-          const baseTreeDetails = await baseTreeDetailsRes.json() as any;
-          if (Array.isArray(baseTreeDetails?.tree)) {
-            const dataEntries = baseTreeDetails.tree.filter((t: any) => 
-              t.path && t.type === 'blob' && (t.path === 'src/lib/public_backup.json')
+        if (!parentCommitSha) {
+          try {
+            const refRes2 = await fetchGitHubWithTimeout(
+              `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/refs/heads/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
+              { headers: readHeaders },
+              { timeoutMs: 15000, maxRetries: 2 }
             );
-            dataEntries.forEach((t: any) => {
-              treeEntries.push({
-                path: t.path,
-                mode: '100644',
-                type: 'blob',
-                sha: null
-              });
-            });
-            if (dataEntries.length > 0) {
-              console.log(`[GitHub Sync] Pruned private backup file from remote git tree.`);
+            if (refRes2.ok) {
+              const refData2 = await refRes2.json() as any;
+              parentCommitSha = refData2.object?.sha || '';
             }
+          } catch (_) {}
+        }
+
+        if (!parentCommitSha) {
+          const branchRes = await fetchGitHubWithTimeout(
+            `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/branches/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
+            { headers: readHeaders },
+            { timeoutMs: 15000, maxRetries: 2 }
+          );
+          if (branchRes.ok) {
+            const branchData = await branchRes.json() as any;
+            parentCommitSha = branchData.commit?.sha || '';
           }
         }
-      } catch (pruneErr) {
-        // Non-blocking prune attempt
-      }
 
-      // Step D: Create new tree on top of base_tree
-      const treeRes = await fetch(
-        `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/trees`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json',
-            'Accept': 'application/vnd.github.v3+json'
-          },
-          body: JSON.stringify({
-            base_tree: baseTreeSha,
-            tree: treeEntries
-          })
+        if (!parentCommitSha) {
+          throw new Error(`Could not find latest commit SHA for branch "${cleanBranch}" on ${cleanOwner}/${cleanRepo}. Please check branch name and permissions.`);
         }
-      );
 
-      if (!treeRes.ok) {
-        const errData = await treeRes.json().catch(() => ({}));
-        throw new Error(`Failed to create git tree: ${errData.message || treeRes.statusText}`);
-      }
-      const newTreeData = await treeRes.json() as any;
-      const newTreeSha = newTreeData.sha;
-
-      // Step E: Create atomic commit
-      const commitRes = await fetch(
-        `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/commits`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json',
-            'Accept': 'application/vnd.github.v3+json'
-          },
-          body: JSON.stringify({
-            message,
-            tree: newTreeSha,
-            parents: [parentCommitSha]
-          })
+        // Step B: Get base tree SHA from parent commit
+        const parentCommitRes = await fetchGitHubWithTimeout(
+          `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/commits/${encodeURIComponent(parentCommitSha)}`,
+          { headers: readHeaders },
+          { timeoutMs: 15000, maxRetries: 2 }
+        );
+        if (!parentCommitRes.ok) {
+          throw new Error(`Failed to read parent commit ${parentCommitSha}`);
         }
-      );
-
-      if (!commitRes.ok) {
-        const errData = await commitRes.json().catch(() => ({}));
-        throw new Error(`Failed to create git commit: ${errData.message || commitRes.statusText}`);
-      }
-      const newCommitData = await commitRes.json() as any;
-      const newCommitSha = newCommitData.sha;
-
-      // Step F: Update branch reference (with force: true to avoid non-fast-forward conflicts)
-      const updateRefRes = await fetch(
-        `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/refs/heads/${encodeURIComponent(cleanBranch)}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json',
-            'Accept': 'application/vnd.github.v3+json'
-          },
-          body: JSON.stringify({
-            sha: newCommitSha,
-            force: true
-          })
+        const parentCommitData = await parentCommitRes.json() as any;
+        baseTreeSha = parentCommitData.tree?.sha;
+        if (!baseTreeSha) {
+          throw new Error(`Parent commit did not return a valid tree SHA.`);
         }
-      );
 
-      if (!updateRefRes.ok) {
+        // Step C: Build deduplicated tree entries + prune any private backup files on remote tree
+        const treeEntries: any[] = Array.from(dedupedMap.values());
+
+        try {
+          const baseTreeDetailsRes = await fetchGitHubWithTimeout(
+            `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/trees/${encodeURIComponent(baseTreeSha)}?recursive=1`,
+            { headers: readHeaders },
+            { timeoutMs: 15000, maxRetries: 1 }
+          );
+          if (baseTreeDetailsRes.ok) {
+            const baseTreeDetails = await baseTreeDetailsRes.json() as any;
+            if (Array.isArray(baseTreeDetails?.tree)) {
+              const dataEntries = baseTreeDetails.tree.filter((t: any) =>
+                t.path && t.type === 'blob' && REMOTE_PRUNE_PATHS.has(t.path) && !dedupedMap.has(t.path)
+              );
+              dataEntries.forEach((t: any) => {
+                treeEntries.push({
+                  path: t.path,
+                  mode: '100644',
+                  type: 'blob',
+                  sha: null
+                });
+              });
+              if (dataEntries.length > 0) {
+                console.log(`[GitHub Sync] Pruned ${dataEntries.length} private backup file(s) from remote git tree.`);
+              }
+            }
+          }
+        } catch {
+          // Non-blocking prune attempt
+        }
+
+        // Step D: Create new tree on top of base_tree
+        const treeRes = await fetchGitHubWithTimeout(
+          `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/trees`,
+          {
+            method: 'POST',
+            headers: writeHeaders,
+            body: JSON.stringify({
+              base_tree: baseTreeSha,
+              tree: treeEntries
+            })
+          },
+          { timeoutMs: 25000, maxRetries: 2 }
+        );
+
+        if (!treeRes.ok) {
+          const errData = await treeRes.json().catch(() => ({}));
+          throw new Error(`Failed to create git tree: ${errData.message || treeRes.statusText}`);
+        }
+        const newTreeData = await treeRes.json() as any;
+        const newTreeSha = newTreeData.sha;
+
+        // Step E: Create atomic commit
+        const commitRes = await fetchGitHubWithTimeout(
+          `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/commits`,
+          {
+            method: 'POST',
+            headers: writeHeaders,
+            body: JSON.stringify({
+              message,
+              tree: newTreeSha,
+              parents: [parentCommitSha]
+            })
+          },
+          { timeoutMs: 20000, maxRetries: 2 }
+        );
+
+        if (!commitRes.ok) {
+          const errData = await commitRes.json().catch(() => ({}));
+          throw new Error(`Failed to create git commit: ${errData.message || commitRes.statusText}`);
+        }
+        const newCommitData = await commitRes.json() as any;
+        const newCommitSha = newCommitData.sha;
+
+        // Step F: Non-force fast-forward ref update (auto-rebases on HTTP 422 if another commit landed concurrently)
+        const updateRefRes = await fetchGitHubWithTimeout(
+          `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/refs/heads/${encodeURIComponent(cleanBranch)}`,
+          {
+            method: 'PATCH',
+            headers: writeHeaders,
+            body: JSON.stringify({
+              sha: newCommitSha,
+              force: false
+            })
+          },
+          { timeoutMs: 20000, maxRetries: 2 }
+        );
+
+        if (updateRefRes.ok) {
+          return {
+            success: true,
+            commitSha: newCommitSha,
+            treeSha: newTreeSha,
+            attempt,
+            message: `Successfully created atomic commit ${newCommitSha.substring(0, 7)}`
+          };
+        }
+
         const errData = await updateRefRes.json().catch(() => ({}));
+        if (updateRefRes.status === 422 && attempt < MAX_REBASE_ATTEMPTS) {
+          console.warn(`[GitHub Sync] Branch "${cleanBranch}" moved concurrently (attempt ${attempt}/${MAX_REBASE_ATTEMPTS}); rebasing on latest HEAD...`);
+          await new Promise(r => setTimeout(r, 600 * attempt));
+          continue;
+        }
+
         // If ref update failed with 404, try creating the branch reference
         if (updateRefRes.status === 404) {
-          const createRefRes = await fetch(
+          const createRefRes = await fetchGitHubWithTimeout(
             `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/refs`,
             {
               method: 'POST',
-              headers: {
-                'Authorization': authHeader,
-                'Content-Type': 'application/json',
-                'Accept': 'application/vnd.github.v3+json'
-              },
+              headers: writeHeaders,
               body: JSON.stringify({
                 ref: `refs/heads/${cleanBranch}`,
                 sha: newCommitSha
               })
-            }
+            },
+            { timeoutMs: 15000, maxRetries: 2 }
           );
           if (createRefRes.ok) {
             return {
@@ -596,12 +835,7 @@ export async function commitTreeToGitHub({
         throw new Error(`Failed to update branch ref "${cleanBranch}": ${errData.message || updateRefRes.statusText}`);
       }
 
-      return {
-        success: true,
-        commitSha: newCommitSha,
-        treeSha: newTreeSha,
-        message: `Successfully created atomic commit ${newCommitSha.substring(0, 7)}`
-      };
+      throw new Error(`Branch "${cleanBranch}" was updated concurrently multiple times. Please retry sync.`);
     } catch (directErr: any) {
       console.error('[GitHub Sync] Direct Git Data API error:', directErr);
       throw directErr;
@@ -611,12 +845,13 @@ export async function commitTreeToGitHub({
   // 2. Server proxy fallback ONLY if no client token was provided (backend environment token)
   const response = await adminFetch('/api/github-sync/commit-tree', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      owner,
-      repo,
-      token,
-      branch,
-      tree,
+      owner: cleanOwner,
+      repo: cleanRepo,
+      token: cleanToken,
+      branch: cleanBranch,
+      tree: Array.from(dedupedMap.values()),
       message
     })
   });
@@ -636,8 +871,8 @@ export async function commitTreeToGitHub({
 
 /**
  * Commits multiple files atomically in a single Git commit via chunk-safe Git Blobs & Git Trees API.
- * Uploads blobs individually (max ~1.5MB each, well under Vercel 4.5MB limit),
- * then creates 1 atomic commit with a tiny ~1.5KB manifest.
+ * Deduplicates paths, validates public isolation boundaries, skips unchanged blobs via exact Git SHA-1
+ * comparison to prevent GitHub secondary rate limits, and seals 1 atomic commit.
  */
 export async function commitMultiFilesToGitHub({
   owner,
@@ -660,39 +895,80 @@ export async function commitMultiFilesToGitHub({
     throw new Error("No files provided to commit.");
   }
 
-  const tree: Array<{ path: string; sha: string }> = [];
-  const total = files.length;
+  // Deduplicate & validate all paths (last-write-wins) so duplicate entries can never race
+  const uniqueFilesMap = new Map<string, { path: string; content: string }>();
+  for (const file of files) {
+    if (!file || typeof file.path !== 'string') continue;
+    const cleanPath = normalizeAndValidatePublicPath(file.path);
+    uniqueFilesMap.set(cleanPath, { path: cleanPath, content: String(file.content ?? '') });
+  }
+  const uniqueFiles = Array.from(uniqueFilesMap.values());
+  const total = uniqueFiles.length;
 
-  onProgress?.(`GitHub Sync: Preparing ${total} files for atomic commit to "${repo}"...`);
-
-  // Upload blobs with concurrency of 2 to balance speed and stability
-  const queue = [...files];
-  const workers = Array.from({ length: Math.min(2, total) }, async () => {
-    while (queue.length > 0) {
-      const file = queue.shift();
-      if (!file) break;
-      const idx = total - queue.length;
-      const fileName = file.path.split('/').pop() || file.path;
-      onProgress?.(`GitHub Sync (${idx}/${total}): Uploading ${fileName}...`);
-      const blob = await uploadBlobToGitHub({
-        owner,
-        repo,
-        token,
-        path: file.path,
-        content: file.content
-      });
-      tree.push(blob);
-      onProgress?.(`GitHub Sync: ✅ ${fileName} blob verified.`);
-    }
-  });
-
-  await Promise.all(workers);
-
-  if (tree.length !== files.length) {
-    throw new Error(`Blob creation mismatch: uploaded ${tree.length} of ${files.length} files.`);
+  if (total === 0) {
+    throw new Error("No valid public files remained after safety validation.");
   }
 
-  onProgress?.(`GitHub Sync: 🚀 All ${total} blobs stored in GitHub. Sealing 1 atomic commit on "${repo}"...`);
+  onProgress?.(`GitHub Sync: Preparing ${total} verified unique files for atomic commit to "${repo}"...`);
+
+  // Diff against remote branch tree using deterministic Git blob SHA-1 to skip unchanged files
+  const remoteBlobShas = await fetchRemoteBranchTreeShas({ owner, repo, token, branch });
+  const tree: Array<{ path: string; sha: string }> = [];
+  const filesToUpload: Array<{ path: string; content: string }> = [];
+  let reusedCount = 0;
+
+  if (remoteBlobShas) {
+    for (const file of uniqueFiles) {
+      const remoteSha = remoteBlobShas[file.path];
+      if (remoteSha) {
+        const localSha = await computeGitBlobSha1(file.content);
+        if (localSha && localSha === remoteSha) {
+          tree.push({ path: file.path, sha: remoteSha });
+          reusedCount++;
+          continue;
+        }
+      }
+      filesToUpload.push(file);
+    }
+    onProgress?.(
+      `GitHub Sync: Smart SHA-1 diff complete — ${filesToUpload.length} changed file(s) to upload, ${reusedCount} unchanged file(s) reused directly.`
+    );
+  } else {
+    filesToUpload.push(...uniqueFiles);
+  }
+
+  const uploadTotal = filesToUpload.length;
+  if (uploadTotal > 0) {
+    // Upload changed blobs with concurrency of 2 to balance speed and stability
+    const queue = [...filesToUpload];
+    let uploadedSoFar = 0;
+    const workers = Array.from({ length: Math.min(2, uploadTotal) }, async () => {
+      while (queue.length > 0) {
+        const file = queue.shift();
+        if (!file) break;
+        const idx = ++uploadedSoFar;
+        const fileName = file.path.split('/').pop() || file.path;
+        onProgress?.(`GitHub Sync (${idx}/${uploadTotal}): Uploading ${fileName}...`);
+        const blob = await uploadBlobToGitHub({
+          owner,
+          repo,
+          token,
+          path: file.path,
+          content: file.content
+        });
+        tree.push(blob);
+        onProgress?.(`GitHub Sync: ✅ ${fileName} blob verified.`);
+      }
+    });
+
+    await Promise.all(workers);
+  }
+
+  if (tree.length !== total) {
+    throw new Error(`Blob creation mismatch: prepared ${tree.length} of ${total} files.`);
+  }
+
+  onProgress?.(`GitHub Sync: 🚀 All ${total} file blobs verified (${uploadTotal} uploaded, ${reusedCount} reused). Sealing 1 atomic commit on "${repo}"...`);
 
   const commitResult = await commitTreeToGitHub({
     owner,
@@ -703,8 +979,12 @@ export async function commitMultiFilesToGitHub({
     message
   });
 
-  onProgress?.(`GitHub Sync: ✅ Atomic commit sealed! (SHA: ${commitResult.commitSha || 'latest'}). Exactly 1 clean Vercel deployment triggered!`);
+  onProgress?.(`GitHub Sync: ✅ Atomic commit sealed! (SHA: ${commitResult.commitSha || 'latest'}). Exactly 1 clean deployment triggered!`);
 
-  return commitResult;
+  return {
+    ...commitResult,
+    uploadedCount: uploadTotal,
+    reusedCount,
+    totalFiles: total
+  };
 }
-

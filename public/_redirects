@@ -1,11 +1,13 @@
 # Cloudflare Pages Redirects & Canonical Routing
-# Note: Cloudflare Pages natively routes unmatched SPA requests to /index.html (200 OK) when no top-level 404.html is present.
+# Note: Static dist/404.html eliminates Soft-404 200 fallbacks; functions/_middleware.js serves /index.spa.html for /moreinfo/* and /safety* and handles canonical slug 301s.
 /developer        /developers   301
 /developer/*      /developers/:splat 301
 /faqs             /faq          301
 /apps/*           /app/:splat   301
 /game/*           /app/:splat   301
 /apk/*            /app/:splat   301
+/categories/*     /category/:splat 301
+/video/*          /videos/:splat 301
 /blogs/*          /             301
 /blog/*           /             301
 /blogs            /             301

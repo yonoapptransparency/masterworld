@@ -5,7 +5,7 @@ import zlib from 'zlib';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../../lib/secureVault';
 import { fetchStoreData, clearSeoCache } from '../../seoHelper';
 import { compileCanonicalApp, compileCanonicalNews, generateStaticDataFileCode, sanitizePublicSettings, generateSecureVaultFile } from '../../lib/githubSync';
-import { generateAllSitemaps } from '../../lib/sitemapGenerator';
+import { generateAllSitemaps, generateRobotsTxt, buildEdgeRouteManifest } from '../../lib/sitemapGenerator';
 import { cleanSettingsMetaTitles } from '../../lib/seoUtils';
 import { structureHtmlFragment } from '../../lib/safeHtmlPublic';
 import { syncServerAiStudioBrainFromSettings } from './communityRoutes';
@@ -15,6 +15,29 @@ export const adminVaultRouter = Router();
 const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
 const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
 const staticTsPath = path.join(process.cwd(), 'src/lib/staticData.ts');
+const edgeManifestPath = path.join(process.cwd(), 'src/lib/edgeRouteManifest.json');
+const secureLinksBackupPath = path.join(process.cwd(), 'src/lib/secure_links_backup.json');
+
+function writeFileAtomic(targetPath: string, content: string | Buffer): void {
+  const dir = path.dirname(targetPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  const tmpPath = `${targetPath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 7)}.tmp`;
+  try {
+    if (typeof content === 'string') {
+      fs.writeFileSync(tmpPath, content, 'utf8');
+    } else {
+      fs.writeFileSync(tmpPath, content);
+    }
+    fs.renameSync(tmpPath, targetPath);
+  } catch (err) {
+    try {
+      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+    } catch (_) {}
+    throw err;
+  }
+}
 
 function stripTimestampFields(item: any) {
   if (!item || typeof item !== 'object') return item;
@@ -123,12 +146,12 @@ function flushMergedDataToDisk(data: any) {
   };
 
   try {
-    fs.writeFileSync(publicBackupPath, JSON.stringify(serverBackupPayload), 'utf8');
+    writeFileAtomic(publicBackupPath, JSON.stringify(serverBackupPayload));
   } catch (e) {
     console.error('[adminVaultRoutes] Failed to write public_backup.json:', e);
   }
   try {
-    fs.writeFileSync(staticJsonPath, JSON.stringify(publicStaticPayload), 'utf8');
+    writeFileAtomic(staticJsonPath, JSON.stringify(publicStaticPayload));
   } catch (e) {
     console.error('[adminVaultRoutes] Failed to write staticData.json:', e);
   }
@@ -139,27 +162,46 @@ function flushMergedDataToDisk(data: any) {
       publicNews,
       publicStaticPayload.videos
     );
-    fs.writeFileSync(staticTsPath, staticTsCode, 'utf8');
+    writeFileAtomic(staticTsPath, staticTsCode);
   } catch (e) {
     console.error('[adminVaultRoutes] Failed to write staticData.ts:', e);
+  }
+  try {
+    const edgeManifest = buildEdgeRouteManifest({
+      apps: publicApps,
+      news: publicNews,
+      videos: publicStaticPayload.videos
+    });
+    writeFileAtomic(edgeManifestPath, JSON.stringify(edgeManifest));
+  } catch (e) {
+    console.error('[adminVaultRoutes] Failed to write edgeRouteManifest.json:', e);
   }
 
   try {
     const sitemaps = generateAllSitemaps(publicStaticPayload);
+    const robotsTxt = generateRobotsTxt('https://www.rummydex.com');
     const publicDir = path.join(process.cwd(), 'public');
     const distDir = path.join(process.cwd(), 'dist');
     for (const [filename, content] of Object.entries(sitemaps)) {
       const gzBuffer = zlib.gzipSync(Buffer.from(content, 'utf8'), { level: 6 });
       try {
-        fs.writeFileSync(path.join(publicDir, filename), content, 'utf8');
-        fs.writeFileSync(path.join(publicDir, `${filename}.gz`), gzBuffer);
+        writeFileAtomic(path.join(publicDir, filename), content);
+        writeFileAtomic(path.join(publicDir, `${filename}.gz`), gzBuffer);
       } catch (_) {}
       if (fs.existsSync(distDir)) {
         try {
-          fs.writeFileSync(path.join(distDir, filename), content, 'utf8');
-          fs.writeFileSync(path.join(distDir, `${filename}.gz`), gzBuffer);
+          writeFileAtomic(path.join(distDir, filename), content);
+          writeFileAtomic(path.join(distDir, `${filename}.gz`), gzBuffer);
         } catch (_) {}
       }
+    }
+    try {
+      writeFileAtomic(path.join(publicDir, 'robots.txt'), robotsTxt);
+    } catch (_) {}
+    if (fs.existsSync(distDir)) {
+      try {
+        writeFileAtomic(path.join(distDir, 'robots.txt'), robotsTxt);
+      } catch (_) {}
     }
   } catch (e) {
     console.error('[adminVaultRoutes] Failed to write sitemaps:', e);
@@ -653,11 +695,47 @@ adminVaultRouter.post('/api/v1/admin/seal-vault', async (req, res) => {
     const hasV2Key = Boolean(process.env.AES_KEY && process.env.AES_KEY.trim());
     const vaultMap: Record<string, string> = {};
 
+    // Build authoritative server fallback map from local backup & secure_links_backup.json
+    // so apps whose download URLs were masked in the client UI never lose their vault entries.
+    const fallbackUrlMap = new Map<string, string>();
+    try {
+      const merged = getMergedData();
+      for (const a of merged.apps || []) {
+        if (!a) continue;
+        const u = a.more_information_url || a.encrypted_link || '';
+        if (u && typeof u === 'string') {
+          if (a.id) fallbackUrlMap.set(String(a.id).trim(), u.trim());
+          if (a.slug) fallbackUrlMap.set(String(a.slug).trim(), u.trim());
+        }
+      }
+    } catch (_) {}
+    try {
+      if (fs.existsSync(secureLinksBackupPath)) {
+        const rawBk = JSON.parse(fs.readFileSync(secureLinksBackupPath, 'utf8'));
+        const bkItems = Array.isArray(rawBk) ? rawBk : (Array.isArray(rawBk?.items) ? rawBk.items : []);
+        for (const it of bkItems) {
+          const u = it?.url || it?.more_information_url || it?.encrypted_link || '';
+          if (u && typeof u === 'string') {
+            if (it.id && !fallbackUrlMap.has(String(it.id).trim())) fallbackUrlMap.set(String(it.id).trim(), u.trim());
+            if (it.slug && !fallbackUrlMap.has(String(it.slug).trim())) fallbackUrlMap.set(String(it.slug).trim(), u.trim());
+          }
+        }
+      }
+    } catch (_) {}
+
+    let appCount = 0;
     if (Array.isArray(items)) {
       for (const item of items) {
+        if (!item || typeof item !== 'object') continue;
         const id = String(item.id || '').trim();
         const slug = String(item.slug || '').trim();
-        const rawUrl = item.more_information_url || item.encrypted_link || item.url || '';
+        const rawUrl =
+          item.more_information_url ||
+          item.encrypted_link ||
+          item.url ||
+          (id ? fallbackUrlMap.get(id) : '') ||
+          (slug ? fallbackUrlMap.get(slug) : '') ||
+          '';
         if (!rawUrl || typeof rawUrl !== 'string') continue;
         const trimmed = rawUrl.trim();
         if (
@@ -672,6 +750,7 @@ adminVaultRouter.post('/api/v1/admin/seal-vault', async (req, res) => {
             ? (await decryptVaultValue(trimmed)) || safeDecrypt(trimmed, AES_SECRET) || ''
             : trimmed;
         if (!isValidDestinationUrl(plainUrl)) continue;
+        appCount++;
         if (id) {
           vaultMap[id] = plainUrl;
           setRamVaultLink(id, plainUrl);
@@ -683,20 +762,30 @@ adminVaultRouter.post('/api/v1/admin/seal-vault', async (req, res) => {
       }
     }
 
+    const linkCount = Object.keys(vaultMap).length;
+    if (Array.isArray(items) && items.length > 0 && linkCount === 0) {
+      return res.status(422).json({
+        success: false,
+        error: 'Refused to seal empty vault: 0 valid destination links resolved for non-empty app catalog.',
+        linkCount: 0,
+        appCount: 0
+      });
+    }
+
     const jsonPayload = JSON.stringify(vaultMap);
     const ciphertext = hasV2Key
       ? (await encryptAesGcmV2(jsonPayload, process.env as Record<string, string | undefined>)) || safeEncrypt(jsonPayload, AES_SECRET)
       : safeEncrypt(jsonPayload, AES_SECRET);
 
-    if (ciphertext) {
+    if (ciphertext && linkCount > 0) {
       try {
         const vaultFilePath = path.join(process.cwd(), 'src/lib/secureVault.ts');
-        fs.writeFileSync(vaultFilePath, generateSecureVaultFile(ciphertext), 'utf8');
+        writeFileAtomic(vaultFilePath, generateSecureVaultFile(ciphertext));
       } catch (e) {
         console.warn('[adminVaultRoutes] Could not write src/lib/secureVault.ts:', e);
       }
     }
-    res.json({ success: true, ciphertext });
+    res.json({ success: true, ciphertext, linkCount, appCount });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }
@@ -725,7 +814,7 @@ adminVaultRouter.post('/api/v1/admin/sync-local', (req, res) => {
     if (catalogStats && typeof catalogStats === 'object') {
       try {
         const statsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
-        fs.writeFileSync(statsPath, JSON.stringify(catalogStats), 'utf8');
+        writeFileAtomic(statsPath, JSON.stringify(catalogStats));
       } catch (e) {
         console.warn('[adminVaultRoutes] Failed writing communityCatalogStats.json:', e);
       }
@@ -733,13 +822,13 @@ adminVaultRouter.post('/api/v1/admin/sync-local', (req, res) => {
     if (staticReviews && typeof staticReviews === 'object' && Object.keys(staticReviews).length > 0) {
       try {
         const revsPath = path.join(process.cwd(), 'src/lib/communityStaticReviews.json');
-        fs.writeFileSync(revsPath, JSON.stringify(staticReviews), 'utf8');
+        writeFileAtomic(revsPath, JSON.stringify(staticReviews));
       } catch (e) {
         console.warn('[adminVaultRoutes] Failed writing communityStaticReviews.json:', e);
       }
     }
 
-    res.json({ success: true, message: 'Local files and SEO caches synchronized' });
+    res.json({ success: true, message: 'Local files, edge route manifest, and SEO caches synchronized' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }

@@ -19,6 +19,30 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://www.rummydex.com/category/card-apps</loc>
+    <lastmod>2026-10-30T12:32:02+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.rummydex.com/category/diwa-apps</loc>
+    <lastmod>2026-10-30T12:32:02+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.rummydex.com/category/entertainment</loc>
+    <lastmod>2026-10-30T12:32:02+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.rummydex.com/category/yono-apps</loc>
+    <lastmod>2026-10-30T12:32:02+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://www.rummydex.com/news</loc>
     <lastmod>2026-11-07T08:18:37+00:00</lastmod>
     <changefreq>daily</changefreq>

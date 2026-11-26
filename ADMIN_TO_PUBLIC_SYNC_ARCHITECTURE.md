@@ -257,3 +257,32 @@ To prevent quota exhaustion while serving Googlebot and syncing the platform:
 >
 > **RULE 6: UPDATE THIS MD FILE ON ANY SYNC MODIFICATION**
 > If you modify split-sync rules, file routing paths, or synchronization scripts, you MUST immediately update this document to preserve architectural continuity.
+
+---
+
+## 10. Hardened Backend & Pre-Flight Sync Safeguards
+
+To guarantee 100% reliable, mistake-free data propagation from Admin to the public `Dex` website without breaking active deployments or leaking internal assets, the push pipeline enforces six defense layers:
+
+1. **Pre-Flight Anti-Wipe & Zero-Leak Gate (`src/hooks/useGitHubSync.ts`)**:
+   - Blocks concurrent double-click pushes via an in-flight lock.
+   - Aborts before any remote GitHub write if `publicApps.length === 0`, if any serialized JSON (`staticData.json`, `communityCatalogStats.json`, `communityStaticReviews.json`, `edgeRouteManifest.json`) fails round-trip parsing, or if any download URL field or private secret key/token is detected in the public payload.
+   - Refuses to push if public apps expect clearance links but AES vault sealing produces zero links.
+   - Preserves Admin-Only drafts (`sync_to_public === false`) in local `public_backup.json` while strictly filtering them out of public `staticData.json`, `staticData.ts`, `edgeRouteManifest.json`, and sitemaps.
+2. **Deterministic Path Deduplication & Authoritative Layering**:
+   - `GET /api/github-sync/public-core-files` serves only verified public core files (including `functions/_middleware.js` and Vite public shims), patches `vite.config.ts` to `__ADMIN_ENABLED__: false`, and excludes dynamically compiled files (`secureVault.ts`, `robots.txt`) so stale disk copies can never race with freshly sealed sync artifacts.
+   - Both client (`useGitHubSync.ts`, `githubSync.ts`) and backend (`githubSyncRoutes.ts`) deduplicate tree entries by normalized path (last-write-wins).
+3. **Backend Public Isolation Firewall (`src/server/routes/githubSyncRoutes.ts`)**:
+   - Strictly validates GitHub `owner`, `repo`, and `branch` names and blocks pushing public static bundles to `masterworld`.
+   - Blocks path traversal (`..`), `.git/`, `.github/`, `.env*`, and all admin/internal files (`server.ts`, `src/pages/Admin*`, `src/components/admin/*`, `src/lib/public_backup.json`, `src/lib/aiStudioBrain.json`, etc.) on both `/create-blob` and `/commit-tree`.
+   - Automatically prunes `public_backup.json`, `secure_links_backup.json`, and `aiStudioBrain.json` from the remote public tree if ever present.
+4. **Git Blob SHA-1 Incremental Diffing & Rate-Limit Resilience (`src/lib/githubSync.ts`)**:
+   - Compares each file's exact Git blob SHA-1 (`SHA-1("blob " + byteLen + "\0" + bytes)`) against the remote branch tree before uploading.
+   - Reuses matching remote SHAs directly and uploads only changed/new blobs with `AbortController` timeouts and transient `429`/`5xx` exponential backoff retries.
+5. **Non-Force Fast-Forward Commits with Automatic 422 Rebase Retry**:
+   - Updates `refs/heads/<branch>` with `force: false` so concurrent GitHub Actions commits are never silently overwritten.
+   - If GitHub returns HTTP `422` (branch moved during upload), both client and backend automatically re-fetch the latest `HEAD` commit & `base_tree`, re-create the tree & commit on top, and retry up to 3 times.
+6. **Atomic Local Disk Persistence & Vault Link Preservation (`src/server/routes/adminVaultRoutes.ts`)**:
+   - All local writes (`public_backup.json`, `staticData.json`, `staticData.ts`, `edgeRouteManifest.json`, `secureVault.ts`, `robots.txt`, sitemaps, and community JSON caches) use atomic temp-file write + rename (`writeFileAtomic`) so unexpected restarts never truncate files.
+   - `/api/v1/admin/seal-vault` cross-checks server backups when client items omit masked links and rejects empty vault writes when apps are present.
+

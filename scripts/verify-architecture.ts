@@ -739,6 +739,305 @@ async function verifyModulesAndLiveServer() {
       strictIsolationOk && batch10SsrOk && loadMorePaginationOk && schemaReviewParityOk,
       `StrictIsolation: ${strictIsolationOk}, SSRBatch10(DOM=${ssrReviewCardsCount},Init=${r77InitReviews.length},Schema=${ssrSchemaReviewsCount}): ${batch10SsrOk}, LoadMore(P1=${page1Res.reviews.length},P2=${page2Res.reviews.length}): ${loadMorePaginationOk}, Parity1to1: ${schemaReviewParityOk}`
     );
+
+    // 8. Edge Security Headers & RFC 9309 robots.txt Parity (EDGE-SEC-1..4)
+    const { generateRobotsTxt } = await import('../src/lib/sitemapGenerator.js');
+    const expectedRobots = generateRobotsTxt('https://www.rummydex.com');
+    const pubRobots = fs.readFileSync(path.join(publicDir, 'robots.txt'), 'utf8');
+    const distRobots = fs.readFileSync(path.join(distDir, 'robots.txt'), 'utf8');
+    const googlebotSectionMatch = distRobots.match(/User-agent:\s*Googlebot[\s\S]*?(?=\nUser-agent:|\nSitemap:|$)/i);
+    const googlebotSection = googlebotSectionMatch ? googlebotSectionMatch[0] : '';
+    const robotsParityOk =
+      pubRobots.trim() === expectedRobots.trim() &&
+      distRobots.trim() === expectedRobots.trim() &&
+      !distRobots.includes('sitemap-categories.xml') &&
+      distRobots.includes('sitemap-developers.xml') &&
+      googlebotSection.includes('Disallow: /s/') &&
+      googlebotSection.includes('Disallow: /safety') &&
+      googlebotSection.includes('Disallow: /moreinfo/*');
+
+    const pubHeaders = fs.readFileSync(path.join(publicDir, '_headers'), 'utf8');
+    const distHeaders = fs.readFileSync(path.join(distDir, '_headers'), 'utf8');
+    const headerLines = distHeaders.split(/\r?\n/);
+    const ruleOrder: string[] = [];
+    const headerBlocks = new Map<string, string[]>();
+    let currentRoute: string | null = null;
+    for (const rawLine of headerLines) {
+      const trimmed = rawLine.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      if (rawLine.startsWith('/') && !rawLine.startsWith('//')) {
+        currentRoute = trimmed;
+        ruleOrder.push(currentRoute);
+        if (!headerBlocks.has(currentRoute)) headerBlocks.set(currentRoute, []);
+      } else if (currentRoute) {
+        headerBlocks.get(currentRoute)!.push(trimmed);
+      }
+    }
+    const maxHeaderLineLen = headerLines.reduce((m, l) => Math.max(m, l.length), 0);
+    const globalLines = headerBlocks.get('/*') || [];
+    const globalBlockFirstOk = ruleOrder[0] === '/*';
+    const securityHeadersOk =
+      pubHeaders === distHeaders &&
+      ruleOrder.length <= 100 &&
+      maxHeaderLineLen <= 2000 &&
+      globalBlockFirstOk &&
+      globalLines.some(l => l.startsWith('Strict-Transport-Security:')) &&
+      globalLines.some(l => l.startsWith('Permissions-Policy:')) &&
+      globalLines.some(l => l.startsWith('Content-Security-Policy:') && l.includes('https://challenges.cloudflare.com'));
+
+    const gatewayRoutes = ['/moreinfo/*', '/gateway/*', '/download/*', '/info/*', '/moredetail/*', '/s/*', '/dl/*', '/out/*'];
+    const gatewayDetachOk = gatewayRoutes.every(route => {
+      const lines = headerBlocks.get(route) || [];
+      const detachIdx = lines.indexOf('! Referrer-Policy');
+      const setIdx = lines.indexOf('Referrer-Policy: no-referrer');
+      return detachIdx !== -1 && setIdx > detachIdx;
+    });
+
+    record(
+      'EDGE-SEC-1..4',
+      'RFC 9309 robots.txt Parity & Cloudflare Pages _headers Security Hardening',
+      robotsParityOk && securityHeadersOk && gatewayDetachOk,
+      `RobotsParity(zero sitemap-categories, Googlebot /s/+/safety): ${robotsParityOk}, HeadersLimits(${ruleOrder.length}/100 rules, maxLine=${maxHeaderLineLen}/2000, /* first, HSTS+CSP+Permissions): ${securityHeadersOk}, GatewayNoReferrerDetach(8/8 routes): ${gatewayDetachOk}`
+    );
+
+    // 9. Cloudflare Pages Edge Middleware Soft-404 Elimination & Gateway Isolation (EDGE-404-1..6)
+    const dist404Path = path.join(distDir, '404.html');
+    const pub404Path = path.join(publicDir, '404.html');
+    const manifestPath = path.join(process.cwd(), 'src/lib/edgeRouteManifest.json');
+    const splitSyncYml = fs.readFileSync(path.join(process.cwd(), '.github/workflows/split-sync.yml'), 'utf8');
+    const dist404Exists = fs.existsSync(dist404Path) && !fs.existsSync(pub404Path);
+    const dist404Html = dist404Exists ? fs.readFileSync(dist404Path, 'utf8') : '';
+    const manifestBytes = fs.existsSync(manifestPath) ? fs.statSync(manifestPath).size : 0;
+    const splitSyncIsolated = splitSyncYml.includes('"functions/_middleware.js"');
+
+    const { onRequest: edgeMiddleware } = await import('../functions/_middleware.js');
+    const mockAssets = {
+      fetch: async (u: URL) => {
+        if (u.pathname === '/index.spa.html') {
+          return new Response('<!doctype html><html><body><div id="root"></div></body></html>', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          });
+        }
+        return new Response('Not found', { status: 404 });
+      }
+    };
+    const runEdge = async (urlStr: string, ua = mobileUa, nextStatus = 404, method = 'GET') => {
+      let nextCalled = false;
+      const req = new Request(urlStr, { method, headers: { 'user-agent': ua } });
+      const res = await edgeMiddleware({
+        request: req,
+        env: { ASSETS: mockAssets },
+        next: async () => {
+          nextCalled = true;
+          if (nextStatus === 200) {
+            return new Response('<!doctype html><html><body>OK</body></html>', {
+              status: 200,
+              headers: { 'Content-Type': 'text/html; charset=utf-8' }
+            });
+          }
+          return new Response(dist404Html, {
+            status: 404,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          });
+        }
+      });
+      return { res, nextCalled };
+    };
+
+    const [
+      edgeValidApp,
+      edgeApexWww,
+      edgeTrailSlash,
+      edgeOpenRedir,
+      edgeFuzzyApp,
+      edgeRootSlug,
+      edgeMoreinfoMobile,
+      edgeMoreinfoCubot,
+      edgeMoreinfoBot,
+      edgeReal404,
+      edgeDeletedApp404,
+      edgePhpProbe404,
+      edgeXml404,
+      edgeApiBypass
+    ] = await Promise.all([
+      runEdge('https://www.rummydex.com/app/yono-rummy', mobileUa, 200),
+      runEdge('https://rummydex.com/app/yono-rummy', mobileUa, 200),
+      runEdge('https://www.rummydex.com/app/yono-rummy/', mobileUa, 200),
+      runEdge('https://www.rummydex.com//evil.com/', mobileUa, 404),
+      runEdge('https://www.rummydex.com/app/yono_rummy', mobileUa, 404),
+      runEdge('https://www.rummydex.com/yono-rummy', mobileUa, 404),
+      runEdge('https://www.rummydex.com/moreinfo/yono-rummy', mobileUa, 404),
+      runEdge('https://www.rummydex.com/moreinfo/yono-rummy', 'Mozilla/5.0 (Linux; Android 13; CUBOT KINGKONG 9) AppleWebKit/537.36 Mobile Safari/537.36', 404),
+      runEdge('https://www.rummydex.com/moreinfo/yono-rummy', 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 404),
+      runEdge('https://www.rummydex.com/this-page-does-not-exist-999', mobileUa, 404),
+      runEdge('https://www.rummydex.com/app/deleted-nonexistent-app', mobileUa, 404),
+      runEdge('https://www.rummydex.com/wp-login.php', mobileUa, 404),
+      runEdge('https://www.rummydex.com/sitemap-categories.xml', mobileUa, 404),
+      runEdge('https://www.rummydex.com/api/v1/app/session-init', mobileUa, 200, 'POST')
+    ]);
+
+    const edge404Passed =
+      dist404Exists &&
+      dist404Html.includes('noindex, nofollow, noarchive, nosnippet') &&
+      manifestBytes > 100 &&
+      manifestBytes < 25000 &&
+      splitSyncIsolated &&
+      edgeValidApp.res.status === 200 &&
+      edgeValidApp.nextCalled &&
+      edgeApexWww.res.status === 301 &&
+      edgeApexWww.res.headers.get('location') === 'https://www.rummydex.com/app/yono-rummy' &&
+      edgeTrailSlash.res.status === 301 &&
+      edgeTrailSlash.res.headers.get('location') === 'https://www.rummydex.com/app/yono-rummy' &&
+      edgeOpenRedir.res.status === 301 &&
+      edgeOpenRedir.res.headers.get('location') === 'https://www.rummydex.com/evil.com' &&
+      edgeFuzzyApp.res.status === 301 &&
+      edgeFuzzyApp.res.headers.get('location') === 'https://www.rummydex.com/app/yono-rummy' &&
+      edgeRootSlug.res.status === 301 &&
+      edgeRootSlug.res.headers.get('location') === 'https://www.rummydex.com/app/yono-rummy' &&
+      edgeMoreinfoMobile.res.status === 200 &&
+      (edgeMoreinfoMobile.res.headers.get('referrer-policy') || '') === 'no-referrer' &&
+      (edgeMoreinfoMobile.res.headers.get('cache-control') || '').includes('no-store') &&
+      (edgeMoreinfoMobile.res.headers.get('x-robots-tag') || '').includes('noindex') &&
+      Boolean(edgeMoreinfoMobile.res.headers.get('strict-transport-security')) &&
+      Boolean(edgeMoreinfoMobile.res.headers.get('content-security-policy')) &&
+      edgeMoreinfoCubot.res.status === 200 &&
+      edgeMoreinfoBot.res.status === 403 &&
+      (edgeMoreinfoBot.res.headers.get('x-robots-tag') || '').includes('noindex') &&
+      edgeReal404.res.status === 404 &&
+      (edgeReal404.res.headers.get('x-robots-tag') || '').includes('noindex') &&
+      (edgeReal404.res.headers.get('cache-control') || '').includes('no-store') &&
+      edgeDeletedApp404.res.status === 404 &&
+      edgePhpProbe404.res.status === 404 &&
+      !edgePhpProbe404.nextCalled &&
+      edgeXml404.res.status === 404 &&
+      (edgeXml404.res.headers.get('content-type') || '').includes('text/plain') &&
+      edgeApiBypass.res.status === 200 &&
+      edgeApiBypass.nextCalled;
+
+    record(
+      'EDGE-404-1..6',
+      'Cloudflare Pages Edge Middleware (Genuine 404, Canonical 301s, /moreinfo SPA + Bot 403, Admin Isolation)',
+      edge404Passed,
+      `dist/404.html(no public/404): ${dist404Exists}, Manifest(${manifestBytes} B < 25KB), SplitSyncIsolated: ${splitSyncIsolated}, ValidApp=200, Apex->www=301, TrailSlash=301, OpenRedirBlocked=true, Fuzzy/Root=301, /moreinfo(Mobile=200,CUBOT=200,Googlebot=403,no-referrer+no-store), Missing/Deleted/PHP/XML=404(noindex), /api bypass=true`
+    );
+
+    // 10. Public Discovery Hygiene, Attachment Leak Exclusion & Secondary Page Code-Splitting (PERF-DISC-1..4)
+    const aiCatRoot = JSON.parse(fs.readFileSync(path.join(publicDir, 'ai-catalog.json'), 'utf8'));
+    const aiCatWellKnown = JSON.parse(fs.readFileSync(path.join(publicDir, '.well-known/ai-catalog.json'), 'utf8'));
+    const aiCatStr = JSON.stringify(aiCatRoot) + JSON.stringify(aiCatWellKnown);
+    const aiCatCleanOk =
+      aiCatRoot.name === 'RummyDex' &&
+      aiCatWellKnown.name === 'RummyDex' &&
+      !aiCatStr.includes('/api/v1/public/apps') &&
+      !aiCatStr.includes('/api/v1/public/community/stats') &&
+      !aiCatStr.includes('/api/v1/public/backup-data') &&
+      aiCatStr.includes('https://www.rummydex.com/sitemap.xml') &&
+      aiCatStr.includes('https://www.rummydex.com/rss.xml') &&
+      aiCatStr.includes('https://www.rummydex.com/llms.txt');
+
+    const llmsTxt = fs.readFileSync(path.join(distDir, 'llms.txt'), 'utf8');
+    const llmsCleanOk =
+      llmsTxt.startsWith('# RummyDex') &&
+      !llmsTxt.includes('Application Hub') &&
+      llmsTxt.includes('https://www.rummydex.com/sitemap.xml') &&
+      llmsTxt.includes('https://www.rummydex.com/rss.xml');
+
+    const noLeakedAistudioAssets =
+      !fs.existsSync(path.join(distDir, 'assets/aistudio')) &&
+      splitSyncYml.includes('public/assets/aistudio');
+
+    const appPublicSrc = fs.readFileSync(path.join(process.cwd(), 'src/AppPublic.tsx'), 'utf8');
+    const distAssetJsCount = fs.readdirSync(path.join(distDir, 'assets')).filter(f => f.endsWith('.js')).length;
+    const secondarySplitOk =
+      appPublicSrc.includes("const VideosPage = lazyWithRetry") &&
+      appPublicSrc.includes("const Privacy = lazyWithRetry") &&
+      appPublicSrc.includes("const FaqPage = lazyWithRetry") &&
+      distAssetJsCount >= 24;
+
+    record(
+      'PERF-DISC-1..4',
+      'Discovery Files (ai-catalog.json, llms.txt), Zero Internal Attachment Leak & Secondary Page Code-Splitting',
+      aiCatCleanOk && llmsCleanOk && noLeakedAistudioAssets && secondarySplitOk,
+      `ai-catalog Clean(0 dead/disallowed /api): ${aiCatCleanOk}, llms.txt Branded(RummyDex): ${llmsCleanOk}, Zero dist/assets/aistudio Leak: ${noLeakedAistudioAssets}, LazySplit(${distAssetJsCount} JS chunks): ${secondarySplitOk}`
+    );
+
+    // 11. Admin-to-Public Sync Hardening, Path Isolation Firewall & SHA-1 Diff Integrity (SYNC-HARDEN-1..5)
+    const {
+      PUBLIC_CORE_CANDIDATE_FILES,
+      assertSafePublicRepoPath,
+      isValidGitHubSegment,
+      isValidBranchName
+    } = await import('../src/server/routes/githubSyncRoutes');
+    const { computeGitBlobSha1 } = await import('../src/lib/githubSync');
+    const { buildEdgeRouteManifest } = await import('../src/lib/sitemapGenerator');
+
+    const missingCoreCandidates = PUBLIC_CORE_CANDIDATE_FILES.filter(
+      (f: string) => !fs.existsSync(path.join(process.cwd(), f))
+    );
+    const coreCandidatesCleanOk =
+      missingCoreCandidates.length === 0 &&
+      PUBLIC_CORE_CANDIDATE_FILES.includes('functions/_middleware.js') &&
+      !PUBLIC_CORE_CANDIDATE_FILES.includes('src/lib/secureVault.ts') &&
+      !PUBLIC_CORE_CANDIDATE_FILES.includes('public/robots.txt');
+
+    const firewallOk =
+      assertSafePublicRepoPath('src/lib/staticData.json').ok &&
+      assertSafePublicRepoPath('functions/_middleware.js').ok &&
+      assertSafePublicRepoPath('public/sitemap.xml').ok &&
+      !assertSafePublicRepoPath('../secret.txt').ok &&
+      !assertSafePublicRepoPath('.env').ok &&
+      !assertSafePublicRepoPath('.env.production').ok &&
+      !assertSafePublicRepoPath('.github/workflows/split-sync.yml').ok &&
+      !assertSafePublicRepoPath('server.ts').ok &&
+      !assertSafePublicRepoPath('src/pages/AdminDashboard.tsx').ok &&
+      !assertSafePublicRepoPath('src/components/admin/AdminGithubTab.tsx').ok &&
+      !assertSafePublicRepoPath('src/lib/public_backup.json').ok &&
+      !assertSafePublicRepoPath('src/lib/aiStudioBrain.json').ok &&
+      isValidGitHubSegment('yonoapptransparency') &&
+      !isValidGitHubSegment('../evil') &&
+      isValidBranchName('main') &&
+      !isValidBranchName('main..evil');
+
+    // Exact Git blob SHA-1 vector: printf "hello\n" | git hash-object --stdin === ce013625030ba8dba906f756967f9e9ca394464a
+    const gitShaHello = await computeGitBlobSha1('hello\n');
+    const gitShaOk = gitShaHello === 'ce013625030ba8dba906f756967f9e9ca394464a';
+
+    const syncHookSrc = fs.readFileSync(path.join(process.cwd(), 'src/hooks/useGitHubSync.ts'), 'utf8');
+    const syncLibSrc = fs.readFileSync(path.join(process.cwd(), 'src/lib/githubSync.ts'), 'utf8');
+    const syncRouteSrc = fs.readFileSync(path.join(process.cwd(), 'src/server/routes/githubSyncRoutes.ts'), 'utf8');
+    const vaultRouteSrc = fs.readFileSync(path.join(process.cwd(), 'src/server/routes/adminVaultRoutes.ts'), 'utf8');
+
+    const preflightAndAtomicOk =
+      syncHookSrc.includes('syncInFlightRef') &&
+      syncHookSrc.includes('Pre-Flight Safety Abort') &&
+      syncHookSrc.includes('Pre-Flight Security Abort') &&
+      syncHookSrc.includes('Pre-Flight Vault Abort') &&
+      syncHookSrc.includes("batchFileMap.set('src/lib/edgeRouteManifest.json'") &&
+      syncLibSrc.includes('force: false') &&
+      syncRouteSrc.includes('force: false') &&
+      syncRouteSrc.includes('__ADMIN_ENABLED__: false') &&
+      vaultRouteSrc.includes('function writeFileAtomic(') &&
+      vaultRouteSrc.includes('Refused to seal empty vault') &&
+      splitSyncYml.includes('"src/lib/aiStudioBrain.json"');
+
+    const builtManifest = buildEdgeRouteManifest({
+      apps: [{ id: '1', slug: 'yono-rummy', name: 'Yono Rummy', category: 'Rummy', sync_to_public: true }, { id: '2', slug: 'draft-app', name: 'Draft', sync_to_public: false }],
+      news: [{ slug: 'news-1', sync_to_public: true }, { slug: 'draft-news', sync_to_public: false }],
+      videos: [{ slug: 'vid-1' }]
+    });
+    const manifestBuilderOk =
+      builtManifest.apps.length === 1 &&
+      builtManifest.apps[0].slug === 'yono-rummy' &&
+      builtManifest.news.length === 1 &&
+      builtManifest.videos.length === 1;
+
+    record(
+      'SYNC-HARDEN-1..5',
+      'Admin-to-Public Sync Hardening (Firewall, Zero-Leak/Anti-Wipe Gate, SHA-1 Diff, Non-Force Rebase, Atomic Disk)',
+      coreCandidatesCleanOk && firewallOk && gitShaOk && preflightAndAtomicOk && manifestBuilderOk,
+      `CoreFiles(0 missing, +_middleware, -dup vault/robots): ${coreCandidatesCleanOk}, PathFirewall: ${firewallOk}, GitBlobSHA1(ce013625...): ${gitShaOk}, PreFlight+NonForce422+AtomicDisk+SplitSync: ${preflightAndAtomicOk}, EdgeManifestDraftFilter: ${manifestBuilderOk}`
+    );
   } catch (isoErr: any) {
     record('SEO-ISOLATION-1..8', 'Zero /moreinfo Leak & Attribution Isolation', false, isoErr?.message || String(isoErr));
   }

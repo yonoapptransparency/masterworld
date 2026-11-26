@@ -1,39 +1,64 @@
 {
   "specVersion": "1.0",
   "name": "RummyDex",
-  "description": "RummyDex transparency platform, app store catalog, news portal, and review hub.",
+  "description": "Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",
   "version": "1.0.0",
   "url": "https://www.rummydex.com",
   "catalog_url": "https://www.rummydex.com/ai-catalog.json",
   "host": {
     "displayName": "RummyDex",
-    "identifier": "did:web:rummydex.com",
+    "identifier": "did:web:www.rummydex.com",
     "documentationUrl": "https://www.rummydex.com/about",
     "logoUrl": "https://www.rummydex.com/logo.png"
   },
   "entries": [
     {
-      "identifier": "urn:air:rummydex.com:api:catalog",
-      "displayName": "RummyDex Public Catalog API",
-      "type": "application/json",
-      "url": "https://www.rummydex.com/api/v1/public/apps",
-      "description": "Browse catalog of verified card game applications."
+      "identifier": "urn:air:rummydex.com:discovery:llms",
+      "displayName": "RummyDex Site Overview (llms.txt)",
+      "type": "text/plain",
+      "url": "https://www.rummydex.com/llms.txt",
+      "description": "Machine-readable index of RummyDex public pages and feeds."
     },
     {
-      "identifier": "urn:air:rummydex.com:api:community-stats",
-      "displayName": "RummyDex Community Ratings & Reviews Stats",
-      "type": "application/json",
-      "url": "https://www.rummydex.com/api/v1/public/community/stats",
-      "description": "Retrieve rating and reviews aggregation statistics."
+      "identifier": "urn:air:rummydex.com:discovery:sitemap-index",
+      "displayName": "RummyDex Master Sitemap Index",
+      "type": "application/xml",
+      "url": "https://www.rummydex.com/sitemap.xml",
+      "description": "Complete XML sitemap index covering apps, news, videos, developers, and static pages."
+    },
+    {
+      "identifier": "urn:air:rummydex.com:discovery:sitemap-apps",
+      "displayName": "RummyDex Applications Sitemap",
+      "type": "application/xml",
+      "url": "https://www.rummydex.com/sitemap-apps.xml",
+      "description": "Canonical URLs for all published application pages."
+    },
+    {
+      "identifier": "urn:air:rummydex.com:discovery:sitemap-news",
+      "displayName": "RummyDex News Sitemap",
+      "type": "application/xml",
+      "url": "https://www.rummydex.com/sitemap-news.xml",
+      "description": "Canonical URLs for published news articles and updates."
+    },
+    {
+      "identifier": "urn:air:rummydex.com:discovery:rss",
+      "displayName": "RummyDex RSS Feed",
+      "type": "application/rss+xml",
+      "url": "https://www.rummydex.com/rss.xml",
+      "description": "Latest RummyDex application listings and news updates in RSS 2.0 format."
     }
   ],
   "capabilities": {
-    "search": {
-      "endpoint": "https://www.rummydex.com/api/v1/public/apps",
+    "sitemap": {
+      "endpoint": "https://www.rummydex.com/sitemap.xml",
       "method": "GET"
     },
-    "apps": {
-      "endpoint": "https://www.rummydex.com/api/v1/public/backup-data",
+    "feed": {
+      "endpoint": "https://www.rummydex.com/rss.xml",
+      "method": "GET"
+    },
+    "llms": {
+      "endpoint": "https://www.rummydex.com/llms.txt",
       "method": "GET"
     }
   }

@@ -537,3 +537,34 @@ export function generateAllSitemaps(
     'sitemap-developers.xml': generateDevelopersSitemapXml(host, latestDevDate)
   };
 }
+
+// Ultra-lightweight public route manifest (~8KB) shared by prerender.ts, local sync, and GitHub sync
+// Powers Cloudflare Pages functions/_middleware.js canonical 301 resolution without bundling full staticData.json
+export function buildEdgeRouteManifest(data: { apps?: any[]; news?: any[]; videos?: any[] }) {
+  const publicApps = (Array.isArray(data.apps) ? data.apps : []).filter(
+    (a: any) => a && a.sync_to_public !== false && (a.slug || a.id)
+  );
+  const publicNews = (Array.isArray(data.news) ? data.news : []).filter(
+    (n: any) => n && n.sync_to_public !== false
+  );
+  const canonicalCats = extractCanonicalCategories(publicApps)
+    .map((c: any) => c.slug)
+    .filter(Boolean);
+
+  return {
+    apps: publicApps.map((a: any) => ({
+      id: String(a.id || ''),
+      slug: String(a.slug || '').trim(),
+      name: String(a.name || '').trim(),
+      ...(a.serial_number !== undefined && a.serial_number !== null ? { serial_number: a.serial_number } : {})
+    })),
+    news: publicNews
+      .map((n: any) => String(n.slug || '').trim().toLowerCase())
+      .filter(Boolean),
+    videos: (Array.isArray(data.videos) ? data.videos : [])
+      .map((v: any) => String(v?.slug || '').trim().toLowerCase())
+      .filter(Boolean),
+    categories: canonicalCats
+  };
+}
+

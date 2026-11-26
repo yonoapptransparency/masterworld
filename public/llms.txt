@@ -1,9 +1,20 @@
-# Application Hub
+# RummyDex
 
-> Application Hub is a digital platform providing a verified application catalog, technical specifications, industry news, and developer information.
+> Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.
 
 ## Core Pages
-- [Home](https://www.rummydex.com/): Primary application directory and search.
-- [News](https://www.rummydex.com/news): Industry news and platform updates.
-- [Developers](https://www.rummydex.com/developers): Developer portal and submission guidelines.
-- [About Us](https://www.rummydex.com/about): Information about Application Hub platform.
+- [Home](https://www.rummydex.com/): Main catalog directory and search.
+- [New Apps](https://www.rummydex.com/new-apps): Newly listed applications.
+- [Categories](https://www.rummydex.com/categories): Browse applications by category.
+- [News](https://www.rummydex.com/news): News articles and updates.
+- [Videos](https://www.rummydex.com/videos): Video gallery and previews.
+- [Developers](https://www.rummydex.com/developers): Developer directory and portal.
+- [FAQ](https://www.rummydex.com/faq): Frequently asked questions.
+- [About](https://www.rummydex.com/about): Platform information.
+- [Contact](https://www.rummydex.com/contact): Contact information.
+
+## Machine-Readable Feeds & Sitemaps
+- [Sitemap Index](https://www.rummydex.com/sitemap.xml)
+- [Applications Sitemap](https://www.rummydex.com/sitemap-apps.xml)
+- [News Sitemap](https://www.rummydex.com/sitemap-news.xml)
+- [RSS Feed](https://www.rummydex.com/rss.xml)

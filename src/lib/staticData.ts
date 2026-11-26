@@ -251,8 +251,8 @@ export const mockApps: any[] = [
     "seo_keywords": "rummy 77 ",
     "faqs": [
       {
-        "question": "What is Rummy 77?",
-        "answer": "<p>Rummy 77 is a mobile app for classic 13-card rummy. It focuses on the game itself, with a clean lobby, quick matchmaking and a simple table layout instead of heavy 3D graphics.</p>"
+        "answer": "<p>Rummy 77 is a mobile app for classic 13-card rummy. It focuses on the game itself, with a clean lobby, quick matchmaking and a simple table layout instead of heavy 3D graphics.</p>",
+        "question": "What is Rummy 77?"
       },
       {
         "answer": "<p>Yes. The app uses lightweight 2D assets and held a steady 60 FPS on both a modern flagship and a three-year-old budget Android phone. Battery use stayed low and the device stayed cool during long sessions.</p>",
@@ -366,12 +366,12 @@ export const mockApps: any[] = [
         "question": "Q1: Can I play Callbreak fully offline without mobile data?"
       },
       {
-        "question": "Q2: Are the in-game Gems and Coins tied to real-money rewards?",
-        "answer": "<p>Yes. Callbreak features robust offline AI single-player matches as well as local Wi-Fi connectivity, allowing you to play anywhere without an internet connection.</p>"
+        "answer": "<p>Yes. Callbreak features robust offline AI single-player matches as well as local Wi-Fi connectivity, allowing you to play anywhere without an internet connection.</p>",
+        "question": "Q2: Are the in-game Gems and Coins tied to real-money rewards?"
       },
       {
-        "question": "Q3: How does Callbreak perform on older or lower-spec smartphones?",
-        "answer": "<p>Because the app utilizes clean 2D graphics and lightweight processing, it runs smoothly at 60 FPS on older devices while keeping battery drain and heat output very low.</p>"
+        "answer": "<p>Because the app utilizes clean 2D graphics and lightweight processing, it runs smoothly at 60 FPS on older devices while keeping battery drain and heat output very low.</p>",
+        "question": "Q3: How does Callbreak perform on older or lower-spec smartphones?"
       },
       {
         "question": "Q4: What extra game modes are included besides standard 5-round matches?",
@@ -421,8 +421,8 @@ export const mockApps: any[] = [
         "answer": "<p>Yes. The game includes an offline mode where you can play against AI opponents without an internet connection. However, online multiplayer features require an active internet connection.</p>"
       },
       {
-        "answer": "<p>Yes. Card Game 29 supports multiple ways to play, including online multiplayer, private rooms with friends, and local multiplayer options on supported devices, depending on the available features in your version of the app.</p>",
-        "question": "3. Does Card Game 29 support multiplayer gameplay?"
+        "question": "3. Does Card Game 29 support multiplayer gameplay?",
+        "answer": "<p>Yes. Card Game 29 supports multiple ways to play, including online multiplayer, private rooms with friends, and local multiplayer options on supported devices, depending on the available features in your version of the app.</p>"
       },
       {
         "answer": "<p>Yes. While the game is based on the traditional rules of Twenty-Nine, its straightforward interface and offline practice mode make it accessible for new players. Experienced players can also enjoy advanced gameplay through bidding, partnerships, and customizable rule variations.</p>",
@@ -458,7 +458,7 @@ export const mockApps: any[] = [
     "rating": 4.3,
     "release_notes": "",
     "file_size": "35 MB",
-    "updated_at": "2026-11-04T12:51:04.797Z",
+    "updated_at": "2026-11-19T15:22:00.017Z",
     "publish_date": "",
     "id": "e1qcs5ik7",
     "seo_keywords": "",
@@ -473,8 +473,8 @@ export const mockApps: any[] = [
     "sync_to_public": true,
     "faqs": [
       {
-        "question": "How many players can play Joy Rummy?",
-        "answer": "<p>Each table holds 2 to 6 players, and everyone receives a 13-card hand.</p>"
+        "answer": "<p>Each table holds 2 to 6 players, and everyone receives a 13-card hand.</p>",
+        "question": "How many players can play Joy Rummy?"
       },
       {
         "answer": "<p>Yes. Custom Friend Lobbies let a host create a private room code so family and friends can join from anywhere.</p>",
@@ -505,12 +505,12 @@ export const mockApps: any[] = [
     "rating": 4.6,
     "faqs": [
       {
-        "answer": "<p>Jaiho 91 brings 13-card Rummy and Teen Patti together in one app, with smooth animations and fast rounds.</p>",
-        "question": "What can you play in Jaiho 91?"
+        "question": "What can you play in Jaiho 91?",
+        "answer": "<p>Jaiho 91 brings 13-card Rummy and Teen Patti together in one app, with smooth animations and fast rounds.</p>"
       },
       {
-        "question": "Can I play Jaiho 91 offline?",
-        "answer": "<p>Yes. Most modes let you play against computer-controlled opponents without an internet connection.</p>"
+        "answer": "<p>Yes. Most modes let you play against computer-controlled opponents without an internet connection.</p>",
+        "question": "Can I play Jaiho 91 offline?"
       },
       {
         "answer": "<p>Yes. The smart hint system helps you arrange your hand and make better decisions while you learn.</p>",
@@ -585,7 +585,7 @@ export const mockApps: any[] = [
     "category": "Yono Apps",
     "name": "OK RUMMY",
     "features_html": "",
-    "updated_at": "2026-11-16T08:07:15.684Z",
+    "updated_at": "2026-11-19T15:26:59.686Z",
     "is_new": false,
     "file_size": "45 MB",
     "created_at": "2026-08-06T06:23:32.759Z",
@@ -600,8 +600,8 @@ export const mockApps: any[] = [
         "question": "1. Is OK Rummy free to download and play?"
       },
       {
-        "question": "2. Can I play the game without an internet connection?",
-        "answer": "<p>Yes, the core puzzle-solving mechanics and the primary progression map are fully available offline. You can enjoy the game uninterrupted even when you do not have a Wi-Fi or cellular connection.</p>"
+        "answer": "<p>Yes, the core puzzle-solving mechanics and the primary progression map are fully available offline. You can enjoy the game uninterrupted even when you do not have a Wi-Fi or cellular connection.</p>",
+        "question": "2. Can I play the game without an internet connection?"
       },
       {
         "answer": "<p>Instead of traditional matches, the game uses a level-based map. You clear individual puzzle boards by forming valid card sequences, which earns you virtual stars to unlock new thematic zones and more complex challenges.</p>",
@@ -633,8 +633,8 @@ export const mockApps: any[] = [
         "question": "1. Is Jaiho Slots free to download and play?"
       },
       {
-        "question": "2. Can I play the game offline?",
-        "answer": "<p>Yes, the core reel-matching puzzles and level progression are fully functional offline. You can enjoy the game uninterrupted without an active Wi-Fi or cellular connection.</p>"
+        "answer": "<p>Yes, the core reel-matching puzzles and level progression are fully functional offline. You can enjoy the game uninterrupted without an active Wi-Fi or cellular connection.</p>",
+        "question": "2. Can I play the game offline?"
       },
       {
         "answer": "<p>Instead of automated spinning, you must use tap-to-stop and reel-locking mechanics to align specific symbols. Clearing these patterns completes the board's objective, rewarding you with virtual coins and unlocking the next thematic stage.</p>",
@@ -699,14 +699,14 @@ export const mockApps: any[] = [
     "name": "YONO ARCADE",
     "seo_keywords": "",
     "slug": "yono-arcade",
-    "updated_at": "2026-11-03T05:49:59.035Z",
+    "updated_at": "2026-11-19T15:33:25.288Z",
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877459/download_14_krbwrv.webp",
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877459/download_14_krbwrv.webp",
     "file_size": "51.1 MB",
     "faqs": [
       {
-        "answer": "<p>Yono Arcade features a four-reel fruit tile system where players spin and match symbols. You win virtual rewards by aligning fruit symbols into specific shapes like horizontal lines, diagonals, triangles, and W patterns.</p>",
-        "question": "1. What are the main gameplay mechanics in Yono Arcade?"
+        "question": "1. What are the main gameplay mechanics in Yono Arcade?",
+        "answer": "<p>Yono Arcade features a four-reel fruit tile system where players spin and match symbols. You win virtual rewards by aligning fruit symbols into specific shapes like horizontal lines, diagonals, triangles, and W patterns.</p>"
       },
       {
         "question": "2. Is Yono Arcade free to download and play?",
@@ -768,12 +768,12 @@ export const mockApps: any[] = [
         "question": "What is Bingo 101?"
       },
       {
-        "question": "Can I play Bingo 101 offline?",
-        "answer": "<p>Yes. The offline mode lets you play the core game and practice without Wi-Fi or mobile data.</p>"
+        "answer": "<p>Yes. The offline mode lets you play the core game and practice without Wi-Fi or mobile data.</p>",
+        "question": "Can I play Bingo 101 offline?"
       },
       {
-        "answer": "<p>Yes. It is free and supported by ads between rounds. Progress comes from gameplay and daily participation.</p>",
-        "question": "Is Bingo 101 free to download?"
+        "question": "Is Bingo 101 free to download?",
+        "answer": "<p>Yes. It is free and supported by ads between rounds. Progress comes from gameplay and daily participation.</p>"
       }
     ],
     "has_secure_link": true,
@@ -784,16 +784,16 @@ export const mockApps: any[] = [
     "updated_at": "2026-10-31T07:06:24.294Z",
     "faqs": [
       {
-        "question": "What is ABC Rummy?",
-        "answer": "<p>ABC Rummy is an offline card game that brings traditional Indian rummy to your phone. You form sets and runs against computer-controlled opponents.</p>"
+        "answer": "<p>ABC Rummy is an offline card game that brings traditional Indian rummy to your phone. You form sets and runs against computer-controlled opponents.</p>",
+        "question": "What is ABC Rummy?"
       },
       {
-        "answer": "<p>No. The game works completely offline, so you can play without Wi-Fi or mobile data.</p>",
-        "question": "Does ABC Rummy need an internet connection?"
+        "question": "Does ABC Rummy need an internet connection?",
+        "answer": "<p>No. The game works completely offline, so you can play without Wi-Fi or mobile data.</p>"
       },
       {
-        "answer": "<p>You can earn bonus coins by spinning the wheel and use them to unlock avatars and visual themes. Coins track progression inside the game.</p>",
-        "question": "What are virtual coins used for in ABC Rummy?"
+        "question": "What are virtual coins used for in ABC Rummy?",
+        "answer": "<p>You can earn bonus coins by spinning the wheel and use them to unlock avatars and visual themes. Coins track progression inside the game.</p>"
       }
     ],
     "developer": "girrajafuturecoachingclasses",
@@ -865,8 +865,8 @@ export const mockApps: any[] = [
         "question": "2. Is EVERY 77 free to download and play?"
       },
       {
-        "question": "3. Does the app support offline gameplay?",
-        "answer": "<p>Yes, EVERY 77 includes a fully functional offline mode. You can practice against various levels of computer-controlled AI without needing a Wi-Fi or cellular data connection.</p>"
+        "answer": "<p>Yes, EVERY 77 includes a fully functional offline mode. You can practice against various levels of computer-controlled AI without needing a Wi-Fi or cellular data connection.</p>",
+        "question": "3. Does the app support offline gameplay?"
       }
     ],
     "meta_description": "Explore EVERY 77 on RummyDex. Dive into this unique 77-point limit card game, featuring strategic hand management, AI challenges, and offline play.",
@@ -913,8 +913,8 @@ export const mockApps: any[] = [
         "answer": "<p>Yes, the core daily missions and level progression in Love Rummy are fully accessible offline. Your activity history and profile statistics are managed directly within the app's secure, local storage.</p>"
       },
       {
-        "answer": "<p>Instead of standard multiplayer matches, Love Rummy uses a tiered achievement system. You advance by completing specific daily mission checklists and interacting with the Lucky Spin Wheel to earn progression points.</p>",
-        "question": "​How do you level up your profile in Love Rummy?"
+        "question": "​How do you level up your profile in Love Rummy?",
+        "answer": "<p>Instead of standard multiplayer matches, Love Rummy uses a tiered achievement system. You advance by completing specific daily mission checklists and interacting with the Lucky Spin Wheel to earn progression points.</p>"
       }
     ],
     "developer": "BLG PLASTO PRIVATE LIMITED",
@@ -949,16 +949,16 @@ export const mockApps: any[] = [
     "canonical_url": "https://www.rummydex.com/app/share-slots",
     "faqs": [
       {
-        "question": "1. What types of mini-games are available in Share Slots?",
-        "answer": "<p>The app includes a dedicated Game Zone with seven different activities, including endless runners (Money Runner), reflex games (Speed Tap, Bubble Pop), and precision puzzles (Stack Tower, Number Dash).</p>"
+        "answer": "<p>The app includes a dedicated Game Zone with seven different activities, including endless runners (Money Runner), reflex games (Speed Tap, Bubble Pop), and precision puzzles (Stack Tower, Number Dash).</p>",
+        "question": "1. What types of mini-games are available in Share Slots?"
       },
       {
         "question": "2. Does the application require a constant internet connection?",
         "answer": "<p>No, a major benefit of Share Slots is its offline capability. Select mini-games and progression features can be played without needing cellular data or a Wi-Fi connection.</p>"
       },
       {
-        "answer": "<p>Every day, the app provides a new checklist of activities. This includes spinning a lucky wheel, answering trivia questions, and revealing digital scratch cards to earn progression points and track your daily engagement.</p>",
-        "question": "3. How do the daily tasks work?"
+        "question": "3. How do the daily tasks work?",
+        "answer": "<p>Every day, the app provides a new checklist of activities. This includes spinning a lucky wheel, answering trivia questions, and revealing digital scratch cards to earn progression points and track your daily engagement.</p>"
       }
     ],
     "is_new": false,
@@ -1061,12 +1061,12 @@ export const mockApps: any[] = [
         "question": "1. What kind of game is Maha Games?"
       },
       {
-        "answer": "<p>Yes, the core puzzle campaign and sandbox features are completely functional offline, allowing you to solve levels without needing an active data connection.</p>",
-        "question": "2. Can I play the puzzles without an internet connection?"
+        "question": "2. Can I play the puzzles without an internet connection?",
+        "answer": "<p>Yes, the core puzzle campaign and sandbox features are completely functional offline, allowing you to solve levels without needing an active data connection.</p>"
       },
       {
-        "answer": "<p>No, the main puzzle rooms do not have timers. The game is designed to be a stress-free environment that encourages you to take your time and experiment with different physics solutions.</p>",
-        "question": "3. Is there a time limit on the puzzles?"
+        "question": "3. Is there a time limit on the puzzles?",
+        "answer": "<p>No, the main puzzle rooms do not have timers. The game is designed to be a stress-free environment that encourages you to take your time and experiment with different physics solutions.</p>"
       }
     ],
     "idea_box_msg": "",
@@ -1095,7 +1095,7 @@ export const mockApps: any[] = [
     "publish_date": "",
     "developer": "Jagoan K3",
     "canonical_url": "https://www.rummydex.com/app/maha-games",
-    "updated_at": "2026-11-06T04:11:25.681Z",
+    "updated_at": "2026-11-18T13:41:10.888Z",
     "features_html": "",
     "meta_title": "Maha Games : Gravity Puzzles, Physics Hub & Features",
     "sync_to_public": true,
@@ -1135,17 +1135,17 @@ export const mockApps: any[] = [
     "features_html": "",
     "is_new": false,
     "review_count": 33,
-    "updated_at": "2026-11-15T14:52:27.936Z",
+    "updated_at": "2026-11-19T15:31:07.224Z",
     "video_url": "",
     "idea_box_msg": "",
     "faqs": [
       {
-        "question": "What is Rummy Ludo?",
-        "answer": "<p>Rummy Ludo is a hybrid of Ludo and Rummy. You move tokens by playing numbered tiles from your hand and build sequences to unlock shortcuts on the board.</p>"
+        "answer": "<p>Rummy Ludo is a hybrid of Ludo and Rummy. You move tokens by playing numbered tiles from your hand and build sequences to unlock shortcuts on the board.</p>",
+        "question": "What is Rummy Ludo?"
       },
       {
-        "answer": "<p>Yes. The offline AI mode gives you computer opponents that build sequences and chase your tokens, so you don't need Wi-Fi.</p>",
-        "question": "Can I play Rummy Ludo offline?"
+        "question": "Can I play Rummy Ludo offline?",
+        "answer": "<p>Yes. The offline AI mode gives you computer opponents that build sequences and chase your tokens, so you don't need Wi-Fi.</p>"
       },
       {
         "answer": "<p>It is free to download and uses a virtual progression system. Winning matches earns points you can spend on cosmetic unlocks such as new token designs and tile decks.</p>",
@@ -1169,16 +1169,16 @@ export const mockApps: any[] = [
     "screenshots": [],
     "faqs": [
       {
-        "question": "1. How do you play 789 Jackports?",
-        "answer": "<p>You use a pull-and-release slingshot mechanic to fire numbered pods into the empty bays of a spinning orbital ring, adjusting for gravity curves along the way.</p>"
+        "answer": "<p>You use a pull-and-release slingshot mechanic to fire numbered pods into the empty bays of a spinning orbital ring, adjusting for gravity curves along the way.</p>",
+        "question": "1. How do you play 789 Jackports?"
       },
       {
-        "question": "2. What happens when you dock a 7, 8, and 9 together?",
-        "answer": "<p>Docking those three numbers in a consecutive sequence triggers a massive chain reaction that clears the board and instantly completes the puzzle phase.</p>"
+        "answer": "<p>Docking those three numbers in a consecutive sequence triggers a massive chain reaction that clears the board and instantly completes the puzzle phase.</p>",
+        "question": "2. What happens when you dock a 7, 8, and 9 together?"
       },
       {
-        "question": "3. Do I need Wi-Fi to play this game?",
-        "answer": "<p>No, the entire cosmic puzzle campaign and all physics-based levels are fully available offline.</p>"
+        "answer": "<p>No, the entire cosmic puzzle campaign and all physics-based levels are fully available offline.</p>",
+        "question": "3. Do I need Wi-Fi to play this game?"
       }
     ],
     "meta_title": "789 Jackports : Orbital Puzzles & Sequence Mechanics",
@@ -1251,16 +1251,16 @@ export const mockApps: any[] = [
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878294/download_27_ex1vzp.webp",
     "faqs": [
       {
-        "question": "1. What is the main gameplay in 777 Game?",
-        "answer": "<p>Instead of flat boards, you manipulate a massive 3D puzzle cube. You must rotate the structure and align 7 matching blocks within a 7-second window to clear the matrix before the time runs out.</p>"
+        "answer": "<p>Instead of flat boards, you manipulate a massive 3D puzzle cube. You must rotate the structure and align 7 matching blocks within a 7-second window to clear the matrix before the time runs out.</p>",
+        "question": "1. What is the main gameplay in 777 Game?"
       },
       {
         "question": "2. Can I play this puzzle game without an internet connection?",
         "answer": "<p>Yes, the core 3D matrix puzzles and gravity challenges are fully functional offline, allowing you to play anywhere without needing Wi-Fi or mobile data.</p>"
       },
       {
-        "question": "3. Are there different visual styles for the puzzles?",
-        "answer": "<p>Yes, as you play, you earn virtual progression points that allow you to unlock unique cosmetic skins for your cube, such as neon lights, glass, or metallic textures.</p>"
+        "answer": "<p>Yes, as you play, you earn virtual progression points that allow you to unlock unique cosmetic skins for your cube, such as neon lights, glass, or metallic textures.</p>",
+        "question": "3. Are there different visual styles for the puzzles?"
       }
     ],
     "seo_title": "777 Game App Review: The 3D Matrix & Spatial Puzzles",
@@ -1458,7 +1458,7 @@ export const mockApps: any[] = [
     "idea_box_msg": "",
     "red_box_msg": "",
     "features_html": "",
-    "updated_at": "2026-10-15T07:54:08.253Z",
+    "updated_at": "2026-11-17T08:38:14.465Z",
     "description_html": "<h2>Key Features</h2>\n<ul>\n  <li><strong>Resource Management Mechanics:</strong> Strategically collect, trade, and organize virtual <strong>\"Dhan\" tokens</strong> to complete challenging board puzzles and dynamic card sets.</li>\n  <li><strong>Smart Offline Opponents:</strong> Play seamlessly anytime and anywhere without an internet connection against an <strong>advanced AI</strong> that cleverly adapts to your strategic decisions.</li>\n  <li><strong>Daily Progression System:</strong> Log in daily to complete casual mini-tasks and brain teasers that consistently reward you with <strong>unique profile badges</strong> and <strong>custom tabletop themes</strong>.</li>\n  <li><strong>Vibrant User Interface:</strong> Enjoy clean, eye-catching digital graphics coupled with highly responsive <strong>drag-and-drop controls</strong> meticulously optimized for a relaxing experience.</li>\n  <li><strong>Battery & Data Optimized:</strong> Purpose-built to consume <strong>minimal device power</strong> and perform perfectly even when connected to <strong>low-bandwidth or unstable mobile networks</strong>.</li>\n</ul>\n\n<h2>My Hands-On Review</h2>\n\n<h3>First Impressions</h3>\n<p>As soon as I launch <strong>Dhan Game</strong>, I am greeted by a highly colorful and incredibly <strong>intuitive dashboard</strong>. It completely skips frustrating sign-up screens or mandatory tutorials, allowing me to dive straight into my very first <strong>strategic puzzle session</strong> in a matter of seconds.</p>\n\n<h3>Gameplay Flow</h3>\n<p>The core loop of drawing cards and managing virtual tokens feels exceptionally smooth and polished. The <strong>drag-and-drop system</strong> is perfectly calibrated, ensuring I never feel like I am fighting the interface while carefully planning my next major <strong>tactical move</strong> on the virtual board.</p>\n\n<h3>Match Pacing</h3>\n<p>Whether I am sneaking in a quick <strong>five-minute round</strong> during a daily commute or settling in for a longer session at home, the pacing is spot on. The <strong>computer-controlled opponents</strong> execute their turns instantly, completely eliminating any boring downtime or lag.</p>\n\n<h3>Visuals and Polish</h3>\n<p>Every single time I successfully complete a massive resource set, the screen lights up with immensely <strong>satisfying visual effects</strong>. The <strong>relaxing background music</strong> and crisp, charming sound cues make the entire puzzle-solving experience highly therapeutic and deeply engaging.</p>\n\n<h2>Interior Features & Detailed Gameplay Experience</h2>\n\n<h3>Virtual Board Architecture & Layout</h3>\n<p>The internal digital layout centers around a beautifully crafted <strong>virtual tabletop</strong> where up to <strong>four participants</strong> can compete simultaneously. The primary focus of the graphical interface is entirely dedicated to tracking your virtual assets, organizing your hand, and planning your next card placement without any <strong>distracting visual screen clutter</strong> blocking your view.</p>\n\n<h3>Token Collection & Automated Dealing</h3>\n<p>At the exact start of every single match, the internal system automatically distributes a balanced <strong>starting hand of resource cards</strong> and virtual tokens to all players. The highly intuitive digital mechanics allow you to rapidly tap, drag, and seamlessly organize your entire inventory, empowering you to experiment with wildly different <strong>strategic combinations</strong> to maximize your final point yield.</p>\n\n<h3>Dynamic Strategic Win Conditions</h3>\n<p>A standout interior gameplay feature is the ever-shifting <strong>dynamic requirement</strong> for securing a definitive victory, which actively forces participants to adapt their tactics constantly. You must carefully and meticulously balance the risk of <strong>hoarding your virtual points</strong> for massive late-game multipliers versus spending them early to actively block opposing players from completing their own dedicated puzzle sets.</p>\n\n<h3>Real-Time Computational Scoring Logic</h3>\n<p>The underlying <strong>computational engine</strong> of the application actively tracks every single strategic move made on the board and recalculates the overall leaderboard instantly. The exact moment a player successfully completes their target objective, the game rapidly tallies up <strong>special bonus multipliers</strong> based heavily on speed, tactical accuracy, and remaining resources, ensuring a highly competitive and thrilling finish to every round.</p>\n\n<h3>Long-Term Milestone Tracking & Unlocks</h3>\n<p>Throughout the continuous internal gameplay loop, the application's backend secretly monitors your <strong>strategic efficiency and win rates</strong> to trigger special profile achievements. Consistently winning highly difficult offline matches against the computer steadily grants you permanent access to <strong>exclusive customized card backs</strong>, rare player avatars, and advanced difficulty modes that provide an immense amount of replay value for dedicated users.</p>",
     "is_coming_soon": false,
     "yellow_box_msg": "",
@@ -1472,7 +1472,7 @@ export const mockApps: any[] = [
     "seo_title": "Dhan Game App: Casual Strategy & Virtual Resource Puzzle",
     "og_image_url": "",
     "screenshots": [],
-    "is_new": false,
+    "is_new": true,
     "publish_date": "",
     "serial_number": 25,
     "video_url": "",
@@ -1481,12 +1481,12 @@ export const mockApps: any[] = [
     "slug": "dhan-game",
     "faqs": [
       {
-        "question": "1. What is the Dhan Game app?",
-        "answer": "<p>Dhan Game is a highly engaging, casual strategy and virtual card collection application. It focuses entirely on resource management, allowing players to strategically collect virtual tokens, solve dynamic puzzle boards, and compete against intelligent AI opponents in a stress-free digital gaming environment.</p>"
+        "answer": "<p>Dhan Game is a highly engaging, casual strategy and virtual card collection application. It focuses entirely on resource management, allowing players to strategically collect virtual tokens, solve dynamic puzzle boards, and compete against intelligent AI opponents in a stress-free digital gaming environment.</p>",
+        "question": "1. What is the Dhan Game app?"
       },
       {
-        "question": "2. Can I play this app offline without an internet connection?",
-        "answer": "<p>Absolutely. The application features a highly robust and fully independent offline mode. This means you can enjoy full-length strategic matches against computer opponents without ever needing a Wi-Fi connection or consuming your mobile data.</p>"
+        "answer": "<p>Absolutely. The application features a highly robust and fully independent offline mode. This means you can enjoy full-length strategic matches against computer opponents without ever needing a Wi-Fi connection or consuming your mobile data.</p>",
+        "question": "2. Can I play this app offline without an internet connection?"
       },
       {
         "answer": "<p>Yes, Dhan Game is specifically engineered to be lightweight, highly optimized, and incredibly accessible. It runs flawlessly on older smartphones, actively preserving your battery life while simultaneously maintaining completely smooth animations and responsive touch controls.</p>",
@@ -2776,12 +2776,12 @@ export const mockApps: any[] = [
     "developer": "Admin",
     "faqs": [
       {
-        "question": "Why is Kanopy completely free with no ads?",
-        "answer": "<p>Kanopy is free for users because your local public library or university pays the licensing fees for the movies you watch, acting as a digital extension of borrowing a DVD from a physical library.</p>"
+        "answer": "<p>Kanopy is free for users because your local public library or university pays the licensing fees for the movies you watch, acting as a digital extension of borrowing a DVD from a physical library.</p>",
+        "question": "Why is Kanopy completely free with no ads?"
       },
       {
-        "question": "Can I sign up for Kanopy without a library card?",
-        "answer": "<p>No, a participating library card or university login is strictly required to create an account and access the streaming library.</p>"
+        "answer": "<p>No, a participating library card or university login is strictly required to create an account and access the streaming library.</p>",
+        "question": "Can I sign up for Kanopy without a library card?"
       }
     ],
     "custom_admin_box_heading": "",
@@ -2861,8 +2861,8 @@ export const mockApps: any[] = [
         "question": "Does hoichoi provide English subtitles for its Bengali shows?"
       },
       {
-        "question": "What is hoichoi FM?",
-        "answer": "<p>hoichoi FM is a built-in feature within the app that allows you to listen to audio-only stories, thrillers, and classic Bengali audiobooks without needing to keep your screen on.</p>"
+        "answer": "<p>hoichoi FM is a built-in feature within the app that allows you to listen to audio-only stories, thrillers, and classic Bengali audiobooks without needing to keep your screen on.</p>",
+        "question": "What is hoichoi FM?"
       }
     ],
     "created_at": "2026-09-02T13:16:48.606Z",
@@ -2905,8 +2905,8 @@ export const mockApps: any[] = [
   {
     "faqs": [
       {
-        "answer": "<p>Yes, the app features a dedicated Live TV section where you can stream over 44 regional channels from the Sun TV Network in real-time.</p>",
-        "question": "Can I watch live television on Sun NXT?"
+        "question": "Can I watch live television on Sun NXT?",
+        "answer": "<p>Yes, the app features a dedicated Live TV section where you can stream over 44 regional channels from the Sun TV Network in real-time.</p>"
       },
       {
         "answer": "<p>Sun NXT Shorts is a newly integrated feature that provides ultra-condensed, 2-minute vertical dramas and mini-series designed for fast-paced, on-the-go entertainment.</p>",
@@ -2988,12 +2988,12 @@ export const mockApps: any[] = [
     "features_html": "",
     "faqs": [
       {
-        "question": "What kind of game is the Jaiho Arcade app?",
-        "answer": "<p>Jaiho Arcade is a dedicated, single-mode puzzle racing game. Instead of offering a collection of different activities, it focuses entirely on an endless driving experience where you must steer a car through heavy traffic to achieve the highest possible score.</p>"
+        "answer": "<p>Jaiho Arcade is a dedicated, single-mode puzzle racing game. Instead of offering a collection of different activities, it focuses entirely on an endless driving experience where you must steer a car through heavy traffic to achieve the highest possible score.</p>",
+        "question": "What kind of game is the Jaiho Arcade app?"
       },
       {
-        "answer": "<p>The controls are incredibly simple and touch-based. You do not need to worry about accelerating or braking manually; you just press and hold the left or right side of your smartphone screen to steer your car into the corresponding lanes and avoid crashing.</p>",
-        "question": "How do you control the car in the game?"
+        "question": "How do you control the car in the game?",
+        "answer": "<p>The controls are incredibly simple and touch-based. You do not need to worry about accelerating or braking manually; you just press and hold the left or right side of your smartphone screen to steer your car into the corresponding lanes and avoid crashing.</p>"
       },
       {
         "question": "Does the app take up a lot of storage space?",
@@ -3020,16 +3020,16 @@ export const mockApps: any[] = [
     "release_notes": "",
     "faqs": [
       {
-        "question": "What kind of game is Rumble Rummy?",
-        "answer": "<p>Rumble Rummy is a fast-paced, two-player card strategy game based on classic 10-card knock rummy rules. Instead of long multi-player rounds, it focuses on quick 1v1 duels where players try to build sets and knock before their opponent can clear their hand.</p>"
+        "answer": "<p>Rumble Rummy is a fast-paced, two-player card strategy game based on classic 10-card knock rummy rules. Instead of long multi-player rounds, it focuses on quick 1v1 duels where players try to build sets and knock before their opponent can clear their hand.</p>",
+        "question": "What kind of game is Rumble Rummy?"
       },
       {
-        "question": "What does the \"Rumble\" button do during a match?",
-        "answer": "<p>The Rumble button lets you end the round early once the total value of your unmatched cards drops to 10 points or fewer. Tapping it forces your opponent to reveal their cards, and the player with the lowest unmatched score wins the round's points.</p>"
+        "answer": "<p>The Rumble button lets you end the round early once the total value of your unmatched cards drops to 10 points or fewer. Tapping it forces your opponent to reveal their cards, and the player with the lowest unmatched score wins the round's points.</p>",
+        "question": "What does the \"Rumble\" button do during a match?"
       },
       {
-        "question": "Can I play this game without an internet connection?",
-        "answer": "<p>Yes, the app includes a dedicated offline practice mode. You can play complete 1v1 matches against a computer opponent without mobile data or Wi-Fi, making it handy for flights, subways, or areas with weak reception.</p>"
+        "answer": "<p>Yes, the app includes a dedicated offline practice mode. You can play complete 1v1 matches against a computer opponent without mobile data or Wi-Fi, making it handy for flights, subways, or areas with weak reception.</p>",
+        "question": "Can I play this game without an internet connection?"
       }
     ],
     "screenshots": [],
@@ -3050,7 +3050,7 @@ export const mockApps: any[] = [
     "review_count": 6,
     "video_url": "",
     "is_coming_soon": false,
-    "updated_at": "2026-10-25T09:52:54.284Z",
+    "updated_at": "2026-11-19T15:24:36.849Z",
     "category": "Yono Apps",
     "yellow_box_msg": "",
     "features_html": "",
@@ -3064,8 +3064,8 @@ export const mockApps: any[] = [
     "is_coming_soon": false,
     "faqs": [
       {
-        "question": "Does the Spin Winner app have daily spin limits or energy timers?",
-        "answer": "<p>No, the Spin Winner app features an unrestricted, unlimited spin system. You can rotate the virtual wheel as many times as you like in a single session without waiting for energy bars or cooldown timers to refill.</p>"
+        "answer": "<p>No, the Spin Winner app features an unrestricted, unlimited spin system. You can rotate the virtual wheel as many times as you like in a single session without waiting for energy bars or cooldown timers to refill.</p>",
+        "question": "Does the Spin Winner app have daily spin limits or energy timers?"
       },
       {
         "answer": "<p>The official Spin Winner APK has an ultra-lightweight installation footprint of just 26.7 MB, allowing it to download quickly and run smoothly at 60 FPS without draining your battery or hogging internal storage.</p>",
@@ -3142,8 +3142,8 @@ export const mockApps: any[] = [
     "canonical_url": "",
     "faqs": [
       {
-        "answer": "<p>Max Rummy takes the classic 13-card rules and injects them with a hyper-kinetic, cyberpunk aesthetic. It features aggressive AI, high-speed turn timers, and crazy visual effects that make every match feel like a fast-paced arcade game rather than a slow tabletop experience.</p>",
-        "question": "What makes Max Rummy different from other card apps?"
+        "question": "What makes Max Rummy different from other card apps?",
+        "answer": "<p>Max Rummy takes the classic 13-card rules and injects them with a hyper-kinetic, cyberpunk aesthetic. It features aggressive AI, high-speed turn timers, and crazy visual effects that make every match feel like a fast-paced arcade game rather than a slow tabletop experience.</p>"
       },
       {
         "answer": "<p>Yes, the application features a highly robust offline mode. You can battle against the adaptive computer AI without needing a Wi-Fi or mobile data connection, making it an intense but reliable game for commuting or traveling.</p>",
@@ -3188,7 +3188,7 @@ export const mockApps: any[] = [
     "review_count": "",
     "is_new": false,
     "custom_admin_box_html": "",
-    "updated_at": "2026-11-15T14:17:58.134Z",
+    "updated_at": "2026-11-17T08:26:19.981Z",
     "is_hot": false,
     "id": "mmlo06ttq",
     "screenshots": [],
@@ -3212,8 +3212,8 @@ export const mockApps: any[] = [
         "answer": "<p>No. Coins are earned only through play. Each spin uses spin energy, which refills over time, and coins have no value outside the game.</p>"
       },
       {
-        "answer": "<p>It's made for adults aged 18 and over who want a relaxed, entertainment-only slot game. Optional play reminders help you take breaks.</p>",
-        "question": "Who is Slots Winner for?"
+        "question": "Who is Slots Winner for?",
+        "answer": "<p>It's made for adults aged 18 and over who want a relaxed, entertainment-only slot game. Optional play reminders help you take breaks.</p>"
       }
     ],
     "has_secure_link": true
@@ -3243,16 +3243,16 @@ export const mockApps: any[] = [
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1788432142/rummydex_uploads/yxrxrjvhvdlwqptpr05t.webp",
     "faqs": [
       {
-        "question": "What kind of game is the Top Rummy app?",
-        "answer": "<p>Top Rummy is a highly strategic, level-based puzzle game. It utilizes classic 13-card sequence mechanics but removes the standard open-table format, instead challenging players to complete specific goals, beat smart AI bosses, and clear stages within a strict turn limit.</p>"
+        "answer": "<p>Top Rummy is a highly strategic, level-based puzzle game. It utilizes classic 13-card sequence mechanics but removes the standard open-table format, instead challenging players to complete specific goals, beat smart AI bosses, and clear stages within a strict turn limit.</p>",
+        "question": "What kind of game is the Top Rummy app?"
       },
       {
         "answer": "<p>Players advance linearly across a massive digital campaign map. Each level features unique clear conditions, and you are awarded up to three stars based on how efficiently you solve the puzzle. Collecting these stars unlocks new regions, tactical boosters, and premium visual customization items.</p>",
         "question": "How does the stage progression and scoring work?"
       },
       {
-        "answer": "<p>Absolutely. The entire single-player puzzle campaign is fully downloaded to your device, meaning you can play through hundreds of stages, defeat AI opponents, and unlock rewards completely offline without ever needing a Wi-Fi or mobile data connection</p>",
-        "question": "Can I play this application offline without an internet connection?"
+        "question": "Can I play this application offline without an internet connection?",
+        "answer": "<p>Absolutely. The entire single-player puzzle campaign is fully downloaded to your device, meaning you can play through hundreds of stages, defeat AI opponents, and unlock rewards completely offline without ever needing a Wi-Fi or mobile data connection</p>"
       }
     ],
     "sync_to_public": true,
@@ -3277,12 +3277,12 @@ export const mockApps: any[] = [
     "file_size": "64.2 MB",
     "faqs": [
       {
-        "answer": "<p>YN 777 is a premium, level-based logic puzzle game. The name derives from its core mechanics: players must route data pathways between Y-Nodes and N-Nodes on a 7x7 digital grid, utilizing deep spatial strategy rather than luck.</p>",
-        "question": "What exactly is the YN 777 app?"
+        "question": "What exactly is the YN 777 app?",
+        "answer": "<p>YN 777 is a premium, level-based logic puzzle game. The name derives from its core mechanics: players must route data pathways between Y-Nodes and N-Nodes on a 7x7 digital grid, utilizing deep spatial strategy rather than luck.</p>"
       },
       {
-        "question": "How does the level progression work?",
-        "answer": "<p>The game features a strict, structured campaign mode with over 150 hand-crafted puzzles. You must successfully clear the current grid's logic requirements before unlocking the next stage on the world map, ensuring a steady, satisfying increase in difficulty.</p>"
+        "answer": "<p>The game features a strict, structured campaign mode with over 150 hand-crafted puzzles. You must successfully clear the current grid's logic requirements before unlocking the next stage on the world map, ensuring a steady, satisfying increase in difficulty.</p>",
+        "question": "How does the level progression work?"
       },
       {
         "question": "What is the 777 Time-Attack mode?",
@@ -3352,8 +3352,8 @@ export const mockApps: any[] = [
         "answer": "<p>No. Despite its name, Slots Spin is a purely skill-based, level-driven mechanical puzzle game. The \"slots\" refer to vertical mechanical tracks that players must spin to align colored gears and solve intricate logic puzzles.</p>"
       },
       {
-        "answer": "<p>Players must navigate a structured campaign map containing over 300 unique puzzle stages. You unlock new zones by successfully aligning the gears within a strict limit of allowed spins, earning stars based on your tactical efficiency.</p>",
-        "question": "How does the level progression work?"
+        "question": "How does the level progression work?",
+        "answer": "<p>Players must navigate a structured campaign map containing over 300 unique puzzle stages. You unlock new zones by successfully aligning the gears within a strict limit of allowed spins, earning stars based on your tactical efficiency.</p>"
       },
       {
         "answer": "<p>No, the entire mechanical puzzle campaign is fully accessible offline. You can solve stages, earn stars, and progress through the blueprint map completely without mobile data or a Wi-Fi connection.</p>",
@@ -3404,8 +3404,8 @@ export const mockApps: any[] = [
         "answer": "<p>No, absolutely not. Hindi 777 is a premium, level-based linguistic puzzle game. The \"777\" refers to its core logic mechanic, where players must navigate a 7x7 digital grid to form exactly 7 valid words to clear a stage.</p>"
       },
       {
-        "question": "Does the game have real educational value?",
-        "answer": "<p>Yes, it is designed with a heavy focus on education and cognitive training. The app features a built-in digital dictionary that instantly provides the English translation and meaning for every word you successfully build, actively expanding your vocabulary as you play</p>"
+        "answer": "<p>Yes, it is designed with a heavy focus on education and cognitive training. The app features a built-in digital dictionary that instantly provides the English translation and meaning for every word you successfully build, actively expanding your vocabulary as you play</p>",
+        "question": "Does the game have real educational value?"
       }
     ],
     "screenshots": [],
@@ -3445,8 +3445,8 @@ export const mockApps: any[] = [
         "question": "Is MBM Bet a gambling or real-money casino app?"
       },
       {
-        "question": "How does the level progression and campaign work?",
-        "answer": "<p>Players navigate a structured, linear campaign map featuring over 250 handcrafted puzzles. You must successfully analyze the AI's movement and trap it using limited resources to clear the current stage before you can unlock the next zone on the map.</p>"
+        "answer": "<p>Players navigate a structured, linear campaign map featuring over 250 handcrafted puzzles. You must successfully analyze the AI's movement and trap it using limited resources to clear the current stage before you can unlock the next zone on the map.</p>",
+        "question": "How does the level progression and campaign work?"
       },
       {
         "answer": "<p>Yes, the application functions as a rigorous cognitive workout. By forcing you to predict complex movement paths, manage limited grid resources, and solve increasingly difficult spatial puzzles, it actively trains your pattern recognition, algorithmic logic, and strategic planning skills.</p>",
@@ -3509,12 +3509,12 @@ export const mockApps: any[] = [
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1789804128/rummydex_uploads/lobb8ijx50a1jlhdjd6f.jpg",
     "faqs": [
       {
-        "answer": "<p>Absolutely not. The name derives from \"Yield-Optimized Node Operations.\" It is a premium, level-based spatial puzzle game where \"slots\" refers to the physical receptacles on a digital motherboard that players must logically fill with geometric power modules.</p>",
-        "question": "Is YONO Slots a gambling or casino application?"
+        "question": "Is YONO Slots a gambling or casino application?",
+        "answer": "<p>Absolutely not. The name derives from \"Yield-Optimized Node Operations.\" It is a premium, level-based spatial puzzle game where \"slots\" refers to the physical receptacles on a digital motherboard that players must logically fill with geometric power modules.</p>"
       },
       {
-        "question": "Does the game provide any real-world cognitive value?",
-        "answer": "<p>Yes, the application functions as a rigorous spatial workout. By forcing you to mentally rotate complex 3D objects and deduce how they fit into restricted negative space, it actively trains your geometric planning, visual-spatial reasoning, and deductive logic skills.</p>"
+        "answer": "<p>Yes, the application functions as a rigorous spatial workout. By forcing you to mentally rotate complex 3D objects and deduce how they fit into restricted negative space, it actively trains your geometric planning, visual-spatial reasoning, and deductive logic skills.</p>",
+        "question": "Does the game provide any real-world cognitive value?"
       },
       {
         "question": "How does the level progression work?",
@@ -3565,16 +3565,16 @@ export const mockApps: any[] = [
     "og_image_url": "",
     "faqs": [
       {
-        "question": "What is Spin 101?",
-        "answer": "<p>Spin 101 is a physics puzzle game where you rotate platforms, ramps and gears to guide an energy orb to its target across 101 handcrafted stages.</p>"
+        "answer": "<p>Spin 101 is a physics puzzle game where you rotate platforms, ramps and gears to guide an energy orb to its target across 101 handcrafted stages.</p>",
+        "question": "What is Spin 101?"
       },
       {
         "question": "How does scoring work in Spin 101?",
         "answer": "<p>Each stage limits the total degrees you can rotate. Passing earns a basic result, but solving it with the fewest degrees earns a perfect three-star rating.</p>"
       },
       {
-        "question": "Does Spin 101 teach anything?",
-        "answer": "<p>Yes. The stages work like a curriculum that builds spatial awareness and geometric deduction, and gives you a feel for forces like friction and centrifugal force, without long tutorials.</p>"
+        "answer": "<p>Yes. The stages work like a curriculum that builds spatial awareness and geometric deduction, and gives you a feel for forces like friction and centrifugal force, without long tutorials.</p>",
+        "question": "Does Spin 101 teach anything?"
       }
     ],
     "reviews": 10,
@@ -3615,8 +3615,8 @@ export const mockApps: any[] = [
         "answer": "<p>Absolutely not. The application is a premium, level-based logic puzzle. The term \"Jaiho\" represents the victory of cracking the puzzle, and \"Spin\" refers to the core mechanic of physically rotating interconnected concentric rings to align symbols.</p>"
       },
       {
-        "question": "How does the level progression work?",
-        "answer": "<p>Players navigate a structured, linear campaign featuring over 200 handcrafted mechanical vaults. You must successfully calculate the gear ratios and align the symbols within a strict move limit to unlock the next puzzle on the map.</p>"
+        "answer": "<p>Players navigate a structured, linear campaign featuring over 200 handcrafted mechanical vaults. You must successfully calculate the gear ratios and align the symbols within a strict move limit to unlock the next puzzle on the map.</p>",
+        "question": "How does the level progression work?"
       },
       {
         "answer": "<p>Yes, it functions as an intense spatial and logical workout. By forcing you to predict how rotating one ring affects multiple others, it actively trains your spatial reasoning, mechanical deduction, and multi-step sequence planning skills.</p>",
@@ -3662,16 +3662,16 @@ export const mockApps: any[] = [
     "is_new": false,
     "faqs": [
       {
-        "answer": "<p>Rummy Zip is a fast-paced cyber puzzle game where you sort data nodes and defragment corrupted servers instead of playing with traditional cards.</p>",
-        "question": "What is the Rummy Zip app?"
+        "question": "What is the Rummy Zip app?",
+        "answer": "<p>Rummy Zip is a fast-paced cyber puzzle game where you sort data nodes and defragment corrupted servers instead of playing with traditional cards.</p>"
       },
       {
         "answer": "<p>The Zip-Line tool in Rummy Zip allows you to instantly shift entire blocks of adjacent data nodes across the grid, helping you clear the memory buffer before the system crashes.</p>",
         "question": "How does the Zip-Line work in Rummy Zip?"
       },
       {
-        "answer": "<p>Yes, the 200-level Rummy Zip server repair campaign is a fully offline experience, allowing you to solve high-speed sorting challenges without requiring an active internet connection.</p>",
-        "question": "Is the Rummy Zip campaign playable offline?"
+        "question": "Is the Rummy Zip campaign playable offline?",
+        "answer": "<p>Yes, the 200-level Rummy Zip server repair campaign is a fully offline experience, allowing you to solve high-speed sorting challenges without requiring an active internet connection.</p>"
       }
     ],
     "reviews": "",
@@ -3721,8 +3721,8 @@ export const mockApps: any[] = [
         "question": "What kind of game is the Jeet Spin app?"
       },
       {
-        "question": "Where can I find the official Jeet Spin app download?",
-        "answer": "<p>To ensure the safest installation and receive the most up-to-date physics engine patches, you should always initiate your Jeet Spin app download or Jeet Spin APK installation through verified mobile application storefronts or the developer's official website.</p>"
+        "answer": "<p>To ensure the safest installation and receive the most up-to-date physics engine patches, you should always initiate your Jeet Spin app download or Jeet Spin APK installation through verified mobile application storefronts or the developer's official website.</p>",
+        "question": "Where can I find the official Jeet Spin app download?"
       },
       {
         "question": "Does the Jeet Spin game rely on luck or skill?",
@@ -3756,7 +3756,7 @@ export const mockApps: any[] = [
     "review_count": "",
     "created_at": "2026-10-06T13:03:42.714Z",
     "id": "0ga9k4dxz",
-    "updated_at": "2026-10-31T07:08:23.532Z",
+    "updated_at": "2026-11-17T08:34:43.060Z",
     "features_html": "",
     "canonical_url": "",
     "meta_title": "Jaiho Play App Download: Real-Time Tabletop Striker Game",
@@ -3766,7 +3766,7 @@ export const mockApps: any[] = [
     "custom_admin_box_html": "",
     "release_notes": "",
     "reviews": "",
-    "is_new": true,
+    "is_new": false,
     "safety_status": "Verified",
     "custom_admin_box_heading": "",
     "is_coming_soon": false,
@@ -3777,8 +3777,8 @@ export const mockApps: any[] = [
     "version": "2.4.2",
     "faqs": [
       {
-        "answer": "<p>The Jaiho Play app is a competitive, real-time tabletop sports and striker game. Players use touch-and-drag flick mechanics to aim, bank, and pocket discs across multiple multiplayer tournament stadiums and offline solo challenge gauntlets.</p>",
-        "question": "What genre of game is the Jaiho Play app?"
+        "question": "What genre of game is the Jaiho Play app?",
+        "answer": "<p>The Jaiho Play app is a competitive, real-time tabletop sports and striker game. Players use touch-and-drag flick mechanics to aim, bank, and pocket discs across multiple multiplayer tournament stadiums and offline solo challenge gauntlets.</p>"
       },
       {
         "question": "Where can I get the verified Jaiho Play app download safely?",
@@ -3801,7 +3801,7 @@ export const mockApps: any[] = [
     "serial_number": 70,
     "description_html": "<article class=\"app-content-wrapper\">\n\n  <!-- Core Overview & Strategic Gameplay -->\n  <section class=\"content-section\" id=\"gameplay-dynamics\">\n    <h2>Jaiho Play App: Striker Gameplay, Shot Precision & Match Mechanics</h2>\n\n    <p>\n      The <strong>Jaiho Play app</strong> presents a digital tabletop gaming experience centered on aiming, timing, and shot precision. In striker-based board games, players must judge the correct angle and force to move pieces toward their targets while avoiding difficult rebounds. Techniques such as bank shots, cushion rebounds, and controlled flicks can make each turn more challenging. Players interested in understanding the principles behind these games can explore the rules and terminology explained in this\n      <a href=\"https://www.pagat.com/\" target=\"_blank\" rel=\"noopener noreferrer\">tabletop and traditional games reference</a>.\n    </p>\n\n    <div class=\"feature-grid\">\n      <div class=\"feature-card\">\n        <h3>Real-Time 1v1 Competitive Matchmaking</h3>\n        <p>\n          If supported by the installed version, real-time one-on-one matchmaking allows players to compete against other users. A smooth multiplayer experience depends on server responsiveness, network stability, and synchronization between devices. For a better understanding of these technical factors, read this overview of\n          <a href=\"https://developer.android.com/topic/performance\" target=\"_blank\" rel=\"noopener noreferrer\">Android app performance</a>.\n        </p>\n      </div>\n\n      <div class=\"feature-card\">\n        <h3>Trajectory Prediction & Shot Aiming</h3>\n        <p>\n          Some striker-based games provide a visual aiming guide when a player pulls back and releases the striker. Such a guide can help estimate the direction of a shot and anticipate rebounds from the board's edges. Players can improve their understanding of angles through regular practice and by learning the basic geometry behind bank shots.\n        </p>\n      </div>\n\n      <div class=\"feature-card\">\n        <h3>Combo Strikes & Turn Management</h3>\n        <p>\n          In games where successful pocketing or target hits allow another turn, consecutive shots can create useful scoring opportunities. The exact rules depend on the game mode, so players should check the instructions provided within the <strong>Jaiho Play game</strong> before relying on a particular strategy.\n        </p>\n      </div>\n\n      <div class=\"feature-card\">\n        <h3>Tournaments & Competitive Progress</h3>\n        <p>\n          Tournament brackets, rankings, rewards, and player badges can add a competitive element to digital board games. Their availability and entry requirements should be checked in the current version of the app. Before entering any paid or prize-based competition, review the applicable rules, entry costs, and reward conditions.\n        </p>\n      </div>\n\n      <div class=\"feature-card\">\n        <h3>Offline Practice & Local Multiplayer</h3>\n        <p>\n          Offline practice can be useful for learning shot angles without relying on a live connection. However, offline access and local pass-and-play support depend on the specific app version. Check the game's available modes and test them before assuming that all features work without an internet connection.\n        </p>\n      </div>\n    </div>\n  </section>\n\n  <!-- Complete Interior App Architecture -->\n  <section class=\"content-section\" id=\"interior-architecture\">\n    <h2>Menu Layout, Navigation & User Interface</h2>\n\n    <p>\n      After completing the <strong>Jaiho Play app download</strong>, users should explore the available menus to understand how the game organizes its matches, settings, equipment, and player information. The exact menu names and available features may vary by version.\n    </p>\n\n    <div class=\"menu-breakdown\">\n      <h3>1. Main Lobby & Match Selection</h3>\n      <p>\n        The main lobby is generally the starting point for accessing available game modes. Depending on the version, it may include quick matches, competitive rooms, tournament options, or player rankings. Review the displayed entry requirements and match rules before starting a game.\n      </p>\n\n      <h3>2. Striker Selection & Equipment</h3>\n      <p>\n        Some digital tabletop games offer different striker designs or equipment options. Where the game includes equipment statistics, understanding what each statistic changes can help players select a setup that suits their playing style.\n      </p>\n\n      <ul>\n        <li><strong>Shot Power:</strong> May influence the strength of a striker's impact, depending on the game's mechanics.</li>\n        <li><strong>Aiming Guide:</strong> If available, a trajectory line can help players estimate the direction of a shot.</li>\n        <li><strong>Time Limit:</strong> Some competitive modes use a turn timer, requiring players to plan shots before their turn expires.</li>\n      </ul>\n\n      <h3>3. Player Profile & Progress Tracking</h3>\n      <p>\n        A player profile may display match history, achievements, rankings, or other progress indicators if those features are supported. Reviewing match results can help players identify recurring mistakes, compare performance over time, and develop more consistent strategies.\n      </p>\n\n      <h3>4. Settings & Customization</h3>\n      <p>\n        Check the settings menu for available controls, audio options, language preferences, and display settings. If frame-rate options are provided, choose one appropriate for your device. Android's official\n        <a href=\"https://developer.android.com/topic/performance\" target=\"_blank\" rel=\"noopener noreferrer\">performance guidance</a>\n        explains why application performance can vary with hardware, workload, and system conditions.\n      </p>\n    </div>\n  </section>\n\n  <!-- Technical Audit & Device Performance -->\n  <section class=\"content-section\" id=\"performance-audit\">\n    <h2>Device Performance, Network Stability & Compatibility</h2>\n\n    <p>\n      The performance of the <strong>Jaiho Play APK</strong> can depend on the device's hardware, Android version, network quality, background activity, and the app's implementation. The following factors are useful to consider when evaluating the experience on an Android smartphone.\n    </p>\n\n    <div class=\"audit-grid\">\n      <div class=\"audit-item\">\n        <h3>Touch Response & Input Accuracy</h3>\n        <p>\n          Responsive touch controls are important in games that rely on dragging, aiming, and releasing a striker. Input accuracy can vary with the touchscreen, frame rate, and overall device performance. To assess responsiveness fairly, test the controls during several matches rather than relying on a single impression.\n        </p>\n      </div>\n\n      <div class=\"audit-item\">\n        <h3>Network Stability & Multiplayer Latency</h3>\n        <p>\n          Online matches depend on a stable connection and effective communication between the app and its servers. High latency, packet loss, or inconsistent connectivity can cause delayed actions or differences between what players see. Results may vary across mobile data and Wi-Fi networks, so specific ping figures should only be published after repeatable testing.\n        </p>\n      </div>\n\n      <div class=\"audit-item\">\n        <h3>Battery Consumption & Device Temperature</h3>\n        <p>\n          Battery usage depends on factors such as screen brightness, frame rate, processor load, network activity, and background processes. Rather than assuming a fixed percentage of battery consumption, measure usage on the intended device under consistent conditions. Android provides guidance on\n          <a href=\"https://developer.android.com/topic/performance/power\" target=\"_blank\" rel=\"noopener noreferrer\">power-efficient app development</a>\n          and techniques for managing battery use.\n        </p>\n      </div>\n    </div>\n\n    <!-- Technical Specs Table -->\n    <div class=\"specs-table-container\">\n      <h3>Jaiho Play Technical Specifications</h3>\n\n      <p>\n        The following table identifies details that readers should verify against the actual installation package and the developer's documentation. Values should not be treated as confirmed requirements until they have been tested or independently verified.\n      </p>\n\n      <table>\n        <thead>\n          <tr>\n            <th>System Parameter</th>\n            <th>Requirement / Value</th>\n          </tr>\n        </thead>\n\n        <tbody>\n          <tr>\n            <td><strong>Application Name</strong></td>\n            <td>Jaiho Play</td>\n          </tr>\n\n          <tr>\n            <td><strong>Installation Package</strong></td>\n            <td>Verify the actual APK filename before publishing.</td>\n          </tr>\n\n          <tr>\n            <td><strong>Minimum Android Version</strong></td>\n            <td>Confirm using the app's compatibility information or installation testing.</td>\n          </tr>\n\n          <tr>\n            <td><strong>RAM Requirement</strong></td>\n            <td>Verify through device compatibility testing.</td>\n          </tr>\n\n          <tr>\n            <td><strong>Storage Requirement</strong></td>\n            <td>Check the package size and additional storage needed after installation.</td>\n          </tr>\n\n          <tr>\n            <td><strong>Network Dependency</strong></td>\n            <td>Confirm which features require internet access and whether offline modes are available.</td>\n          </tr>\n        </tbody>\n      </table>\n    </div>\n  </section>\n\n  <!-- Installation and Security -->\n  <section class=\"content-section\" id=\"installation-guide\">\n    <h2>How to Install the Jaiho Play APK on Android</h2>\n\n    <p>\n      If the Jaiho Play installation package is distributed outside an official app store, take a moment to check its source before installing it. An APK filename or a website's claim that a file is official does not, by itself, establish that the package is authentic or safe.\n    </p>\n\n    <ol class=\"step-guide\">\n      <li>\n        <strong>Verify the Download Source:</strong>\n        Obtain the package only from a source you trust. Check the publisher's identity and compare the package information with reliable developer documentation when available. Google's\n        <a href=\"https://support.google.com/android/answer/2812853\" target=\"_blank\" rel=\"noopener noreferrer\">Google Play Protect guidance</a>\n        explains how Android helps check apps for potentially harmful behavior.\n      </li>\n\n      <li>\n        <strong>Review Installation Permissions:</strong>\n        Android may require permission to install applications from a browser or file manager when the package comes from outside an app store. On supported devices, open Settings and look for the option to allow installation from that specific source. Menu names vary by Android version and manufacturer. Learn more about\n        <a href=\"https://developer.android.com/training/permissions\" target=\"_blank\" rel=\"noopener noreferrer\">Android app permissions</a>.\n      </li>\n\n      <li>\n        <strong>Open the Downloaded Package:</strong>\n        Locate the APK in your Downloads folder and tap it to begin installation. If Android displays a security warning, an unexpected permission request, or a package verification error, stop and investigate instead of bypassing the warning automatically.\n      </li>\n\n      <li>\n        <strong>Launch and Review the App:</strong>\n        After installation, open the app and review its requested permissions and available settings. Test the controls and available game modes before relying on features such as offline play, multiplayer matchmaking, or equipment upgrades.\n      </li>\n    </ol>\n  </section>\n\n  <!-- Responsible Use and Privacy -->\n  <section class=\"content-section\" id=\"privacy-and-safety\">\n    <h2>App Permissions, Privacy & Safe Usage</h2>\n\n    <p>\n      Before using the <strong>Jaiho Play app</strong>, review the permissions it requests and consider whether they are necessary for its advertised features. A tabletop game may need certain device capabilities to operate, but requests for unrelated access deserve closer inspection.\n    </p>\n\n    <p>\n      You can learn how Android handles application permissions in the official\n      <a href=\"https://support.google.com/android/answer/9431959\" target=\"_blank\" rel=\"noopener noreferrer\">Android permissions help guide</a>.\n      Review the app's privacy policy, publisher details, and data-safety information where available. Avoid entering sensitive personal or financial information unless the app's identity and the reason for collecting that information have been verified.\n    </p>\n\n    <p>\n      Keep Android and your installed apps updated, use a screen lock, and avoid installing modified packages from unknown sources. These general precautions help reduce common security risks when installing applications on mobile devices.\n    </p>\n  </section>\n\n</article>",
     "file_size": "48.6 MB",
-    "is_hot": true,
+    "is_hot": false,
     "has_secure_link": true
   },
   {
@@ -3813,12 +3813,12 @@ export const mockApps: any[] = [
         "answer": "<p>The Jaiho Rummy app features all three traditional 13-card Indian rummy formats: rapid single-deal Points Rummy, long-form 101 and 201 Pool Rummy knockout tournaments, and fixed-round Deals Rummy matches, alongside an offline AI practice arena.</p>"
       },
       {
-        "question": "How does the Jaiho Rummy APK handle brief internet disconnections during live matches?",
-        "answer": "<p>The Jaiho Rummy APK is engineered with a low-bandwidth data sync protocol and an automated reconnection engine. If your cellular or Wi-Fi network fluctuates mid-hand, the client holds your seat and restores your active table state before your turn clock expires.</p>"
+        "answer": "<p>The Jaiho Rummy APK is engineered with a low-bandwidth data sync protocol and an automated reconnection engine. If your cellular or Wi-Fi network fluctuates mid-hand, the client holds your seat and restores your active table state before your turn clock expires.</p>",
+        "question": "How does the Jaiho Rummy APK handle brief internet disconnections during live matches?"
       },
       {
-        "answer": "<p>The Jaiho Rummy game requires Android 6.0 (Marshmallow) or higher, a minimum of 1.5 GB of RAM (2 GB recommended for 60 FPS animations), and at least 60 MB of free internal storage space.</p>",
-        "question": "What are the minimum Android system requirements to run the Jaiho Rummy game?"
+        "question": "What are the minimum Android system requirements to run the Jaiho Rummy game?",
+        "answer": "<p>The Jaiho Rummy game requires Android 6.0 (Marshmallow) or higher, a minimum of 1.5 GB of RAM (2 GB recommended for 60 FPS animations), and at least 60 MB of free internal storage space.</p>"
       }
     ],
     "idea_box_msg": "",
@@ -3838,7 +3838,7 @@ export const mockApps: any[] = [
     "description_html": "<article class=\"app-content-wrapper\">\n\n  <!-- Main Introduction & Play Store Style Overview -->\n  <section class=\"content-section\" id=\"game-overview\">\n    <h2>Jaiho Rummy: The Definitive 13-Card Indian Rummy Mobile Experience</h2>\n    <p>\n      For card strategists who appreciate the rapid mathematical calculation, sharp discard memory, and tactical discipline of traditional Indian Rummy, the <strong>Jaiho Rummy app</strong> delivers an authentic, club-grade tabletop environment directly on Android smartphones. Engineered by Jaiho Gaming Networks Ltd., <strong>Jaiho Rummy</strong> strips away bloated arcade distractions to focus purely on the core mechanics of 13-card melding. The platform pairs a certified Random Number Generator (RNG) dealing architecture with ultra-responsive touch controls, enabling players to draw, group, meld, and declare complex hands with pinpoint accuracy.\n    </p>\n    <p>\n      Whether you are spending fifteen minutes in the offline training pavilion to refine your pure-sequence probability reads or entering competitive 6-player lobbies against seasoned tacticians across India, completing your <strong>Jaiho Rummy app download</strong> guarantees instant seat allocation, balanced skill-tier matchmaking, and transparent scorecard auditing. Every element of the <strong>Jaiho Rummy game</strong> is built to respect both your cognitive focus and your smartphone's hardware resources.\n    </p>\n  </section>\n\n  <!-- Detailed Game Modes & Formats -->\n  <section class=\"content-section\" id=\"game-modes\">\n    <h2>Comprehensive Breakdown of 13-Card Formats in Jaiho Rummy</h2>\n    <p>\n      Every rummy player approaches risk management and tempo differently. To accommodate both rapid commuters and marathon tournament grinders, the <strong>Jaiho Rummy APK</strong> houses dedicated, rule-authentic lobbies for the three primary pillars of Indian 13-card rummy:\n    </p>\n\n    <div class=\"modes-grid\">\n      <div class=\"mode-item\">\n        <h3>1. Points Rummy (High-Velocity Single-Deal Action)</h3>\n        <p>\n          Points Rummy is the fastest, most kinetic variant inside the <strong>Jaiho Rummy app</strong>. Played with 2 to 6 participants using one or two standard 52-card decks (plus printed jokers), each point carries a fixed, predetermined virtual value. The entire match resolves in a single deal—the first player to arrange their 13 cards into valid sets and sequences and place a final card into the \"Finish Slot\" wins the hand immediately. Success in <strong>Jaiho Rummy</strong> Points tables requires aggressive high-card shedding (discarding Aces, Kings, Queens, and Jacks early) to minimize deadwood points if an opponent declares unexpectedly.\n        </p>\n      </div>\n\n      <div class=\"mode-item\">\n        <h3>2. Pool Rummy (101 &amp; 201 Knockout Endurance)</h3>\n        <p>\n          Designed as a multi-round test of attrition and defensive calculation, Pool Rummy in the <strong>Jaiho Rummy game</strong> challenges players to keep their cumulative penalty score below a strict elimination ceiling—either <strong>101 Points</strong> or <strong>201 Points</strong>. After each deal, the winning declarer scores zero points, while remaining players tally the face value of their ungrouped cards. Mastering <strong>Jaiho Rummy</strong> Pool lobbies hinges on strategic use of the <strong>First Drop</strong> (20-point penalty in 101 Pool; 25 points in 201 Pool) and <strong>Middle Drop</strong> (40 points in 101 Pool; 50 points in 201 Pool) whenever your dealt hand lacks a viable path to a pure sequence.\n        </p>\n      </div>\n\n      <div class=\"mode-item\">\n        <h3>3. Deals Rummy (Fixed-Round Chip Allocation)</h3>\n        <p>\n          For players who prefer structured, head-to-head parity without knockout elimination, Deals Rummy inside the <strong>Jaiho Rummy app download</strong> client locks 2 to 6 competitors into a pre-set series of <strong>2-Deal, 3-Deal, or 6-Deal matches</strong>. Every participant begins the session with an identical stack of virtual table chips. At the conclusion of each deal, the round winner absorbs chips directly from opponents proportional to their unmelded deadwood tally. Because you cannot be eliminated mid-series, Deals Rummy rewards calculated comebacks and steady point mitigation across every single hand.\n        </p>\n      </div>\n    </div>\n  </section>\n\n  <!-- Official Rules & Melding Logic Section for Semantic SEO Depth -->\n  <section class=\"content-section\" id=\"melding-rules\">\n    <h2>Mastering the 13-Card Declaration Rules in the Jaiho Rummy Game</h2>\n    <p>\n      To execute a legal show in the <strong>Jaiho Rummy app</strong> and avoid an 80-point invalid declaration penalty, players must organize all 13 cards into strict mathematical combinations before placing their 14th drawn card face-down into the Finish Slot:\n    </p>\n    <ul>\n      <li><strong>Mandatory First Life (Pure Sequence):</strong> Every valid hand in <strong>Jaiho Rummy</strong> requires at least one <em>Pure Sequence</em>—three or more consecutive cards of the exact same suit (such as 5♥-6♥-7♥) formed without substituting any printed or wildcard jokers. Without a First Life, all cards in your hand count as full penalty points, even if your other groupings contain jokers.</li>\n      <li><strong>Mandatory Second Life (Pure or Impure Sequence):</strong> Alongside your First Life, you must construct a second sequence of three or more suited cards. In the <strong>Jaiho Rummy APK</strong>, this Second Life can either be another pure run or an <em>Impure Sequence</em> where one or more cards are replaced by a Printed Joker or the round's designated Cut Joker (for example, 8♠-9♠-Joker-J♠).</li>\n      <li><strong>Optional Sets (Triplets &amp; Quartets):</strong> Once both mandatory sequences are locked in, your remaining cards can be melded into valid <em>Sets</em>—three or four cards sharing the exact same rank across completely different suits (such as K♣-K♦-K♠). Duplicate suits within a single set are strictly invalid unless a wildcard joker is acting as a substitute.</li>\n    </ul>\n  </section>\n\n  <!-- Core Table Mechanics & Practical Tools -->\n  <section class=\"content-section\" id=\"core-mechanics\">\n    <h2>Smart Tabletop Engineering &amp; Competitive Quality-of-Life Tools</h2>\n    <p>\n      The <strong>Jaiho Rummy app</strong> is equipped with precision card-room utilities engineered to eliminate touchscreen errors and accelerate decision-making under active 30-second turn clocks:\n    </p>\n\n    <ul>\n      <li><strong>One-Tap Smart Card Sorter:</strong> The moment the 13-card deal animation finishes, tapping the <em>Sort</em> button clusters your hand by suit (Spades, Hearts, Clubs, Diamonds) and ascending rank, instantly highlighting two-card gappers and potential pure runs.</li>\n      <li><strong>Chronological Open Discard Tray:</strong> Tapping the discard history log in <strong>Jaiho Rummy</strong> opens a full chronological matrix of every card thrown by every seat at the table, enabling advanced players to track dead suits and avoid feeding an opponent's impure run.</li>\n      <li><strong>Dynamic Cut-Joker Badge Highlighting:</strong> At the start of each hand, the system pulls a random card to establish the wildcard rank. The <strong>Jaiho Rummy game</strong> automatically stamps a high-contrast \"JOKER\" emblem on the bottom-left corner of all matching-rank cards in your rack so you never accidentally discard a wildcard.</li>\n      <li><strong>Two-Step Drop &amp; Declare Confirmation:</strong> To prevent costly fat-finger mistakes on compact mobile screens, both the <em>Drop</em> button and the <em>Declare</em> slot trigger a secondary confirmation overlay before finalizing your action.</li>\n      <li><strong>Automated Deadwood &amp; Cap Auditing:</strong> Upon a valid show, the <strong>Jaiho Rummy APK</strong> computational engine instantly audits every player's rack, capping maximum single-deal losses at 80 points and crediting the winner's ledger with zero manual delay.</li>\n    </ul>\n  </section>\n\n  <!-- App Architecture & User Navigation -->\n  <section class=\"content-section\" id=\"interior-navigation\">\n    <h2>Interior Menu Architecture &amp; User Interface Walkthrough</h2>\n    <p>\n      Booting the <strong>Jaiho Rummy app download</strong> package launches directly into a high-contrast, distraction-free digital card lounge divided into four primary operational zones:\n    </p>\n\n    <div class=\"menu-breakdown\">\n      <h3>1. The Main Table Selection Hub</h3>\n      <p>\n        The central dashboard of the <strong>Jaiho Rummy app</strong> uses horizontal filter pills that let you switch effortlessly between <strong>2-Player Heads-Up Duels</strong> and <strong>6-Player Full Ring Tables</strong>. Players can sort lobbies by variant (Points, 101 Pool, 201 Pool, or Deals) and inspect live active player counts before sitting down.\n      </p>\n\n      <h3>2. Offline AI Practice &amp; Sparring Pavilion</h3>\n      <p>\n        Accessible without an active cellular or Wi-Fi connection, the standalone practice mode pits you against adaptive computer bots. It serves as a zero-risk sandbox in the <strong>Jaiho Rummy game</strong> where newcomers can test middle-drop timing, practice joker substitutions, and learn hand-sorting ergonomics without consuming mobile data.\n      </p>\n\n      <h3>3. Player Career Telemetry &amp; Hand Replay Log</h3>\n      <p>\n        The personal profile tab records granular statistical telemetry across your lifetime sessions in <strong>Jaiho Rummy</strong>. Track your First-Life completion rate, average turns-to-declare, win-to-drop efficiency ratios, and inspect turn-by-turn scorecard histories from your last fifty completed matches.\n      </p>\n\n      <h3>4. Visual Customization &amp; Haptic Settings</h3>\n      <p>\n        Tailor the tabletop environment to reduce eye strain during extended night sessions. Inside the <strong>Jaiho Rummy APK</strong> settings panel, users can swap between Emerald Club Felt, Royal Navy, and Velvet Crimson table mats, toggle 4-color deck suits for instant peripheral recognition, and calibrate physical vibration alerts for final 5-second turn warnings.\n      </p>\n    </div>\n  </section>\n\n  <!-- Real Hands-On Performance Review -->\n  <section class=\"content-section\" id=\"hands-on-review\">\n    <h2>Hands-On Hardware Benchmark &amp; Network Evaluation</h2>\n    <p>\n      To verify real-world reliability, the <strong>Jaiho Rummy app</strong> (v1.0, 60 MB) was benchmarked across entry-level and mid-range Android devices over variable 4G, 5G, and broadband connections:\n    </p>\n\n    <div class=\"review-points\">\n      <p>\n        <strong>60 FPS Touch Registration &amp; Hitbox Precision:</strong> Card drawing from both the closed stock pile and open discard pile registers instantaneously. The <strong>Jaiho Rummy game</strong> utilizes widened drag-and-drop hitboxes between overlapping cards, ensuring that sliding a middle connector into a 4-card sequence feels buttery-smooth with zero frame drops.\n      </p>\n      <p>\n        <strong>Low-Bandwidth Socket Sync &amp; Auto-Reconnect:</strong> Because live card tables rely on uninterrupted state synchronization, the <strong>Jaiho Rummy APK</strong> transmits lightweight JSON state packets rather than heavy graphical streams. Round-trip ping consistently averages under 40ms. If you pass through a cellular dead zone during a commute, the built-in state-recovery protocol holds your seat and resyncs your 13-card rack within seconds of signal restoration.\n      </p>\n      <p>\n        <strong>Thermal Stability &amp; Battery Economy:</strong> Built on an optimized 2D vector rendering pipeline rather than a power-hungry 3D engine, <strong>Jaiho Rummy</strong> keeps background CPU utilization under 9%. A continuous 60-minute session across Pool and Points lobbies consumed just 5.5% battery life with zero chassis heating on standard smartphones.\n      </p>\n    </div>\n  </section>\n\n  <!-- Step-by-Step Installation Protocol -->\n  <section class=\"content-section\" id=\"installation-guide\">\n    <h2>How to Complete the Official Jaiho Rummy App Download &amp; Installation</h2>\n    <p>\n      Follow this four-step technical checklist to safely download and install the verified <strong>Jaiho Rummy APK</strong> package on your Android device:\n    </p>\n\n    <ol class=\"step-guide\">\n      <li><strong>Fetch the Verified APK Package:</strong> Tap the official <strong>Jaiho Rummy app download</strong> button on this directory page to initiate a clean, direct transfer of the 60 MB <code>Jaiho-Rummy.apk</code> installer file to your local storage.</li>\n      <li><strong>Configure Android Package Permissions:</strong> If this is your first time installing a direct package, navigate to your device's <em>Settings &gt; Security &amp; Privacy &gt; Install Unknown Apps</em>, select your mobile browser or file manager, and toggle the authorization switch to <strong>Allow</strong>.</li>\n      <li><strong>Execute the Native Package Installer:</strong> Pull down your Android notification tray or open your <em>Downloads</em> directory, tap the downloaded <code>Jaiho-Rummy.apk</code> file, and press <strong>Install</strong>. The setup completes in under ten seconds.</li>\n      <li><strong>Initialize &amp; Calibrate Your Table:</strong> Launch the <strong>Jaiho Rummy app</strong> from your home screen, configure your preferred 2-deck card face visibility and haptic turn alerts, and enter the Practice Pavilion to test your sorting speed before joining live lobbies.</li>\n    </ol>\n  </section>\n\n  <!-- Technical Specs Table for Crawler Indexing -->\n  <section class=\"content-section\" id=\"tech-specs\">\n    <h2>Jaiho Rummy Technical Specifications &amp; System Requirements</h2>\n    <table>\n      <thead>\n        <tr>\n          <th>System Parameter</th>\n          <th>Official Specification / Requirement</th>\n        </tr>\n      </thead>\n      <tbody>\n        <tr>\n          <td><strong>Application Name</strong></td>\n          <td>Jaiho Rummy</td>\n        </tr>\n        <tr>\n          <td><strong>Installation Package</strong></td>\n          <td>Jaiho-Rummy.apk (Direct Android Package)</td>\n        </tr>\n        <tr>\n          <td><strong>Developer Studio</strong></td>\n          <td>Jaiho Gaming Networks Ltd.</td>\n        </tr>\n        <tr>\n          <td><strong>Primary Category</strong></td>\n          <td>13-Card Indian Rummy / Tabletop Strategy</td>\n        </tr>\n        <tr>\n          <td><strong>Minimum Android OS</strong></td>\n          <td>Android 6.0 (Marshmallow) or newer</td>\n        </tr>\n        <tr>\n          <td><strong>RAM Allocation</strong></td>\n          <td>1.5 GB Minimum (2 GB+ recommended for 60 FPS)</td>\n        </tr>\n        <tr>\n          <td><strong>Storage Footprint</strong></td>\n          <td>60 MB free internal space</td>\n        </tr>\n        <tr>\n          <td><strong>Network Architecture</strong></td>\n          <td>4G/5G/Wi-Fi for live lobbies; 100% Offline AI Practice mode</td>\n        </tr>\n      </tbody>\n    </table>\n  </section>\n\n</article>",
     "yellow_box_msg": "Invalid Declaration Penalty: In the Jaiho Rummy game, tapping the \"Declare\" button without a verified pure sequence (First Life) and a second valid sequence (Second Life) triggers an instant 80-point penalty. Always use the One-Tap Smart Card Sorter to audit your groupings before locking in your final discard.",
     "seo_title": "Jaiho Rummy App Download (2026): 13-Card Points, Pool & Deals APK",
-    "is_new": false,
+    "is_new": true,
     "is_coming_soon": false,
     "og_image_url": "",
     "seo_keywords": "",
@@ -3846,7 +3846,7 @@ export const mockApps: any[] = [
     "publish_date": "",
     "developer": "Jaiho Gaming Networks Ltd.",
     "canonical_url": "",
-    "updated_at": "2026-10-31T02:47:21.505Z",
+    "updated_at": "2026-11-17T08:36:50.225Z",
     "features_html": "",
     "meta_title": "Jaiho Rummy App Download (2026): 13-Card Points, Pool & Deals APK",
     "sync_to_public": true,
@@ -3855,7 +3855,7 @@ export const mockApps: any[] = [
     "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1791825372/rummydex_uploads/t5jdnygqe1j3g5xmck1y.webp",
     "screenshots": [],
     "custom_admin_box_html": "",
-    "is_hot": false,
+    "is_hot": true,
     "has_secure_link": true
   },
   {
@@ -3897,16 +3897,16 @@ export const mockApps: any[] = [
     "publish_date": "",
     "faqs": [
       {
-        "question": "What is Game Rummy?",
-        "answer": "<p>Game Rummy is a free 13-card rummy app with Points, Pool, Deals and Blitz modes, plus tools like a Hint Coach and Hand Replay to help you improve.</p>"
+        "answer": "<p>Game Rummy is a free 13-card rummy app with Points, Pool, Deals and Blitz modes, plus tools like a Hint Coach and Hand Replay to help you improve.</p>",
+        "question": "What is Game Rummy?"
       },
       {
-        "question": "Can I practice Game Rummy offline?",
-        "answer": "<p>Yes. Offline practice lets you play against computer opponents at three difficulty levels without any connection.</p>"
+        "answer": "<p>Yes. Offline practice lets you play against computer opponents at three difficulty levels without any connection.</p>",
+        "question": "Can I practice Game Rummy offline?"
       },
       {
-        "question": "Is Game Rummy good for beginners?",
-        "answer": "<p>Yes. The Rummy Academy teaches the rules in short lessons, and the optional Hint Coach suggests arrangements while you play.</p>"
+        "answer": "<p>Yes. The Rummy Academy teaches the rules in short lessons, and the optional Hint Coach suggests arrangements while you play.</p>",
+        "question": "Is Game Rummy good for beginners?"
       }
     ],
     "has_secure_link": true,
@@ -3917,16 +3917,16 @@ export const mockApps: any[] = [
     "meta_title": "Hi Rummy App: Free Social Rummy with Duo & Friend Tables",
     "faqs": [
       {
-        "question": "What is Hi Rummy?",
-        "answer": "<p>Hi Rummy is a free, friendly 13-card rummy app with Duo Rummy, Buddy Tables, private family tables, Hi-Five reactions and a built-in coach.</p>"
+        "answer": "<p>Hi Rummy is a free, friendly 13-card rummy app with Duo Rummy, Buddy Tables, private family tables, Hi-Five reactions and a built-in coach.</p>",
+        "question": "What is Hi Rummy?"
       },
       {
-        "answer": "<p>Duo Rummy lets you team up with a partner. You each play your own hand, and your results are added together.</p>",
-        "question": "What is Duo Rummy?"
+        "question": "What is Duo Rummy?",
+        "answer": "<p>Duo Rummy lets you team up with a partner. You each play your own hand, and your results are added together.</p>"
       },
       {
-        "question": "Can I chat with other players in Hi Rummy?",
-        "answer": "<p>Chat uses quick phrases and emotes instead of open text, and you can mute or report anyone who behaves badly.</p>"
+        "answer": "<p>Chat uses quick phrases and emotes instead of open text, and you can mute or report anyone who behaves badly.</p>",
+        "question": "Can I chat with other players in Hi Rummy?"
       }
     ],
     "created_at": "2026-10-17T14:54:33.695Z",
@@ -4005,12 +4005,12 @@ export const mockApps: any[] = [
     "is_new": false,
     "faqs": [
       {
-        "question": "What is Spin Rummy?",
-        "answer": "<p>Spin Rummy is a free 13-card rummy app. A Twist Wheel spins before each round and changes one rule for every player at the table.</p>"
+        "answer": "<p>Spin Rummy is a free 13-card rummy app. A Twist Wheel spins before each round and changes one rule for every player at the table.</p>",
+        "question": "What is Spin Rummy?"
       },
       {
-        "answer": "<p>It is an eight-segment wheel that picks a twist, such as an extra joker, a shorter turn timer or a new scoring rule. The twist is shown to everyone before the round begins.</p>",
-        "question": "What is the Twist Wheel?"
+        "question": "What is the Twist Wheel?",
+        "answer": "<p>It is an eight-segment wheel that picks a twist, such as an extra joker, a shorter turn timer or a new scoring rule. The twist is shown to everyone before the round begins.</p>"
       },
       {
         "answer": "<p>Yes. Every player at the table gets the same twist, cards are dealt randomly, and optional extras are cosmetic only.</p>",
@@ -4071,16 +4071,16 @@ export const mockApps: any[] = [
     ],
     "faqs": [
       {
-        "answer": "<p>Spin Gold is a mobile mining adventure game where you dig through five mountain layers using a timing-based aim wheel, collect virtual minerals for a town museum, and upgrade your excavation tools.</p>",
-        "question": "What is Spin Gold?"
+        "question": "What is Spin Gold?",
+        "answer": "<p>Spin Gold is a mobile mining adventure game where you dig through five mountain layers using a timing-based aim wheel, collect virtual minerals for a town museum, and upgrade your excavation tools.</p>"
       },
       {
         "answer": "<p>Yes. The core Expedition mode, town building, and the tilt-based Panning mini-game work completely offline. An internet connection is only required if you want to play the shared Daily Dig leaderboard.</p>",
         "question": "Does Spin Gold work offline without an internet connection?"
       },
       {
-        "question": "How do gold and upgrades work in Spin Gold?",
-        "answer": "<p>All gold and minerals in Spin Gold are virtual materials earned strictly through digging and panning. You use them inside the app to widen your drill wheel targets, hire specialist crew members, and restore town buildings.</p>"
+        "answer": "<p>All gold and minerals in Spin Gold are virtual materials earned strictly through digging and panning. You use them inside the app to widen your drill wheel targets, hire specialist crew members, and restore town buildings.</p>",
+        "question": "How do gold and upgrades work in Spin Gold?"
       }
     ],
     "created_at": "2026-10-27T17:20:28.085Z",
@@ -4115,8 +4115,8 @@ export const mockApps: any[] = [
     "developer": "Hearth & Quill Digital",
     "faqs": [
       {
-        "question": "What is the main gameplay loop of the Diwa Ok app?",
-        "answer": "<p>Diwa Ok is a gentle daily check-in game where logging your mood, completing a two-minute self-care act, and lighting a virtual oil lamp (Diwa) builds a low-pressure mindfulness routine.</p>"
+        "answer": "<p>Diwa Ok is a gentle daily check-in game where logging your mood, completing a two-minute self-care act, and lighting a virtual oil lamp (Diwa) builds a low-pressure mindfulness routine.</p>",
+        "question": "What is the main gameplay loop of the Diwa Ok app?"
       },
       {
         "question": "Does the Diwa Ok game require an active internet connection?",
@@ -4272,8 +4272,8 @@ export const mockApps: any[] = [
         "question": "Does the DiwaSpin game work completely offline?"
       },
       {
-        "answer": "<p>The official DiwaSpin APK is a compact 38.4 MB download that runs smoothly at 60 FPS on Android 7.0 and above.</p>",
-        "question": "​What is the file size of the DiwaSpin APK?"
+        "question": "​What is the file size of the DiwaSpin APK?",
+        "answer": "<p>The official DiwaSpin APK is a compact 38.4 MB download that runs smoothly at 60 FPS on Android 7.0 and above.</p>"
       }
     ],
     "features_html": "",
@@ -4324,12 +4324,12 @@ export const mockApps: any[] = [
     "is_new": false,
     "faqs": [
       {
-        "answer": "<p>Unlike standard automated games, Diwa Slot features a manual hand-crank lever that lets you physically control the spin velocity, determining how fast the brass reels spin to a halt</p>",
-        "question": "How does the mechanical spinning mechanism work in the Diwa Slot app?"
+        "question": "How does the mechanical spinning mechanism work in the Diwa Slot app?",
+        "answer": "<p>Unlike standard automated games, Diwa Slot features a manual hand-crank lever that lets you physically control the spin velocity, determining how fast the brass reels spin to a halt</p>"
       },
       {
-        "question": "Can I play the Diwa Slot game without an internet connection?",
-        "answer": "<p>Yes, all 50 mechanical workshop tiers and the Endless Blueprint mode in the Diwa Slot APK run 100% offline with zero mobile data required.</p>"
+        "answer": "<p>Yes, all 50 mechanical workshop tiers and the Endless Blueprint mode in the Diwa Slot APK run 100% offline with zero mobile data required.</p>",
+        "question": "Can I play the Diwa Slot game without an internet connection?"
       },
       {
         "answer": "<p>Landing matching cog symbols on adjacent reels locks them together mechanically, multiplying your payout for the next three consecutive spins.</p>",
@@ -4379,8 +4379,8 @@ export const mockApps: any[] = [
     "category": "Diwa Apps",
     "faqs": [
       {
-        "answer": "<p>Diwa Win functions as a centralized multi-game lobby where users can switch between quick-fire arcade challenges, card tables, and competitive tournament rooms from a single dashboard.</p>",
-        "question": "What is the primary layout of the Diwa Win app?"
+        "question": "What is the primary layout of the Diwa Win app?",
+        "answer": "<p>Diwa Win functions as a centralized multi-game lobby where users can switch between quick-fire arcade challenges, card tables, and competitive tournament rooms from a single dashboard.</p>"
       },
       {
         "question": "How do daily bonuses work in Diwa Win?",
@@ -4414,12 +4414,12 @@ export const mockApps: any[] = [
     "canonical_url": "",
     "faqs": [
       {
-        "question": "How do you play the Diwa Play app?",
-        "answer": "<p>Diwa Play is an acoustic rhythm-physics game where you pull and pluck tight brass wires stretched across your screen, firing visible soundwave rings that bounce off walls to ring hanging temple bells.</p>"
+        "answer": "<p>Diwa Play is an acoustic rhythm-physics game where you pull and pluck tight brass wires stretched across your screen, firing visible soundwave rings that bounce off walls to ring hanging temple bells.</p>",
+        "question": "How do you play the Diwa Play app?"
       },
       {
-        "answer": "<p>Yes, all 90 Sound Chamber stages and the Freestyle Jam sandbox in the Diwa Play APK work 100% offline with zero mobile data required.</p>",
-        "question": "Does the Diwa Play game work without internet?"
+        "question": "Does the Diwa Play game work without internet?",
+        "answer": "<p>Yes, all 90 Sound Chamber stages and the Freestyle Jam sandbox in the Diwa Play APK work 100% offline with zero mobile data required.</p>"
       },
       {
         "question": "Why do my brass strings snap during a stage?",
@@ -4540,16 +4540,16 @@ export const mockApps: any[] = [
     "publish_date": "",
     "faqs": [
       {
-        "question": "How do you play the Diwa X app?",
-        "answer": "<p>Diwa X is a two-thumb arcade game where you slide two light emitters along the left and right edges of your screen, crossing their beams into an \"X\" to burn away falling targets.</p>"
+        "answer": "<p>Diwa X is a two-thumb arcade game where you slide two light emitters along the left and right edges of your screen, crossing their beams into an \"X\" to burn away falling targets.</p>",
+        "question": "How do you play the Diwa X app?"
       },
       {
-        "answer": "<p>Yes, all 100 grid levels and the Endless Overdrive mode in the Diwa X APK run 100% offline with zero internet required.</p>",
-        "question": "Does the Diwa X game work offline?"
+        "question": "Does the Diwa X game work offline?",
+        "answer": "<p>Yes, all 100 grid levels and the Endless Overdrive mode in the Diwa X APK run 100% offline with zero internet required.</p>"
       },
       {
-        "answer": "<p>Holding your fingers down continuously builds heat; lifting both thumbs for half a second vents the emitters and triggers a screen-clearing pulse.</p>",
-        "question": "Why does my X-Beam overheat during gameplay?"
+        "question": "Why does my X-Beam overheat during gameplay?",
+        "answer": "<p>Holding your fingers down continuously builds heat; lifting both thumbs for half a second vents the emitters and triggers a screen-clearing pulse.</p>"
       }
     ],
     "id": "4mm344m0v",
@@ -4706,12 +4706,12 @@ export const mockApps: any[] = [
     "meta_description": "Get the official Diwa Top app download. Stack glowing terracotta blocks, balance real-time wind physics, and climb to the sky in this offline vertical builder!",
     "faqs": [
       {
-        "answer": "<p>Diwa Top is a vertical physics-stacking and balance game where you drop interlocking terracotta blocks and brass pillars to build a stable tower and place the sacred Flame Diya at the very summit.</p>",
-        "question": "What is the core gameplay mechanism of the Diwa Top app?"
+        "question": "What is the core gameplay mechanism of the Diwa Top app?",
+        "answer": "<p>Diwa Top is a vertical physics-stacking and balance game where you drop interlocking terracotta blocks and brass pillars to build a stable tower and place the sacred Flame Diya at the very summit.</p>"
       },
       {
-        "answer": "<p>Yes, the entire vertical climbing campaign and Endless Skyscraper mode in the Diwa Top APK run 100% offline with zero Wi-Fi or mobile data required.</p>",
-        "question": "Can I play the Diwa Top game offline without an internet connection?"
+        "question": "Can I play the Diwa Top game offline without an internet connection?",
+        "answer": "<p>Yes, the entire vertical climbing campaign and Endless Skyscraper mode in the Diwa Top APK run 100% offline with zero Wi-Fi or mobile data required.</p>"
       },
       {
         "answer": "<p>Every block you drop shifts the tower's weight distribution; if your alignment is off-center by more than three blocks, structural sway increases until the tower collapses.</p>",
@@ -4761,16 +4761,16 @@ export const mockApps: any[] = [
     "og_image_url": "",
     "faqs": [
       {
-        "question": "What is the core gameplay of the Diwa Ace app?",
-        "answer": "<p>Diwa Ace is an aerodynamic stunt-gliding game where you pilot a fiery paper plane through lantern-lit canyons, riding hot air currents to stay airborne and weave through floating brass rings.</p>"
+        "answer": "<p>Diwa Ace is an aerodynamic stunt-gliding game where you pilot a fiery paper plane through lantern-lit canyons, riding hot air currents to stay airborne and weave through floating brass rings.</p>",
+        "question": "What is the core gameplay of the Diwa Ace app?"
       },
       {
-        "question": "Can I play the Diwa Ace game completely offline?",
-        "answer": "<p>Yes, the entire 90-mission Night Canyon Tour and Endless Thermal Drift modes in the Diwa Ace APK run 100% offline with zero Wi-Fi or mobile data required.</p>"
+        "answer": "<p>Yes, the entire 90-mission Night Canyon Tour and Endless Thermal Drift modes in the Diwa Ace APK run 100% offline with zero Wi-Fi or mobile data required.</p>",
+        "question": "Can I play the Diwa Ace game completely offline?"
       },
       {
-        "question": "How does the thermal wind mechanic work in Diwa Ace?",
-        "answer": "<p>Dive-bombing reduces your wingspan to build speed, while flying directly over glowing courtyard bonfires catches rising hot air that refills your altitude meter instantly.</p>"
+        "answer": "<p>Dive-bombing reduces your wingspan to build speed, while flying directly over glowing courtyard bonfires catches rising hot air that refills your altitude meter instantly.</p>",
+        "question": "How does the thermal wind mechanic work in Diwa Ace?"
       }
     ],
     "created_at": "2026-10-31T03:26:50.966Z",
@@ -4813,8 +4813,8 @@ export const mockApps: any[] = [
         "question": "Can I play Vip Rummy without an internet connection?"
       },
       {
-        "question": "What constitutes a valid declaration in Vip Rummy?",
-        "answer": "<p>A valid hand requires at least two sequences, including one pure sequence formed without wildcards, alongside valid sets or additional sequences totaling 13 cards.</p>"
+        "answer": "<p>A valid hand requires at least two sequences, including one pure sequence formed without wildcards, alongside valid sets or additional sequences totaling 13 cards.</p>",
+        "question": "What constitutes a valid declaration in Vip Rummy?"
       }
     ],
     "yellow_box_msg": "Extended mobile gaming sessions cause eye strain and digital fatigue; schedule regular breaks away from your screen between game rounds.",
@@ -4868,12 +4868,12 @@ export const mockApps: any[] = [
     "screenshots": [],
     "faqs": [
       {
-        "answer": "<p>Yes, Best Rummy includes an Offline AI Arena that launches automatically when you have no internet connection. You can play full 13-card matches against heuristic bots to practice sequence building without using mobile data.</p>",
-        "question": "Can you play Best Rummy offline without an internet connection?"
+        "question": "Can you play Best Rummy offline without an internet connection?",
+        "answer": "<p>Yes, Best Rummy includes an Offline AI Arena that launches automatically when you have no internet connection. You can play full 13-card matches against heuristic bots to practice sequence building without using mobile data.</p>"
       },
       {
-        "answer": "<p>Scoring is based on the penalty points of ungrouped cards left in your hand when a player declares. Face cards and Aces count for 10 points each, numbered cards carry their face value, and jokers carry zero points.</p>",
-        "question": "How does scoring work in Best Rummy?"
+        "question": "How does scoring work in Best Rummy?",
+        "answer": "<p>Scoring is based on the penalty points of ungrouped cards left in your hand when a player declares. Face cards and Aces count for 10 points each, numbered cards carry their face value, and jokers carry zero points.</p>"
       },
       {
         "question": "What is the file size of the Best Rummy app on Android?",
@@ -4945,12 +4945,12 @@ export const mockApps: any[] = [
     "file_size": "72 MB",
     "faqs": [
       {
-        "question": "What is SAGA SLOTS and how do you play it?",
-        "answer": "<p>SAGA SLOTS is an all-in-one arcade lounge featuring grand themed spin reels, 13-card rummy tables, and quick ludo boards played with virtual coins.</p>"
+        "answer": "<p>SAGA SLOTS is an all-in-one arcade lounge featuring grand themed spin reels, 13-card rummy tables, and quick ludo boards played with virtual coins.</p>",
+        "question": "What is SAGA SLOTS and how do you play it?"
       },
       {
-        "answer": "<p>Yes, SAGA SLOTS is free to play. You receive a starting virtual coin balance and collect daily login chests and hourly bonuses to unlock tables.</p>",
-        "question": "Is SAGA SLOTS free to play and how do virtual coins work?"
+        "question": "Is SAGA SLOTS free to play and how do virtual coins work?",
+        "answer": "<p>Yes, SAGA SLOTS is free to play. You receive a starting virtual coin balance and collect daily login chests and hourly bonuses to unlock tables.</p>"
       },
       {
         "question": "What are the system requirements and size for SAGA SLOTS?",
@@ -5018,8 +5018,8 @@ export const mockApps: any[] = [
         "answer": "<p>ACE Rummy is completely free to play and gives you virtual practice chips through daily login rewards, two-hour chip trays, and free refill vouchers.</p>"
       },
       {
-        "question": "What are the system requirements and size for ACE Rummy?",
-        "answer": "<p>ACE Rummy comes in a lightweight 52 MB package, runs smoothly on Android 7.0 or higher, and needs just 2 GB of RAM for lag-free card sliding.</p>"
+        "answer": "<p>ACE Rummy comes in a lightweight 52 MB package, runs smoothly on Android 7.0 or higher, and needs just 2 GB of RAM for lag-free card sliding.</p>",
+        "question": "What are the system requirements and size for ACE Rummy?"
       }
     ],
     "updated_at": "2026-11-04T13:00:52.365Z",
@@ -5085,6 +5085,168 @@ export const mockApps: any[] = [
     "release_notes": "",
     "reviews": "",
     "serial_number": 45,
+    "has_secure_link": true
+  },
+  {
+    "og_image_url": "",
+    "slug": "teen-patti-master",
+    "id": "mqag5ctn2",
+    "sync_to_public": true,
+    "safety_status": "Verified",
+    "updated_at": "2026-11-24T04:17:25.789Z",
+    "custom_admin_box_heading": "",
+    "review_count": "",
+    "seo_title": "Teen Patti Master: Learn Hand Ranks and Play Clean",
+    "is_hot": true,
+    "file_size": "44.8 MB",
+    "rating": 4,
+    "seo_keywords": "",
+    "idea_box_msg": "",
+    "created_at": "2026-11-24T03:55:23.611Z",
+    "canonical_url": "",
+    "version": "1.0.6",
+    "faqs": [
+      {
+        "question": "What is Teen Patti Master?",
+        "answer": "<p>Teen Patti Master is a three-card Teen Patti app for learning the hand rankings, practicing against computer opponents and playing private tables with friends.</p>"
+      },
+      {
+        "question": "Are the chips in Teen Patti Master real?",
+        "answer": "<p>No. Chips are a virtual scoreboard. They cannot be bought or exchanged and have no value outside the app.</p>"
+      },
+      {
+        "answer": "<p>Yes. The Rank Trainer starts with the six hands and moves to harder comparisons, and it works offline.</p>",
+        "question": "Can I learn the hand rankings in Teen Patti Master?"
+      }
+    ],
+    "features_html": "",
+    "yellow_box_msg": "Long sessions are easy to fall into. Take regular breaks and stop when the game stops being fun.",
+    "release_notes": "",
+    "name": "TEEN PATTI MASTER",
+    "screenshots": [],
+    "red_box_msg": "Download Teen Patti Master only from the official store listing or the developer's website. Never share your login details, verification codes or friend-table codes with anyone.",
+    "meta_description": "Teen Patti Master teaches Teen Patti step by step, with a rank trainer, a table coach, offline practice and friend tables. Virtual chips only.",
+    "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1795492335/rummydex_uploads/efxm6nnqa0w217m6ay39.webp",
+    "description_html": "<p><strong>Teen Patti Master</strong> is a clean, three-card Teen Patti game for players who want to understand the game before they sit down with friends. Every hand is played with virtual chips that exist only inside the app. The app teaches the hand rankings through short drills, explains each decision after a hand and gives you private tables where you can practice without an audience. This guide covers how a hand works, what each feature teaches and how to make the most of Teen Patti Master in your first week.</p>\n\n<h2>What Teen Patti Master Is Built to Do</h2>\n<p>Teen Patti, also written Teen Patti or Tin Patti, is one of the most played card games in India, and most people learn it by watching someone else. The rules are short, but the skill lies in reading hand strength, timing and the people at the table. Teen Patti Master breaks that learning into clear steps: learn the ranks, practice a hand, understand why it went the way it did, then play with others.</p>\n\n<h3>Why the Name Fits</h3>\n<p>\"Master\" describes where the app is heading, not a promise of results. A player who knows Teen Patti well recognizes the hand ranks without thinking, reads a table calmly and does not chase a bad hand. Each feature in Teen Patti Master supports one of those three habits.</p>\n\n<h2>How a Hand Plays Out</h2>\n<ol>\n  <li>Each player is dealt three cards face down.</li>\n  <li>Players take turns to stay in or fold. Each action moves virtual chips into the table pool.</li>\n  <li>A player can look at their cards, a move called the peek, at a higher chip cost than staying in blind.</li>\n  <li>The hand ends when one player is left or when the table agrees to a showdown.</li>\n  <li>The strongest hand takes the pool, and the next hand is dealt.</li>\n</ol>\n\n<h3>A Worked Example</h3>\n<p>Suppose three players stay in. One holds 7, 7 and 7, which is a trail. Another holds 9, 10 and Jack of mixed suits, which is a sequence. The third holds Queen, King and Ace of one suit, a pure sequence. The trail is the strongest hand here, the pure sequence comes second and the sequence comes third. That order is the most important thing to remember, and the Rank Trainer is built to drill it.</p>\n\n<h2>The Hand Ranking, Strongest First</h2>\n<table>\n  <thead>\n    <tr>\n      <th>Rank</th>\n      <th>Hand</th>\n      <th>Example</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>1</td>\n      <td>Trail</td>\n      <td>Three Kings, of any suits</td>\n    </tr>\n    <tr>\n      <td>2</td>\n      <td>Pure Sequence</td>\n      <td>4, 5 and 6, all of Hearts</td>\n    </tr>\n    <tr>\n      <td>3</td>\n      <td>Sequence</td>\n      <td>4, 5 and 6 in mixed suits</td>\n    </tr>\n    <tr>\n      <td>4</td>\n      <td>Color</td>\n      <td>2, 9 and Queen, all of Spades</td>\n    </tr>\n    <tr>\n      <td>5</td>\n      <td>Pair</td>\n      <td>Two Jacks and a 4</td>\n    </tr>\n    <tr>\n      <td>6</td>\n      <td>High Card</td>\n      <td>Ace, 9 and 3 with no match, decided by the highest card</td>\n    </tr>\n  </tbody>\n</table>\n<p>Ace is high in a sequence, so Queen, King and Ace is a valid run. Ace, 2 and 3 is not, because sequences do not wrap around from the top to the bottom.</p>\n\n<h2>The Features That Teach You the Game</h2>\n\n<h3>Rank Trainer</h3>\n<p>The Rank Trainer shows three cards and asks you to name the hand. The first set covers only the six ranks. Later sets ask which of two hands wins, such as a pair of Aces against a color, using real card combinations so the answers stick. Your accuracy is tracked by rank, so you can see which hands you still confuse.</p>\n\n<h3>Table Coach</h3>\n<p>After each hand, the Table Coach gives the key moment in a few sentences. It might note that staying in with a pair was reasonable against two quiet players, or that peeking late gave away more than it gained. The coach can be switched off whenever you want to test your own reading.</p>\n\n<h3>Hand History</h3>\n<p>Every hand you play is saved with the cards in play and the actions taken. You can step through a hand, see what each player held and compare your decisions with the coach's notes. Reviewing one hand a day is enough to spot patterns.</p>\n\n<h2>Practice Tables and Friend Tables</h2>\n<p>Practice Tables seat you with computer opponents. You choose how quickly they act, whether the coach is on and how many players sit at the table. They work offline, so a slow commute is a good time to practice.</p>\n<p>Friend Tables are private rooms for up to six players. The host creates a room and shares a short code. Anyone with the code can join from their own phone, and the host sets the pace and decides whether the coach is on for that room.</p>\n\n<h2>Ladder and Seasons</h2>\n<p>The Ladder is the ranked part of Teen Patti Master. Each season runs for several weeks and places players into tiers based on how consistently they play. Climbing the Ladder earns cosmetic rewards such as table themes, card backs and avatar frames. Placement depends on results across many hands, so steady play counts for more than a single lucky session.</p>\n\n<h2>Design and Controls</h2>\n<p>The table is clean and uncluttered. Cards are large enough to read at a glance, and actions are labelled in plain words rather than icons alone. Peeking is a single tap, and putting your cards back is a second tap. Text size, contrast and motion can all be adjusted, and sound and vibration can be turned off.</p>\n\n<h2>Performance and Offline Play</h2>\n<p>Teen Patti Master uses light 2D graphics and short animations, so it should run smoothly on a wide range of phones without heavy battery use. Practice Tables, the Rank Trainer and Hand History work offline. Friend Tables and the Ladder need an internet connection.</p>\n\n<h2>Virtual Chips and Fair Play</h2>\n<p>The chips in Teen Patti Master are a virtual scoreboard. They cannot be bought or exchanged, and they have no value outside the app. The app shuffles and deals every hand, and every player uses the same rules. Cosmetic rewards do not change the outcome of any hand.</p>\n\n<h2>Before You Start</h2>\n<ul>\n  <li><strong>Rules vary between groups.</strong> Some families use different peek or showdown rules, so set them on the rules screen before a friend table.</li>\n  <li><strong>The coach is a guide, not a guarantee.</strong> Good decisions improve results over time, but many hands depend on cards you cannot see.</li>\n  <li><strong>Friend Tables pause on a weak connection.</strong> A dropped signal can hold up a hand until you reconnect.</li>\n</ul>\n\n<h2>A Simple First Week</h2>\n<ul>\n  <li><strong>Day 1:</strong> Complete one full Rank Trainer set until you name every hand in under two seconds.</li>\n  <li><strong>Days 2 and 3:</strong> Play Practice Tables with the coach on, and read every coach note.</li>\n  <li><strong>Days 4 and 5:</strong> Turn the coach off and review your Hand History at the end of each session.</li>\n  <li><strong>Days 6 and 7:</strong> Create a Friend Table and play a short session with people you know.</li>\n</ul>\n\n<h2>Summary</h2>\n<p>Teen Patti Master is for people who want to play Teen Patti well, not just quickly. The Rank Trainer builds the foundation, the Table Coach and Hand History explain what happened, and Practice and Friend Tables give you room to try things out. Virtual chips keep the focus on reading hands and players, and a simple first week gives you a clear place to start.</p>",
+    "is_new": true,
+    "video_url": "",
+    "developer": "Teen patti Arina",
+    "serial_number": 95,
+    "custom_admin_box_html": "",
+    "meta_title": "Teen Patti Master: Learn Hand Ranks and Play Clean",
+    "reviews": "",
+    "category": "Yono Apps",
+    "publish_date": "",
+    "seo_description": "Teen Patti Master teaches Teen Patti step by step, with a rank trainer, a table coach, offline practice and friend tables. Virtual chips only.",
+    "is_coming_soon": false,
+    "has_secure_link": true
+  },
+  {
+    "rating": 4,
+    "sync_to_public": true,
+    "is_hot": false,
+    "og_image_url": "",
+    "updated_at": "2026-11-24T04:02:07.064Z",
+    "release_notes": "",
+    "features_html": "",
+    "custom_admin_box_html": "",
+    "seo_keywords": "",
+    "review_count": "",
+    "seo_title": "Jaiho Win App: Tower and Garden Game",
+    "created_at": "2026-11-24T04:02:07.061Z",
+    "file_size": "44.8 MB",
+    "faqs": [
+      {
+        "question": "What is Jaiho Win?",
+        "answer": "<p>Jaiho Win is a puzzle climbing game set in a festival tower. Each floor you clear grows a flower in your garden.</p>"
+      },
+      {
+        "question": "Are the rewards in Jaiho Win real?",
+        "answer": "<p>No. Flowers, stars and blooms are virtual rewards earned through play. They cannot be bought or exchanged and have no value outside the game.</p>"
+      },
+      {
+        "question": "Can I play Jaiho Win offline?",
+        "answer": "<p>Yes. The tower, Practice Stair and Move Replay work offline. The Daily Floor and garden sharing need an internet connection.</p>"
+      }
+    ],
+    "red_box_msg": " Download Jaiho Win only from the official store listing or the developer's website. Never share your login details or verification codes with anyone.",
+    "screenshots": [],
+    "idea_box_msg": "Clear the first five floors before trying Practice Stair. The early floors teach every basic move.",
+    "serial_number": 96,
+    "name": "JAIHO WIN",
+    "version": "1.0.6",
+    "meta_description": "Jaiho Win is a puzzle tower game where each cleared floor grows a flower in your garden. Five puzzle types, offline practice and a daily floor.",
+    "description_html": "<p><strong>Jaiho Win</strong> is a puzzle climbing game set in a festival tower. Each floor asks a different question, from matching lanterns to tracing a path through a crowded market, and every floor you clear makes a flower bloom in the garden at the top. The victories are virtual and stay inside the game. This article describes how Jaiho Win is organized, what a session feels like and what to know before you start.</p>\n\n<h2>A Tower Built Around Small Victories</h2>\n<p>Most puzzle games measure progress with a score or a level number. Jaiho Win measures it with a garden. The tower has forty floors, and each one you clear plants a flower. Early floors give you simple daisies. Later floors unlock larger blooms, and by the top the garden has its own character, shaped by the floors you chose to finish first.</p>\n\n<h3>Why a Tower</h3>\n<p>A tower is a simple shape that everyone understands. You start at the bottom, you climb one floor at a time, and you can always see how far you have come. The layout also makes it easy to return. A session might clear a single floor on the way to work, and a longer one might clear three.</p>\n\n<h3>What the Name Carries</h3>\n<p>\"Jaiho\" is a cheer of celebration, and \"Win\" is the feeling it describes. The game keeps the festive spirit in its visuals and music, but the wins are personal ones: a floor finished cleanly, a puzzle solved in fewer moves, a garden that grows a little more each week.</p>\n\n<h2>How a Floor Works</h2>\n<ol>\n  <li>Choose a floor from the tower map. Unlocked floors glow, and locked ones stay dim.</li>\n  <li>Read the floor's brief. Each one has a short goal and a move limit.</li>\n  <li>Solve the puzzle by tapping, dragging or tracing, depending on the floor type.</li>\n  <li>Clear the goal within the move limit to earn a flower and a rating of one to three stars.</li>\n  <li>Return to the tower map to see the garden and choose your next floor.</li>\n</ol>\n\n<h3>The Five Floor Types</h3>\n<p>The tower mixes five kinds of puzzle so that no two sessions feel the same. Lantern Match asks you to group matching lanterns before the string fills. Market Path asks you to draw a route through a busy street without crossing a stall. Drum Count is a rhythm puzzle where you tap the beat that is missing. Rangoli Grid asks you to fill a symmetrical pattern using a fixed set of tiles. Kite Chase is a short timing puzzle where you release a kite into a moving gap.</p>\n\n<h3>Stars and Move Limits</h3>\n<p>Every floor has a move limit. Clearing it earns one star, and clearing it in fewer moves earns more. Stars do not block progress, so you can always move on, but they are a clear way to see where you could still improve.</p>\n\n<h2>The Garden</h2>\n<p>Each cleared floor adds a flower to the garden. The garden is not a reward chart. It is a record of your play, arranged in the order you finished the floors. Players who clear the lower floors early get a wide, low garden of daisies and marigolds, while those who push higher get taller plants and rare blooms.</p>\n\n<h3>Seasonal Blooms</h3>\n<p>Each month brings a seasonal bloom that can only be grown during that month. The blooms are cosmetic and cannot be carried over, so the garden always reflects the season you played in.</p>\n\n<h3>Showing the Garden</h3>\n<p>You can save a picture of your garden and share it with friends. The picture shows only the flowers and the floor count, not your move history or any personal details.</p>\n\n<h2>Features at a Glance</h2>\n<ul>\n  <li><strong>Forty floors</strong> across five puzzle types, with a new floor type every eight levels.</li>\n  <li><strong>Daily Floor</strong>, a shared puzzle that every player sees on the same day.</li>\n  <li><strong>Practice Stair</strong>, a set of short drills for any floor type you want to sharpen.</li>\n  <li><strong>Move Replay</strong>, which shows your last attempt at a floor so you can see where the moves went.</li>\n  <li><strong>Garden Journal</strong>, a timeline of the floors you cleared and the blooms they produced.</li>\n  <li><strong>Quiet Mode</strong>, which removes timers and turns off sound effects.</li>\n</ul>\n\n<h2>Practice Stair and the Daily Floor</h2>\n<p>Practice Stair is a set of drills that focus on one puzzle type at a time. Each drill is about a minute long and gives a short note after every attempt. It works offline and is a good place to build confidence before a difficult floor.</p>\n<p>The Daily Floor is the same puzzle for everyone on the same day. It is a fair way to compare how you solved a puzzle with the way others approached it. Daily results are shown as a simple count, not a ranking, and you can skip it without losing any progress.</p>\n\n<h2>Design, Sound and Accessibility</h2>\n<p>Jaiho Win uses warm, festival colors on a pale background so that the puzzles stay readable. Shapes are distinct, and no puzzle depends on color alone. Quiet Mode removes timers, and every sound has a visual cue. Motion can be reduced in settings, and text size can be increased on every screen.</p>\n\n<h2>Performance and Offline Play</h2>\n<p>The game uses simple 2D art and light animation, so it should run well on a wide range of phones. The tower, Practice Stair and Move Replay all work offline. The Daily Floor and garden sharing need an internet connection.</p>\n\n<h2>Virtual Rewards and Fair Play</h2>\n<p>Flowers, stars and blooms are virtual rewards earned through play. They cannot be bought, exchanged or carried into other products, and they have no value outside the game. Every floor is the same for every player who reaches it, so progress depends on how you solve the puzzle.</p>\n\n<h2>Things to Know</h2>\n<ul>\n  <li><strong>Floors get harder in steps.</strong> A new puzzle type appears every eight floors, and each one needs a short adjustment.</li>\n  <li><strong>The Daily Floor resets at midnight.</strong> Missing a day does not affect the tower.</li>\n  <li><strong>Garden sharing needs internet access.</strong> Everything else runs offline.</li>\n</ul>\n\n<h2>Getting Started</h2>\n<ul>\n  <li>Clear the first five floors before trying a Practice Stair drill. The early floors teach every basic move.</li>\n  <li>Use Move Replay after a floor you did not clear in one star. It is quicker than guessing.</li>\n  <li>Keep the Garden Journal open for a few days. It shows which puzzle types you find easiest.</li>\n</ul>\n\n<h2>Summary</h2>\n<p>Jaiho Win turns a puzzle tower into a garden you build one floor at a time. Five puzzle types, a daily shared floor, offline practice and a garden that records how you played make it a calm, rewarding game for short sessions. Its victories are the ones you see growing on the screen, and they stay in the game where they belong.</p>",
+    "id": "rzjvqisdt",
+    "video_url": "",
+    "yellow_box_msg": " Puzzle floors are easy to repeat. Take regular breaks, rest your eyes, and stop when the game stops being fun.",
+    "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1795492769/rummydex_uploads/bxhplhcbw0biamrz67vh.png",
+    "developer": "Apex Kinetic Studios",
+    "safety_status": "Verified",
+    "slug": "jaiho-win",
+    "custom_admin_box_heading": "",
+    "meta_title": "Jaiho Win App: Tower and Garden Game",
+    "canonical_url": "",
+    "seo_description": "Jaiho Win is a puzzle tower game where each cleared floor grows a flower in your garden. Five puzzle types, offline practice and a daily floor.",
+    "category": "Yono Apps",
+    "is_new": false,
+    "publish_date": "",
+    "reviews": "",
+    "is_coming_soon": false,
+    "has_secure_link": true
+  },
+  {
+    "red_box_msg": " Download Jaiho Win only from the official store listing or the developer's website. Never share your login details or verification codes with anyone.",
+    "screenshots": [],
+    "seo_description": "567 Slots is a music game built on reels. Stop the reels on the beat to layer sounds, make loops and remix shared tracks.",
+    "video_url": "",
+    "developer": "Nexus Card Studios",
+    "features_html": "",
+    "sync_to_public": true,
+    "version": "1.0.6",
+    "idea_box_msg": "",
+    "created_at": "2026-11-24T04:06:03.742Z",
+    "release_notes": "",
+    "review_count": "",
+    "name": "567 SLOTS",
+    "seo_keywords": "",
+    "serial_number": 97,
+    "og_image_url": "",
+    "rating": 3.5,
+    "faqs": [
+      {
+        "question": "What is 567 Slots?",
+        "answer": "<p>567 Slots is a music game where you stop three reels on the beat to layer drum, bass and texture sounds into a loop.</p>"
+      },
+      {
+        "answer": "<p>No. Practice Mode shows the timing windows and metronome, so you can learn the beat through play.</p>",
+        "question": "Is 567 Slots a gambling game?"
+      },
+      {
+        "question": "Do I need a music background to play 567 Slots?",
+        "answer": "<p>No. Practice Mode shows the timing windows and metronome, so you can learn the beat through play.</p>"
+      }
+    ],
+    "updated_at": "2026-11-24T04:07:22.116Z",
+    "is_hot": false,
+    "meta_title": "567 Slots App: Reel-Based Music Maker and Loop Studio",
+    "safety_status": "Verified",
+    "publish_date": "",
+    "meta_description": "567 Slots is a music game built on reels. Stop the reels on the beat to layer sounds, make loops and remix shared tracks.",
+    "is_new": false,
+    "description_html": "<p><strong>567 Slots</strong> is a music game built on reels. Instead of symbols, each reel carries a sound: a kick, a snare, a synth chord, a vocal chop. You tap to stop the reels, and the sounds that land together form a short loop. Keep stopping and layering, and you end up with a track you can play back, share or remix. Studio credits are virtual, earned through play, and used only inside the app. This article covers how 567 Slots works, what you can make with it and what to know before you start.</p>\n\n<h2>A Reel Game Where You Make the Music</h2>\n<p>Most people know reels from a mechanical machine, where the goal is a lineup of pictures. 567 Slots keeps the reels and the satisfying stop, but changes what lands on them. Each stop adds a sound to your loop, so the question shifts from \"what came up\" to \"does this fit the song.\"</p>\n\n<h3>Why Sound Instead of Symbols</h3>\n<p>Sound makes the timing easy to hear. A reel that stops a beat late is audible, and the loop tells you immediately whether the choice worked. The game rewards a good ear and a steady tap, and every session ends with something you can listen to.</p>\n\n<h3>What the Name Means in the Game</h3>\n<p><strong>The name reflects the layout:</strong> three reels, with the 567 counting the stops in a loop. The number is a title, not a rule, and the game does not depend on any meaning behind it.</p>\n\n<h2>How a Loop Gets Made</h2>\n<ol>\n  <li>Pick a tempo and a key from the studio panel.</li>\n  <li>Spend one unit of studio energy to start a spin.</li>\n  <li>Watch the reels run in time with the metronome.</li>\n  <li>Tap each reel to stop it on the beat. The sound it lands on joins the loop.</li>\n  <li>Play the loop back, keep the parts you like and spin again to add a new layer.</li>\n</ol>\n\n<h3>The Three Reels</h3>\n<p>The first reel holds drums, the second holds bass and melody, and the third holds textures such as vocal chops, vinyl crackle and short effects. Each reel has its own speed, so a steady rhythm on one reel can sit against a looser pattern on another.</p>\n\n<h3>Timing Windows</h3>\n<p>A green window marks the beat. Stopping inside it places the sound cleanly. Stopping just outside it places the sound a sixteenth note early or late, which can work as a creative choice if you like the feel. Practice Mode shows exactly where each window sits.</p>\n\n<h2>Features at a Glance</h2>\n<ul>\n  <li><strong>Three-reel sound engine</strong> with drums, bass, melody and texture reels.</li>\n  <li><strong>Loop Playback</strong> to hear your layers together after every spin.</li>\n  <li><strong>Sound Packs</strong> that add new samples, unlocked through play.</li>\n  <li><strong>Remix Mode</strong> to take a shared loop and add your own layer.</li>\n  <li><strong>Practice Mode</strong> with a metronome and visible timing windows.</li>\n  <li><strong>Tracks Library</strong> to save, name and export your finished loops.</li>\n</ul>\n\n<h2>Practice Mode and Learning the Beat</h2>\n<p>Practice Mode slows the tempo, highlights the timing window and shows which sounds belong to each reel. It is the best place to learn the rhythm before you start building a full track. Each practice session ends with a short note on your timing, and you can replay any stop to hear what it sounded like.</p>\n\n<h2>Sharing and Remixing</h2>\n<p>Finished loops can be saved to your library and shared as a short clip with a link. Anyone who opens the link can listen to the loop and tap Remix to add their own reel stop. Each remix is credited to the people who built the loop before it. Sharing needs an internet connection, and your own library stays on your device.</p>\n\n<h2>Studio Credits and Sound Packs</h2>\n<p>Studio credits are the game's currency, and they are virtual. You earn them by finishing loops and completing practice sessions. You spend them on sound packs and studio themes. Credits cannot be bought or exchanged, and they have no value outside the app. Sound packs add samples, not advantages, so every player can make the same kinds of music.</p>\n\n<h2>Design, Sound and Accessibility</h2>\n<p>The studio is dark and focused, with the reels in the center and clear labels for each reel. Visual timing cues accompany every sound, so the game works with the sound off. Motion can be reduced, text size can be adjusted, and the reels can be stopped with a large tap area for players who prefer it.</p>\n\n<h2>Performance and Offline Play</h2>\n<p>The audio engine is designed to be light, so the app should run well on a wide range of phones. Spinning, practice and playback work offline. Sharing and the public remix library need an internet connection.</p>\n\n<h2>Things to Know</h2>\n<ul>\n  <li><strong>Timing takes practice.</strong> Practice Mode is the fastest way to get comfortable with the windows.</li>\n  <li><strong>Sound quality depends on your headphones.</strong> The game is best with a pair that handles low frequencies well.</li>\n  <li><strong>Shared loops are public.</strong> Keep personal material out of anything you share.</li>\n</ul>\n\n<h2>Getting Started</h2>\n<ul>\n  <li>Start on a slow tempo and use only the drums reel for your first loop.</li>\n  <li>Add one reel at a time, and play the loop back after each new layer.</li>\n  <li>Remix a shared loop to hear how someone else built their track.</li>\n</ul>\n\n<h2>Summary</h2>\n<p>567 Slots turns the reels into a small music studio. Each stop adds a sound, each loop can be played back and shared, and each finished track is something you made. Its credits stay in the app, and its focus stays on rhythm, layering and listening.</p>",
+    "category": "Yono Apps",
+    "id": "k7rwz4m6h",
+    "reviews": "",
+    "yellow_box_msg": " Download Jaiho Win only from the official store listing or the developer's website. Never share your login details or verification codes with anyone.",
+    "canonical_url": "",
+    "is_coming_soon": false,
+    "seo_title": "567 Slots App: Reel-Based Music Maker and Loop Studio",
+    "custom_admin_box_html": "",
+    "file_size": "45 MB",
+    "icon_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1795493051/rummydex_uploads/xv72eh3d7ajgoi379rck.png",
+    "slug": "567-slots",
+    "custom_admin_box_heading": "",
     "has_secure_link": true
   }
 ];
@@ -5174,11 +5336,11 @@ export const mockSettings: any = {
   "seo_description": "Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",
   "seo_keywords": "",
   "social_links": {
-    "instagram": "https://www.instagram.com/rummydex?igsh=MTJjaGR3c3hmdjhnZA==",
-    "youtube": "https://www.youtube.com/@rummydex",
     "linkedin": "",
     "facebook": "https://www.facebook.com/share/1951euBy3d/",
-    "twitter": ""
+    "twitter": "",
+    "youtube": "https://www.youtube.com/@rummydex",
+    "instagram": "https://www.instagram.com/rummydex?igsh=MTJjaGR3c3hmdjhnZA=="
   },
   "hero_title_text": "RummyDex",
   "hero_title_subtitle": "​Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",

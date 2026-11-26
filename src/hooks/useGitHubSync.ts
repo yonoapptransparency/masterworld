@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
 import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, commitMultiFilesToGitHub, encryptUrlIfNeeded, compileCanonicalApp, compileCanonicalNews, generateSecureVaultFile, sanitizePublicSettings } from '../lib/githubSync';
 import { getAesSecret, safeDecrypt, safeEncrypt } from '../lib/cryptoUtils';
-import { generateAllSitemaps, generateRobotsTxt } from '../lib/sitemapGenerator';
+import { generateAllSitemaps, generateRobotsTxt, buildEdgeRouteManifest } from '../lib/sitemapGenerator';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { getResolvedCommunityFirebaseConfig, parseFirestoreFields } from '../lib/communityFirebase';
@@ -21,6 +21,7 @@ export function useGitHubSync(
 ) {
   const [gitConfig, setGitConfig] = useState<GitConfig | null>(null);
   const [gitConfigLoading, setGitConfigLoading] = useState(false);
+  const syncInFlightRef = useRef(false);
 
   const getAdminToken = async (): Promise<string> => {
     try {
@@ -180,11 +181,16 @@ export function useGitHubSync(
     if (!configToUse) {
       throw new Error("GitHub synchronization is not configured.");
     }
+    if (syncInFlightRef.current) {
+      throw new Error("A GitHub synchronization is already in progress. Please wait for it to finish.");
+    }
+    syncInFlightRef.current = true;
     const log = (msg: string) => {
       console.log(msg);
       if (onProgress) onProgress(msg);
     };
 
+    try {
     log("GitHub Sync: Querying live database for complete catalog (Apps, News, Settings, Videos)...");
     let liveBackup: any = null;
     try {
@@ -323,7 +329,8 @@ export function useGitHubSync(
           if (firestoreApps.length > 0) {
             liveBackup.apps = firestoreApps;
           }
-          liveBackup.settings = { ...fsSettings, ...(liveBackup.settings || {}) };
+          // Fresh Firestore settings always take precedence over cached server backup
+          liveBackup.settings = { ...(liveBackup.settings || {}), ...fsSettings };
           if (fsNews.length > 0) liveBackup.news = fsNews;
           if (fsVideos.length > 0) liveBackup.videos = fsVideos;
         }
@@ -557,8 +564,9 @@ export function useGitHubSync(
     const finalSettings = ensureDefaultSettings(targetSettings);
     const updatedCode = generateStaticDataFileCode(publicApps, finalSettings, publicNews, targetVideos);
 
-    // Server backup retains AES-encrypted link fields for backend resolution
-    const safeBackupApps = publicApps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: false }));
+    // Server backup retains ALL apps & news (including Admin-Only drafts) plus AES-encrypted link fields
+    const allBackupApps = finalApps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: false }));
+    const allBackupNews = targetNews.map((item: any) => compileCanonicalNews(item));
     // Public static bundle strips all download URLs completely (Zero-Leak Link Security)
     const cleanPublicStaticApps = publicApps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: true }));
 
@@ -577,14 +585,6 @@ export function useGitHubSync(
       } catch (_) {}
     }
 
-    const consolidatedBackupPayload = {
-      apps: safeBackupApps,
-      settings: finalSettings,
-      news: publicNews,
-      videos: targetVideos,
-      reviews: []
-    };
-
     const consolidatedStaticPayload = {
       apps: cleanPublicStaticApps,
       settings: sanitizePublicSettings(finalSettings),
@@ -593,23 +593,62 @@ export function useGitHubSync(
       reviews: []
     };
 
+    const edgeRouteManifestPayload = buildEdgeRouteManifest({
+      apps: publicApps,
+      news: publicNews,
+      videos: targetVideos
+    });
+
     // Compact minified JSON encoding with zero duplicate mock* keys (50%+ smaller payload)
-    const backupJsonCode = JSON.stringify(consolidatedBackupPayload);
     const staticJsonCode = JSON.stringify(consolidatedStaticPayload);
     const catalogStatsCode = JSON.stringify(communityStatsPayload || { appCounts: {}, totalReviews: 0 });
     const staticReviewsCode = JSON.stringify(communityReviewsPayload);
+    const edgeManifestCode = JSON.stringify(edgeRouteManifestPayload);
+
+    // =========================================================================
+    // PRE-FLIGHT INTEGRITY & ZERO-LEAK SAFETY GATE (Aborts before any remote push)
+    // =========================================================================
+    log("GitHub Sync: Running Pre-Flight Integrity & Zero-Leak Safety Verification...");
+    if (cleanPublicStaticApps.length === 0) {
+      throw new Error(
+        "Pre-Flight Safety Abort: Public app catalog is empty (0 apps). Sync blocked to protect the live website from an accidental data wipe."
+      );
+    }
+
+    try {
+      JSON.parse(staticJsonCode);
+      JSON.parse(catalogStatsCode);
+      JSON.parse(staticReviewsCode);
+      JSON.parse(edgeManifestCode);
+    } catch (jsonErr: any) {
+      throw new Error(`Pre-Flight Safety Abort: Generated JSON payload failed validation (${jsonErr?.message}).`);
+    }
+
+    const forbiddenPublicLeakPatterns: Array<{ label: string; regex: RegExp }> = [
+      { label: 'raw download/more_information URL field', regex: /"(?:more_information_url|encrypted_link|encrypted_download_url|download_url)"\s*:/i },
+      { label: 'private server secret key field', regex: /"(?:turnstile_secret_key|cloudinary_api_secret|gemini_api_key|github_token|admin_password)"\s*:/i },
+      { label: 'literal GitHub Personal Access Token', regex: /\b(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/ }
+    ];
+    for (const check of forbiddenPublicLeakPatterns) {
+      if (check.regex.test(staticJsonCode) || check.regex.test(updatedCode)) {
+        throw new Error(
+          `Pre-Flight Security Abort: Detected ${check.label} in public static bundle. Push cancelled to protect sensitive data.`
+        );
+      }
+    }
+    log(`GitHub Sync: ✅ Pre-Flight Gate passed (${cleanPublicStaticApps.length} public apps, ${publicNews.length} news, ${targetVideos.length} videos, 0 leaks).`);
 
     try {
       const idToken = await getAdminToken();
       if (idToken) {
-        log("GitHub Sync: Synchronizing local static files and sitemaps...");
+        log("GitHub Sync: Synchronizing local static files, edge manifest, and sitemaps...");
         await adminFetch('/api/v1/admin/sync-local', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
           body: JSON.stringify({
-            apps: safeBackupApps,
+            apps: allBackupApps,
             settings: finalSettings,
-            news: publicNews,
+            news: allBackupNews,
             videos: targetVideos,
             catalogStats: communityStatsPayload || null,
             staticReviews: communityReviewsPayload || null
@@ -631,9 +670,12 @@ export function useGitHubSync(
     try {
       log(`GitHub Sync: Preparing complete compressed release bundle for "${targetRepo}"...`);
 
-      // 1. Pre-build AES Encrypted Vault & Public API bundle so all files can be committed together
+      // 1. Pre-build AES Encrypted Vault so all files can be committed together atomically
       let vaultCode = "";
-      let apiBundleContent = "";
+      let sealedLinkCount = 0;
+      const expectedLinkedApps = publicApps.filter(
+        (a: any) => a && (a.more_information_url || a.encrypted_link || a.has_secure_link)
+      ).length;
 
       try {
         log(`GitHub Sync: Building AES Encrypted Vault...`);
@@ -642,15 +684,16 @@ export function useGitHubSync(
         try {
           const idToken = await getAdminToken();
           const vaultRes = await adminFetch('/api/v1/admin/seal-vault', {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
-             body: JSON.stringify({ items: publicApps })
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
+            body: JSON.stringify({ items: publicApps })
           });
 
           if (vaultRes.ok) {
             const vaultData = await vaultRes.json();
             if (vaultData.ciphertext) {
               vaultCiphertext = vaultData.ciphertext;
+              sealedLinkCount = Number(vaultData.linkCount || vaultData.appCount || 0);
             }
           }
         } catch (_) {}
@@ -659,6 +702,7 @@ export function useGitHubSync(
         if (!vaultCiphertext) {
           const AES_SECRET = getAesSecret();
           const vaultMap: Record<string, string> = {};
+          let skippedV2Count = 0;
           publicApps.forEach((item: any) => {
             const id = String(item.id || '').trim();
             const slug = String(item.slug || '').trim();
@@ -666,47 +710,42 @@ export function useGitHubSync(
             if (!rawUrl || typeof rawUrl !== 'string') return;
             const trimmed = rawUrl.trim();
             if (trimmed.toLowerCase().includes('mediafire.com') || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) return;
+            if (trimmed.startsWith('v2.')) {
+              skippedV2Count++;
+              return;
+            }
             const plainUrl = trimmed.startsWith('U2FsdGVkX1') ? (safeDecrypt(trimmed, AES_SECRET) || safeDecrypt(trimmed) || trimmed) : trimmed;
             if (!plainUrl || (!plainUrl.startsWith('http://') && !plainUrl.startsWith('https://'))) return;
             if (id) vaultMap[id] = plainUrl;
             if (slug) vaultMap[slug] = plainUrl;
           });
-          vaultCiphertext = safeEncrypt(JSON.stringify(vaultMap), AES_SECRET);
+          sealedLinkCount = Object.keys(vaultMap).length;
+          if (skippedV2Count > 0) {
+            log(`GitHub Sync Warning: ${skippedV2Count} v2-encrypted link(s) require backend /api/v1/admin/seal-vault to decrypt.`);
+          }
+          if (sealedLinkCount > 0) {
+            vaultCiphertext = safeEncrypt(JSON.stringify(vaultMap), AES_SECRET);
+          }
         }
 
         if (vaultCiphertext) {
           vaultCode = generateSecureVaultFile(vaultCiphertext);
-          log(`GitHub Sync: ✅ AES Encrypted Vault sealed.`);
+          log(`GitHub Sync: ✅ AES Encrypted Vault sealed${sealedLinkCount > 0 ? ` (${sealedLinkCount} indexed entries)` : ''}.`);
         }
       } catch (vaultErr: any) {
         log(`GitHub Sync Warning (Vault build): ${vaultErr?.message || 'skipped'}`);
       }
 
-      // 2. Assemble ALL primary files together for 1 single atomic commit
-      const primaryBatchFiles: { path: string; content: string }[] = [
-        {
-          path: 'src/lib/staticData.ts',
-          content: updatedCode
-        },
-        {
-          path: 'src/lib/communityCatalogStats.json',
-          content: catalogStatsCode
-        },
-        {
-          path: 'src/lib/communityStaticReviews.json',
-          content: staticReviewsCode
-        },
-        {
-          path: 'src/lib/staticData.json',
-          content: staticJsonCode
-        },
-        {
-          path: 'public-api/staticData.json',
-          content: staticJsonCode
-        }
-      ];
+      if (expectedLinkedApps > 0 && !vaultCode) {
+        throw new Error(
+          `Pre-Flight Vault Abort: ${expectedLinkedApps} public app(s) expect secure clearance links, but AES vault sealing produced 0 links. Sync blocked to prevent breaking download portals.`
+        );
+      }
 
-      // Pull latest public core source code (App.tsx, lazyWithRetry, GlobalErrorBoundary, PublicFooter) for Dex
+      // 2. Assemble ALL primary files via deduplicated Map (core source first, freshly compiled data LAST so fresh data always wins)
+      const batchFileMap = new Map<string, string>();
+
+      // Pull latest public core source code (App.tsx, functions/_middleware.js, renderers, etc.) for Dex
       try {
         const idToken = await getAdminToken();
         const coreRes = await adminFetch('/api/github-sync/public-core-files', {
@@ -717,7 +756,7 @@ export function useGitHubSync(
           if (coreData?.files) {
             for (const [fPath, fContent] of Object.entries(coreData.files)) {
               if (fContent && typeof fContent === 'string') {
-                primaryBatchFiles.push({ path: fPath, content: fContent });
+                batchFileMap.set(fPath, fContent);
               }
             }
             log(`GitHub Sync: Added ${Object.keys(coreData.files).length} public core source files to sync bundle.`);
@@ -727,21 +766,19 @@ export function useGitHubSync(
         log(`GitHub Sync Note: Core files fetch note: ${coreErr?.message || 'skipped'}`);
       }
 
+      // Layer freshly compiled catalog, community reviews, stats, and edge route manifest LAST (authoritative)
+      batchFileMap.set('src/lib/staticData.ts', updatedCode);
+      batchFileMap.set('src/lib/communityCatalogStats.json', catalogStatsCode);
+      batchFileMap.set('src/lib/communityStaticReviews.json', staticReviewsCode);
+      batchFileMap.set('src/lib/staticData.json', staticJsonCode);
+      batchFileMap.set('src/lib/edgeRouteManifest.json', edgeManifestCode);
+      batchFileMap.set('public-api/staticData.json', staticJsonCode);
+
       if (vaultCode) {
-        primaryBatchFiles.push({
-          path: 'src/lib/secureVault.ts',
-          content: vaultCode
-        });
+        batchFileMap.set('src/lib/secureVault.ts', vaultCode);
       }
 
-      if (apiBundleContent) {
-        primaryBatchFiles.push({
-          path: 'api/index.js',
-          content: apiBundleContent
-        });
-      }
-
-      // Generate XML sitemaps for instant static hosting and search engine discoverability
+      // Generate XML sitemaps and authoritative RFC 9309 robots.txt
       try {
         const sitemaps = generateAllSitemaps({
           apps: publicApps,
@@ -750,23 +787,22 @@ export function useGitHubSync(
           videos: targetVideos
         });
         for (const [filename, xmlContent] of Object.entries(sitemaps)) {
-          primaryBatchFiles.push({
-            path: `public/${filename}`,
-            content: xmlContent
-          });
+          batchFileMap.set(`public/${filename}`, xmlContent);
         }
 
         const robotsContent = generateRobotsTxt('https://www.rummydex.com');
-        primaryBatchFiles.push({
-          path: 'public/robots.txt',
-          content: robotsContent
-        });
+        batchFileMap.set('public/robots.txt', robotsContent);
       } catch (sitemapErr) {
         log(`GitHub Sync Warning: Could not auto-generate public XML sitemaps: ${(sitemapErr as any)?.message}`);
       }
 
-      // 3. Push ALL primary files together in 1 SINGLE ATOMIC COMMIT to Public Website Repo
-      await commitMultiFilesToGitHub({
+      const primaryBatchFiles = Array.from(batchFileMap.entries()).map(([filePath, content]) => ({
+        path: filePath,
+        content
+      }));
+
+      // 3. Push ALL unique verified files together in 1 SINGLE ATOMIC COMMIT to Public Website Repo
+      const commitSummary = await commitMultiFilesToGitHub({
         owner: configToUse.owner,
         repo: targetRepo,
         token: configToUse.token,
@@ -775,7 +811,7 @@ export function useGitHubSync(
         message: `Public Release: Complete Catalog, Community Data & Secure Vault Synchronization`,
         onProgress: (m) => log(m)
       });
-      log(`GitHub Sync: ✅ Success! All ${primaryBatchFiles.length} files committed together to public repo "${targetRepo}" in 1 commit (Exactly 1 deployment). Admin remains fully isolated on Firebase.`);
+      log(`GitHub Sync: ✅ Success! All ${primaryBatchFiles.length} unique files committed atomically to public repo "${targetRepo}" (${commitSummary?.uploadedCount ?? primaryBatchFiles.length} uploaded, ${commitSummary?.reusedCount ?? 0} unchanged reused). Admin remains fully isolated on Firebase.`);
     } catch (err: any) {
       throw new Error(`Failed to sync data to public repository (${targetRepo}): ${err.message}`);
     }
@@ -785,6 +821,9 @@ export function useGitHubSync(
     } catch (err: any) {}
 
     return { success: true, targetRepo, timestamp: new Date().toISOString() };
+    } finally {
+      syncInFlightRef.current = false;
+    }
   }, [gitConfig, apps, settings, news, videos, updateLocalContainerBackup]);
 
   return {
