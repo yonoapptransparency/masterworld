@@ -462,6 +462,405 @@ export async function onRequest(context) {
     });
   }
 
+  // 6b. Admin GitHub Sync Edge Fallback Proxy (/api/github-sync/test, /remote-tree, /create-blob, /commit-tree)
+  if (
+    url.pathname === '/api/github-sync/test' ||
+    url.pathname === '/api/github-sync/remote-tree' ||
+    url.pathname === '/api/github-sync/create-blob' ||
+    url.pathname === '/api/github-sync/commit-tree'
+  ) {
+    const jsonNoStore = (payload, status = 200) =>
+      new Response(JSON.stringify(payload), {
+        status,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-store, private',
+        },
+      });
+
+    if (request.method !== 'POST') {
+      return jsonNoStore({ success: false, error: 'Method Not Allowed' }, 405);
+    }
+
+    const authHeader = headers['authorization'] || '';
+    const adminToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const { configuredEmail, configuredPassword } = parseAdminConfig(env);
+    const sessionSecret = await getAdminSessionSecret(env, configuredPassword);
+    const authCheck = await verifyAdminToken(adminToken, sessionSecret, configuredEmail);
+    if (!authCheck.valid) {
+      return jsonNoStore({ success: false, error: 'Administrator authentication required.' }, 401);
+    }
+
+    let body = {};
+    try { body = JSON.parse(rawBody || '{}'); } catch (_) {}
+
+    const cleanOwner = String(body?.owner || '').trim();
+    const cleanRepo = String(body?.repo || '').trim();
+    const cleanBranch = String(body?.branch || 'main').replace(/^refs\/heads\//, '').trim() || 'main';
+    const cleanToken = String(body?.token || env?.GITHUB_TOKEN || env?.PAT || '').trim();
+
+    const validSeg = (s) => /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(s) && !s.includes('..');
+    const validBranch = (b) =>
+      b.length > 0 &&
+      b.length <= 120 &&
+      /^[A-Za-z0-9._/-]+$/.test(b) &&
+      !b.startsWith('/') &&
+      !b.endsWith('/') &&
+      !b.includes('..') &&
+      !b.includes('//');
+
+    if (!validSeg(cleanOwner) || !validSeg(cleanRepo)) {
+      return jsonNoStore({ success: false, error: 'Invalid GitHub owner or repository name.' }, 400);
+    }
+    if (!cleanToken) {
+      return jsonNoStore({ success: false, error: 'GitHub Personal Access Token (PAT) is required.' }, 400);
+    }
+
+    const ghAuth = cleanToken.toLowerCase().startsWith('ghp_') ? `token ${cleanToken}` : `Bearer ${cleanToken}`;
+    const ghReadHeaders = {
+      'Authorization': ghAuth,
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'RummyDex-Edge-Sync',
+    };
+    const ghWriteHeaders = {
+      ...ghReadHeaders,
+      'Content-Type': 'application/json',
+    };
+
+    const FORBIDDEN_PREFIXES = [
+      '.git/',
+      '.github/',
+      '.aistudio/',
+      'src/components/admin/',
+      'src/server/middleware/',
+      'src/server/routes/admin',
+      'public/assets/aistudio/',
+      'docs/',
+    ];
+    const FORBIDDEN_EXACT = new Set([
+      'server.ts',
+      'firestore.rules',
+      'firebase.json',
+      '.firebaserc',
+      'mock-2fa-state.json',
+      'community_local_backup.json',
+      'src/AppAdmin.tsx',
+      'src/pages/AdminDashboard.tsx',
+      'src/pages/AdminLogin.tsx',
+      'src/lib/public_backup.json',
+      'src/lib/secure_links_backup.json',
+      'src/lib/aiStudioBrain.json',
+      'src/lib/totp.ts',
+      'src/lib/secureStorage.ts',
+      'src/lib/firebase.ts',
+      'src/server/routes/githubSyncRoutes.ts',
+    ]);
+    const PRUNE_REMOTE = new Set([
+      'src/lib/public_backup.json',
+      'src/lib/secure_links_backup.json',
+      'src/lib/aiStudioBrain.json',
+    ]);
+
+    const validatePublicPath = (rawPath) => {
+      const clean = String(rawPath || '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
+      if (!clean || clean.includes('\0')) return { ok: false, cleanPath: clean, reason: 'Invalid path' };
+      const segs = clean.split('/');
+      if (segs.some((s) => s === '' || s === '.' || s === '..')) {
+        return { ok: false, cleanPath: clean, reason: 'Path traversal blocked' };
+      }
+      const base = segs[segs.length - 1].toLowerCase();
+      if (base === '.env' || base.startsWith('.env.')) {
+        return { ok: false, cleanPath: clean, reason: 'Environment secret file blocked' };
+      }
+      const lower = clean.toLowerCase();
+      for (const prefix of FORBIDDEN_PREFIXES) {
+        if (lower.startsWith(prefix.toLowerCase())) {
+          return { ok: false, cleanPath: clean, reason: `Admin/internal prefix "${prefix}" blocked` };
+        }
+      }
+      if (FORBIDDEN_EXACT.has(clean)) {
+        return { ok: false, cleanPath: clean, reason: `Admin/internal file "${clean}" blocked` };
+      }
+      return { ok: true, cleanPath: clean };
+    };
+
+    const encodeUtf8Base64 = (str) => {
+      const bytes = new TextEncoder().encode(String(str ?? ''));
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.byteLength));
+        binary += String.fromCharCode.apply(null, chunk);
+      }
+      return btoa(binary);
+    };
+
+    const encOwner = encodeURIComponent(cleanOwner);
+    const encRepo = encodeURIComponent(cleanRepo);
+
+    try {
+      if (url.pathname === '/api/github-sync/test') {
+        const res = await fetch(`https://api.github.com/repos/${encOwner}/${encRepo}`, { headers: ghReadHeaders });
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          return jsonNoStore({
+            success: false,
+            error: errJson?.message || `GitHub API returned HTTP ${res.status}`,
+          }, res.status === 401 || res.status === 403 || res.status === 404 ? res.status : 502);
+        }
+        const repoData = await res.json();
+        return jsonNoStore({
+          success: true,
+          message: `Successfully connected to repository "${repoData.full_name}" (branch: ${cleanBranch})`,
+          permissions: repoData.permissions || { push: true, pull: true, admin: false },
+          defaultBranch: repoData.default_branch,
+          repoDetails: {
+            name: repoData.name,
+            private: repoData.private,
+            default_branch: repoData.default_branch,
+          },
+        });
+      }
+
+      if (url.pathname === '/api/github-sync/remote-tree') {
+        if (!validBranch(cleanBranch)) {
+          return jsonNoStore({ success: false, error: 'Invalid branch name.' }, 400);
+        }
+        const encBranch = encodeURIComponent(cleanBranch);
+        let parentCommitSha = '';
+        const refRes = await fetch(
+          `https://api.github.com/repos/${encOwner}/${encRepo}/git/ref/heads/${encBranch}?_t=${Date.now()}`,
+          { headers: ghReadHeaders }
+        );
+        if (refRes.ok) {
+          const refData = await refRes.json();
+          parentCommitSha = refData?.object?.sha || '';
+        }
+        if (!parentCommitSha) {
+          const brRes = await fetch(
+            `https://api.github.com/repos/${encOwner}/${encRepo}/branches/${encBranch}?_t=${Date.now()}`,
+            { headers: ghReadHeaders }
+          );
+          if (brRes.ok) {
+            const brData = await brRes.json();
+            parentCommitSha = brData?.commit?.sha || '';
+          }
+        }
+        if (!parentCommitSha) {
+          return jsonNoStore({ success: false, error: `Could not resolve HEAD commit for branch "${cleanBranch}".` }, 404);
+        }
+        const commitRes = await fetch(
+          `https://api.github.com/repos/${encOwner}/${encRepo}/git/commits/${encodeURIComponent(parentCommitSha)}`,
+          { headers: ghReadHeaders }
+        );
+        if (!commitRes.ok) {
+          return jsonNoStore({ success: false, error: 'Failed to read parent commit.' }, 502);
+        }
+        const commitData = await commitRes.json();
+        const baseTreeSha = commitData?.tree?.sha;
+        if (!baseTreeSha) {
+          return jsonNoStore({ success: false, error: 'Parent commit missing tree SHA.' }, 502);
+        }
+        const treeRes = await fetch(
+          `https://api.github.com/repos/${encOwner}/${encRepo}/git/trees/${encodeURIComponent(baseTreeSha)}?recursive=1`,
+          { headers: ghReadHeaders }
+        );
+        if (!treeRes.ok) {
+          return jsonNoStore({ success: false, error: 'Failed to read remote git tree.' }, 502);
+        }
+        const treeData = await treeRes.json();
+        const blobShas = {};
+        if (Array.isArray(treeData?.tree)) {
+          for (const entry of treeData.tree) {
+            if (entry?.type === 'blob' && typeof entry.path === 'string' && typeof entry.sha === 'string') {
+              blobShas[entry.path] = entry.sha;
+            }
+          }
+        }
+        return jsonNoStore({ success: true, parentCommitSha, baseTreeSha, blobShas });
+      }
+
+      if (cleanRepo.toLowerCase() === 'masterworld') {
+        return jsonNoStore({
+          success: false,
+          error: 'Refused to push public static bundle to admin repository "masterworld".',
+        }, 403);
+      }
+
+      if (url.pathname === '/api/github-sync/create-blob') {
+        const check = validatePublicPath(body?.path);
+        if (!check.ok) {
+          return jsonNoStore({
+            success: false,
+            error: `Path "${body?.path || ''}" blocked from public sync: ${check.reason}`,
+          }, 403);
+        }
+        const b64 = encodeUtf8Base64(body?.content ?? '');
+        const blobRes = await fetch(`https://api.github.com/repos/${encOwner}/${encRepo}/git/blobs`, {
+          method: 'POST',
+          headers: ghWriteHeaders,
+          body: JSON.stringify({ content: b64, encoding: 'base64' }),
+        });
+        if (!blobRes.ok) {
+          const errJson = await blobRes.json().catch(() => ({}));
+          return jsonNoStore({
+            success: false,
+            error: errJson?.message || `GitHub blob API returned HTTP ${blobRes.status}`,
+          }, blobRes.status >= 400 && blobRes.status < 500 ? blobRes.status : 502);
+        }
+        const blobData = await blobRes.json();
+        return jsonNoStore({ success: true, path: check.cleanPath, sha: blobData?.sha });
+      }
+
+      if (url.pathname === '/api/github-sync/commit-tree') {
+        if (!validBranch(cleanBranch)) {
+          return jsonNoStore({ success: false, error: 'Invalid branch name.' }, 400);
+        }
+        const rawTree = Array.isArray(body?.tree) ? body.tree : [];
+        const deduped = new Map();
+        for (const item of rawTree) {
+          if (!item || typeof item.path !== 'string' || typeof item.sha !== 'string') continue;
+          const check = validatePublicPath(item.path);
+          if (!check.ok) {
+            return jsonNoStore({
+              success: false,
+              error: `Path "${item.path}" blocked from public sync: ${check.reason}`,
+            }, 403);
+          }
+          deduped.set(check.cleanPath, {
+            path: check.cleanPath,
+            mode: item.mode === '100755' ? '100755' : '100644',
+            type: 'blob',
+            sha: item.sha,
+          });
+        }
+        if (deduped.size === 0) {
+          return jsonNoStore({ success: false, error: 'No valid tree entries provided to commit.' }, 400);
+        }
+
+        const commitMessage = String(body?.message || 'Admin atomic sync update').trim().slice(0, 500);
+        const encBranch = encodeURIComponent(cleanBranch);
+        const MAX_REBASE = 3;
+
+        for (let attempt = 1; attempt <= MAX_REBASE; attempt++) {
+          let parentCommitSha = '';
+          const refRes = await fetch(
+            `https://api.github.com/repos/${encOwner}/${encRepo}/git/ref/heads/${encBranch}?_t=${Date.now()}`,
+            { headers: ghReadHeaders }
+          );
+          if (refRes.ok) {
+            const refData = await refRes.json();
+            parentCommitSha = refData?.object?.sha || '';
+          }
+          if (!parentCommitSha) {
+            const brRes = await fetch(
+              `https://api.github.com/repos/${encOwner}/${encRepo}/branches/${encBranch}?_t=${Date.now()}`,
+              { headers: ghReadHeaders }
+            );
+            if (brRes.ok) {
+              const brData = await brRes.json();
+              parentCommitSha = brData?.commit?.sha || '';
+            }
+          }
+          if (!parentCommitSha) {
+            return jsonNoStore({ success: false, error: `Could not find HEAD commit for branch "${cleanBranch}".` }, 404);
+          }
+
+          const parentRes = await fetch(
+            `https://api.github.com/repos/${encOwner}/${encRepo}/git/commits/${encodeURIComponent(parentCommitSha)}`,
+            { headers: ghReadHeaders }
+          );
+          if (!parentRes.ok) {
+            return jsonNoStore({ success: false, error: 'Failed to read parent commit.' }, 502);
+          }
+          const parentData = await parentRes.json();
+          const baseTreeSha = parentData?.tree?.sha;
+          if (!baseTreeSha) {
+            return jsonNoStore({ success: false, error: 'Parent commit missing tree SHA.' }, 502);
+          }
+
+          const treeEntries = Array.from(deduped.values());
+          try {
+            const baseTreeRes = await fetch(
+              `https://api.github.com/repos/${encOwner}/${encRepo}/git/trees/${encodeURIComponent(baseTreeSha)}?recursive=1`,
+              { headers: ghReadHeaders }
+            );
+            if (baseTreeRes.ok) {
+              const baseTreeData = await baseTreeRes.json();
+              if (Array.isArray(baseTreeData?.tree)) {
+                for (const t of baseTreeData.tree) {
+                  if (t?.type === 'blob' && t?.path && PRUNE_REMOTE.has(t.path) && !deduped.has(t.path)) {
+                    treeEntries.push({ path: t.path, mode: '100644', type: 'blob', sha: null });
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+
+          const createTreeRes = await fetch(`https://api.github.com/repos/${encOwner}/${encRepo}/git/trees`, {
+            method: 'POST',
+            headers: ghWriteHeaders,
+            body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries }),
+          });
+          if (!createTreeRes.ok) {
+            const errJson = await createTreeRes.json().catch(() => ({}));
+            return jsonNoStore({ success: false, error: errJson?.message || 'Failed to create git tree.' }, 502);
+          }
+          const newTreeData = await createTreeRes.json();
+
+          const createCommitRes = await fetch(`https://api.github.com/repos/${encOwner}/${encRepo}/git/commits`, {
+            method: 'POST',
+            headers: ghWriteHeaders,
+            body: JSON.stringify({ message: commitMessage, tree: newTreeData.sha, parents: [parentCommitSha] }),
+          });
+          if (!createCommitRes.ok) {
+            const errJson = await createCommitRes.json().catch(() => ({}));
+            return jsonNoStore({ success: false, error: errJson?.message || 'Failed to create git commit.' }, 502);
+          }
+          const newCommitData = await createCommitRes.json();
+
+          const updateRefRes = await fetch(
+            `https://api.github.com/repos/${encOwner}/${encRepo}/git/refs/heads/${encBranch}`,
+            {
+              method: 'PATCH',
+              headers: ghWriteHeaders,
+              body: JSON.stringify({ sha: newCommitData.sha, force: false }),
+            }
+          );
+          if (updateRefRes.ok) {
+            return jsonNoStore({
+              success: true,
+              commitSha: newCommitData.sha,
+              treeSha: newTreeData.sha,
+              attempt,
+              message: `Successfully created atomic commit ${String(newCommitData.sha || '').substring(0, 7)}`,
+            });
+          }
+
+          const refErr = await updateRefRes.json().catch(() => ({}));
+          if (updateRefRes.status === 422 && attempt < MAX_REBASE) {
+            await new Promise((r) => setTimeout(r, 600 * attempt));
+            continue;
+          }
+          return jsonNoStore({
+            success: false,
+            error: refErr?.message || `Failed to update branch ref "${cleanBranch}" (HTTP ${updateRefRes.status})`,
+          }, updateRefRes.status >= 400 && updateRefRes.status < 500 ? updateRefRes.status : 502);
+        }
+
+        return jsonNoStore({
+          success: false,
+          error: `Branch "${cleanBranch}" moved concurrently multiple times. Please retry sync.`,
+        }, 409);
+      }
+    } catch (ghErr) {
+      return jsonNoStore({
+        success: false,
+        error: ghErr?.message || 'Edge GitHub sync proxy error',
+      }, 502);
+    }
+  }
+
   // 7. Public APIs (Health, Catalog, App Details, Settings, News, Videos, Developers, FAQs)
   const safeDecodeSegment = (raw) => {
     try {

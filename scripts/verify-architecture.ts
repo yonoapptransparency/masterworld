@@ -776,6 +776,7 @@ async function verifyModulesAndLiveServer() {
     const maxHeaderLineLen = headerLines.reduce((m, l) => Math.max(m, l.length), 0);
     const globalLines = headerBlocks.get('/*') || [];
     const globalBlockFirstOk = ruleOrder[0] === '/*';
+    const cspLine = globalLines.find(l => l.startsWith('Content-Security-Policy:')) || '';
     const securityHeadersOk =
       pubHeaders === distHeaders &&
       ruleOrder.length <= 100 &&
@@ -783,7 +784,11 @@ async function verifyModulesAndLiveServer() {
       globalBlockFirstOk &&
       globalLines.some(l => l.startsWith('Strict-Transport-Security:')) &&
       globalLines.some(l => l.startsWith('Permissions-Policy:')) &&
-      globalLines.some(l => l.startsWith('Content-Security-Policy:') && l.includes('https://challenges.cloudflare.com'));
+      cspLine.includes('https://challenges.cloudflare.com') &&
+      cspLine.includes('https://api.github.com') &&
+      cspLine.includes('https://api.cloudinary.com') &&
+      cspLine.includes('https://generativelanguage.googleapis.com') &&
+      cspLine.includes('https://api.qrserver.com');
 
     const gatewayRoutes = ['/moreinfo/*', '/gateway/*', '/download/*', '/info/*', '/moredetail/*', '/s/*', '/dl/*', '/out/*'];
     const gatewayDetachOk = gatewayRoutes.every(route => {
@@ -1032,11 +1037,52 @@ async function verifyModulesAndLiveServer() {
       builtManifest.news.length === 1 &&
       builtManifest.videos.length === 1;
 
+    const { onRequest: edgeApiHandler } = await import('../functions/api/[[catchall]].js');
+    const unauthBlobRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/github-sync/create-blob', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner: 'yonoapptransparency', repo: 'Dex', path: 'src/lib/staticData.json', content: '{}' })
+      }),
+      env: { ADMIN_EMAIL: 'admin@test.local', ADMIN_PASSWORD: 'test-secret-password' }
+    });
+    const loginRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'admin@test.local', password: 'test-secret-password' })
+      }),
+      env: { ADMIN_EMAIL: 'admin@test.local', ADMIN_PASSWORD: 'test-secret-password' }
+    });
+    const loginJson: any = await loginRes.json();
+    const validAdminJwt = loginJson?.token || '';
+    const masterworldBlockRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/github-sync/create-blob', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${validAdminJwt}` },
+        body: JSON.stringify({ owner: 'yonoapptransparency', repo: 'masterworld', token: 'ghp_dummy', path: 'src/lib/staticData.json', content: '{}' })
+      }),
+      env: { ADMIN_EMAIL: 'admin@test.local', ADMIN_PASSWORD: 'test-secret-password' }
+    });
+    const envBlockRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/github-sync/create-blob', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${validAdminJwt}` },
+        body: JSON.stringify({ owner: 'yonoapptransparency', repo: 'Dex', token: 'ghp_dummy', path: '.env', content: 'SECRET=1' })
+      }),
+      env: { ADMIN_EMAIL: 'admin@test.local', ADMIN_PASSWORD: 'test-secret-password' }
+    });
+    const edgeSyncProxyOk =
+      unauthBlobRes.status === 401 &&
+      Boolean(validAdminJwt) &&
+      masterworldBlockRes.status === 403 &&
+      envBlockRes.status === 403;
+
     record(
       'SYNC-HARDEN-1..5',
-      'Admin-to-Public Sync Hardening (Firewall, Zero-Leak/Anti-Wipe Gate, SHA-1 Diff, Non-Force Rebase, Atomic Disk)',
-      coreCandidatesCleanOk && firewallOk && gitShaOk && preflightAndAtomicOk && manifestBuilderOk,
-      `CoreFiles(0 missing, +_middleware, -dup vault/robots): ${coreCandidatesCleanOk}, PathFirewall: ${firewallOk}, GitBlobSHA1(ce013625...): ${gitShaOk}, PreFlight+NonForce422+AtomicDisk+SplitSync: ${preflightAndAtomicOk}, EdgeManifestDraftFilter: ${manifestBuilderOk}`
+      'Admin-to-Public Sync Hardening (Firewall, Zero-Leak/Anti-Wipe Gate, SHA-1 Diff, Non-Force Rebase, Atomic Disk, Edge Proxy)',
+      coreCandidatesCleanOk && firewallOk && gitShaOk && preflightAndAtomicOk && manifestBuilderOk && edgeSyncProxyOk,
+      `CoreFiles(0 missing, +_middleware, -dup vault/robots): ${coreCandidatesCleanOk}, PathFirewall: ${firewallOk}, GitBlobSHA1(ce013625...): ${gitShaOk}, PreFlight+NonForce422+AtomicDisk+SplitSync: ${preflightAndAtomicOk}, EdgeManifestDraftFilter: ${manifestBuilderOk}, EdgeSyncProxy(Unauth=${unauthBlobRes.status}, Masterworld=${masterworldBlockRes.status}, .env=${envBlockRes.status}): ${edgeSyncProxyOk}`
     );
   } catch (isoErr: any) {
     record('SEO-ISOLATION-1..8', 'Zero /moreinfo Leak & Attribution Isolation', false, isoErr?.message || String(isoErr));

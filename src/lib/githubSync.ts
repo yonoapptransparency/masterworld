@@ -344,6 +344,9 @@ export async function uploadBlobToGitHub({
 
   // Retry up to 3 times for rock-solid network resilience
   for (let attempt = 1; attempt <= 3; attempt++) {
+    let directReason = '';
+    let proxyReason = '';
+
     try {
       // 1. Direct GitHub Git Blobs API (CORS enabled, 0 middleman bottleneck, works on static hosts)
       if (token && token.trim()) {
@@ -367,7 +370,7 @@ export async function uploadBlobToGitHub({
                 encoding: 'base64'
               })
             },
-            { timeoutMs: 25000, maxRetries: 2 }
+            { timeoutMs: 25000, maxRetries: 1 }
           );
 
           if (directRes.ok) {
@@ -375,10 +378,11 @@ export async function uploadBlobToGitHub({
             if (directData?.sha) {
               return { path: cleanPath, sha: directData.sha };
             }
+            directReason = 'GitHub API returned 200 without blob SHA';
           } else {
             const errData = await directRes.json().catch(() => ({}));
             const githubMsg = errData.message || directRes.statusText;
-            
+
             if (directRes.status === 401) {
               throw new Error(`Invalid GitHub Personal Access Token (PAT): ${githubMsg}. Check token in Settings.`);
             } else if (directRes.status === 403) {
@@ -409,18 +413,19 @@ export async function uploadBlobToGitHub({
                   return { path: cleanPath, sha: utf8Data.sha };
                 }
               }
-              throw new Error(`GitHub API error (${directRes.status}): ${githubMsg}`);
+              directReason = `GitHub API HTTP ${directRes.status}: ${githubMsg}`;
             }
           }
         } catch (directErr: any) {
           if (directErr.message && (directErr.message.includes('Invalid GitHub Personal Access Token') || directErr.message.includes('GitHub write permission error') || directErr.message.includes('Repository'))) {
             throw directErr;
           }
-          console.warn(`[GitHub Sync] Direct blob upload network notice for ${cleanPath}:`, directErr?.message || directErr);
+          directReason = directErr?.message || String(directErr);
+          console.warn(`[GitHub Sync] Direct blob upload network notice for ${cleanPath}:`, directReason);
         }
       }
 
-      // 2. Server proxy fallback only if backend environment is available
+      // 2. Server / Cloudflare Edge proxy fallback (works even if browser/ISP blocks api.github.com)
       try {
         const response = await adminFetch('/api/github-sync/create-blob', {
           method: 'POST',
@@ -439,19 +444,39 @@ export async function uploadBlobToGitHub({
           if (data?.sha) {
             return { path: cleanPath, sha: data.sha };
           }
+          proxyReason = 'Proxy returned 200 without blob SHA';
         } else {
           const errData = await response.json().catch(() => ({}));
-          if (errData?.error) {
-            throw new Error(errData.error);
+          proxyReason = errData?.error || errData?.message || `HTTP ${response.status}`;
+          if (
+            response.status === 401 ||
+            response.status === 403 ||
+            proxyReason.includes('blocked from public sync') ||
+            proxyReason.includes('masterworld')
+          ) {
+            throw new Error(`Sync proxy rejected ${cleanPath} (${response.status}): ${proxyReason}`);
           }
         }
       } catch (proxyErr: any) {
-        if (proxyErr?.message && proxyErr.message.includes('blocked from public sync')) {
+        if (
+          proxyErr?.message &&
+          (proxyErr.message.includes('blocked from public sync') ||
+            proxyErr.message.includes('Sync proxy rejected'))
+        ) {
           throw proxyErr;
         }
+        proxyReason = proxyErr?.message || String(proxyErr);
       }
 
-      throw new Error(`Failed to upload blob for ${cleanPath}`);
+      const reasons = [
+        directReason ? `Direct: ${directReason}` : '',
+        proxyReason ? `Proxy: ${proxyReason}` : ''
+      ].filter(Boolean);
+      throw new Error(
+        reasons.length > 0
+          ? `Failed to upload blob for ${cleanPath} (${reasons.join(' | ')})`
+          : `Failed to upload blob for ${cleanPath}`
+      );
     } catch (err: any) {
       lastError = err;
       // Don't retry auth/permission/path errors
@@ -459,6 +484,7 @@ export async function uploadBlobToGitHub({
         err.message.includes('Invalid GitHub Personal Access Token') ||
         err.message.includes('GitHub write permission error') ||
         err.message.includes('blocked from public sync') ||
+        err.message.includes('Sync proxy rejected') ||
         err.message.includes('Repository')
       )) {
         throw err;
@@ -558,14 +584,15 @@ export async function testGitHubConnection(config: {
         throw new Error(`GitHub API returned HTTP ${res.status}: ${errJson.message || 'Unknown error'}`);
       }
     } catch (directErr: any) {
-      if (directErr.message && !directErr.message.includes('Failed to fetch') && !directErr.message.includes('timed out')) {
+      if (directErr.message && !directErr.message.includes('Failed to fetch') && !directErr.message.includes('timed out') && !directErr.message.includes('NetworkError')) {
         throw directErr;
       }
       console.warn('[GitHub Sync] Direct test fetch network notice, trying server proxy fallback:', directErr);
     }
   }
 
-  // 2. Fallback to server endpoint if direct browser call encountered network filtering
+  // 2. Fallback to server / edge proxy if direct browser call encountered network filtering
+  let proxyErrMsg = '';
   try {
     const res = await adminFetch('/api/github-sync/test', {
       method: 'POST',
@@ -575,9 +602,17 @@ export async function testGitHubConnection(config: {
     if (res.ok) {
       return await res.json();
     }
-  } catch (_) {}
+    const errJson = await res.json().catch(() => ({}));
+    proxyErrMsg = errJson?.error || errJson?.message || `HTTP ${res.status}`;
+  } catch (e: any) {
+    proxyErrMsg = e?.message || String(e);
+  }
 
-  throw new Error('Failed to verify GitHub connection. Please verify your Personal Access Token, repository name, and network access.');
+  throw new Error(
+    proxyErrMsg
+      ? `Failed to verify GitHub connection (${proxyErrMsg}). Please verify your Personal Access Token, repository name, and network access.`
+      : 'Failed to verify GitHub connection. Please verify your Personal Access Token, repository name, and network access.'
+  );
 }
 
 /**
@@ -837,12 +872,21 @@ export async function commitTreeToGitHub({
 
       throw new Error(`Branch "${cleanBranch}" was updated concurrently multiple times. Please retry sync.`);
     } catch (directErr: any) {
-      console.error('[GitHub Sync] Direct Git Data API error:', directErr);
-      throw directErr;
+      const msg = String(directErr?.message || '');
+      const isNetworkOrBlocked =
+        msg.includes('Failed to fetch') ||
+        msg.includes('NetworkError') ||
+        msg.includes('timed out') ||
+        msg.includes('network request failed');
+      if (!isNetworkOrBlocked) {
+        console.error('[GitHub Sync] Direct Git Data API error:', directErr);
+        throw directErr;
+      }
+      console.warn('[GitHub Sync] Direct commit-tree network notice, falling back to edge proxy:', msg);
     }
   }
 
-  // 2. Server proxy fallback ONLY if no client token was provided (backend environment token)
+  // 2. Server / Cloudflare Edge proxy fallback (used when no client token or when direct browser fetch is network-filtered)
   const response = await adminFetch('/api/github-sync/commit-tree', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
