@@ -82,22 +82,24 @@ async function startServer() {
     console.warn("[SECURITY] AES_SECRET environment variable is not set. Using secure internal fallback secret.");
   }
 
-  // Admin routes anti-caching + fail-closed authentication middleware
+  // Admin routes anti-caching + anti-indexing + fail-closed authentication middleware
   app.use(['/api/v1/admin', '/api/github-sync'], (req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     res.setHeader('Surrogate-Control', 'no-store');
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
     next();
   });
 
-  // Brute-force protection for admin authentication endpoints
+  // Brute-force protection for admin authentication endpoints (backs up 7-attempt progressive lockout)
   const adminLoginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 15,
+    max: 10,
+    skipSuccessfulRequests: true,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { ok: false, error: 'Too many login attempts. Please try again later.' }
+    message: { ok: false, locked: true, error: 'Too many failed login attempts. Sign-in is temporarily locked for 15 minutes.' }
   });
   app.use(['/api/v1/admin/login', '/api/v1/admin/auth/login', '/api/v1/admin/google-login'], adminLoginLimiter);
 

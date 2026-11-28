@@ -5,9 +5,14 @@ import { AppConfig } from '../types';
  * Strips or decodes HTML entities into clean readable plaintext.
  */
 function decodeHtmlEntities(text: string): string {
-  const element = document.createElement('textarea');
-  element.innerHTML = text;
-  return element.value;
+  if (!text) return '';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/html');
+    return doc.body?.textContent || '';
+  } catch {
+    return text.replace(/<[^>]+>/g, '');
+  }
 }
 
 /**

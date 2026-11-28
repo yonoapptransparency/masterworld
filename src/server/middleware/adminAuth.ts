@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { isAdminTokenRevoked, generateRandomJti } from '../security/adminLoginGuard';
 
 // Per-process ephemeral fallback secret when env vars are absent.
 // Never uses a static hardcoded secret string in source code.
@@ -61,6 +62,7 @@ function getFirebaseWebApiKey(): string {
 export function generateAdminToken(email: string): string {
   const { sessionSecret } = getAdminConfig();
   const payload = {
+    jti: generateRandomJti(),
     email: email.toLowerCase().trim(),
     role: 'admin',
     iat: Date.now(),
@@ -71,11 +73,15 @@ export function generateAdminToken(email: string): string {
   return `adm_v1.${payloadB64}.${signature}`;
 }
 
-export function verifySignedAdminToken(token: string): { valid: boolean; email?: string } {
+export function verifySignedAdminToken(token: string): { valid: boolean; email?: string; jti?: string; exp?: number } {
   if (!token || typeof token !== 'string') return { valid: false };
   try {
     const raw = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
     const { sessionSecret, configuredEmail } = getAdminConfig();
+
+    if (!sessionSecret || !configuredEmail) {
+      return { valid: false };
+    }
 
     if (!raw.startsWith('adm_v1.')) {
       return { valid: false };
@@ -104,8 +110,13 @@ export function verifySignedAdminToken(token: string): { valid: boolean; email?:
       typeof payload.email === 'string'
     ) {
       const tokenEmail = payload.email.toLowerCase().trim();
-      if (!configuredEmail || tokenEmail === configuredEmail) {
-        return { valid: true, email: tokenEmail };
+      if (timingSafeStringEqual(tokenEmail, configuredEmail)) {
+        return {
+          valid: true,
+          email: tokenEmail,
+          jti: typeof payload.jti === 'string' ? payload.jti : undefined,
+          exp: payload.exp
+        };
       }
     }
   } catch (_) {}
@@ -116,9 +127,12 @@ export function verifySignedAdminToken(token: string): { valid: boolean; email?:
 /**
  * Cryptographically verifies a Firebase Auth ID token (Google or Email/Password sign-in)
  * via Google's Identity Toolkit accounts:lookup endpoint and confirms the email matches
- * the configured administrator email.
+ * the configured administrator email. Used ONLY during login handshakes (/verify-session, /google-login).
  */
-export async function verifyFirebaseIdToken(idToken: string): Promise<{ valid: boolean; email?: string }> {
+export async function verifyFirebaseIdToken(
+  idToken: string,
+  options?: { requireEmailVerified?: boolean }
+): Promise<{ valid: boolean; email?: string }> {
   if (!idToken || typeof idToken !== 'string') return { valid: false };
   const raw = idToken.startsWith('Bearer ') ? idToken.slice(7).trim() : idToken.trim();
   // Firebase ID tokens are standard 3-part JWTs starting with eyJ
@@ -129,10 +143,11 @@ export async function verifyFirebaseIdToken(idToken: string): Promise<{ valid: b
   const { configuredEmail } = getAdminConfig();
   if (!configuredEmail) return { valid: false };
 
-  const cacheKey = crypto.createHash('sha256').update(raw).digest('hex');
+  const requireVerified = Boolean(options?.requireEmailVerified);
+  const cacheKey = crypto.createHash('sha256').update(`${requireVerified ? 'v1:' : 'v0:'}${raw}`).digest('hex');
   const cached = VERIFIED_FIREBASE_CACHE.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
-    if (cached.email === configuredEmail) {
+    if (timingSafeStringEqual(cached.email, configuredEmail)) {
       return { valid: true, email: cached.email };
     }
     return { valid: false };
@@ -159,9 +174,10 @@ export async function verifyFirebaseIdToken(idToken: string): Promise<{ valid: b
     const data: any = await res.json();
     const user = Array.isArray(data?.users) ? data.users[0] : null;
     if (!user || user.disabled) return { valid: false };
+    if (requireVerified && user.emailVerified !== true) return { valid: false };
 
     const verifiedEmail = String(user.email || '').toLowerCase().trim();
-    if (!verifiedEmail || verifiedEmail !== configuredEmail) {
+    if (!verifiedEmail || !timingSafeStringEqual(verifiedEmail, configuredEmail)) {
       return { valid: false };
     }
 
@@ -180,9 +196,32 @@ export async function verifyFirebaseIdToken(idToken: string): Promise<{ valid: b
   }
 }
 
-export async function verifyAdminToken(token: string): Promise<{ valid: boolean; email?: string }> {
+/**
+ * Verifies an active server-issued admin session token (`adm_v1.*`).
+ * Strictly rejects raw Firebase ID tokens so 2FA enforcement and logout revocation
+ * can never be bypassed on protected API routes.
+ */
+export async function verifyAdminToken(token: string): Promise<{ valid: boolean; email?: string; jti?: string; exp?: number }> {
   const hmacResult = verifySignedAdminToken(token);
-  if (hmacResult.valid) return hmacResult;
+  if (!hmacResult.valid) {
+    return { valid: false };
+  }
+  if (hmacResult.jti && (await isAdminTokenRevoked(hmacResult.jti))) {
+    return { valid: false };
+  }
+  return hmacResult;
+}
+
+/**
+ * Verifies either an active server-issued admin token or a Firebase ID token
+ * exclusively for the `/api/v1/admin/verify-session` login handshake, which
+ * subsequently enforces IP lockout + TOTP 2FA before minting a revocable `adm_v1.*` session.
+ */
+export async function verifyLoginHandshakeToken(token: string): Promise<{ valid: boolean; email?: string; jti?: string; exp?: number }> {
+  const activeSession = await verifyAdminToken(token);
+  if (activeSession.valid) {
+    return activeSession;
+  }
   return verifyFirebaseIdToken(token);
 }
 
@@ -190,6 +229,7 @@ export async function verifyAdminToken(token: string): Promise<{ valid: boolean;
 const ADMIN_AUTH_PUBLIC_PATHS = new Set<string>([
   '/api/v1/admin/login',
   '/api/v1/admin/auth/login',
+  '/api/v1/admin/login-status',
   '/api/v1/admin/google-login',
   '/api/v1/admin/verify',
   '/api/v1/admin/verify-session',

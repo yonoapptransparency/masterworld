@@ -39,6 +39,20 @@ function writeFileAtomic(targetPath: string, content: string | Buffer): void {
   }
 }
 
+const FORBIDDEN_RECORD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function sanitizePlainRecord<T extends Record<string, any>>(input: any): T {
+  const out: Record<string, any> = {};
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return out as T;
+  }
+  for (const [k, v] of Object.entries(input)) {
+    if (FORBIDDEN_RECORD_KEYS.has(k)) continue;
+    out[k] = v;
+  }
+  return out as T;
+}
+
 function stripTimestampFields(item: any) {
   if (!item || typeof item !== 'object') return item;
   const copy = { ...item };
@@ -336,13 +350,15 @@ adminVaultRouter.post('/api/v1/admin/app/save', async (req, res) => {
               if (id) vaultMap[id] = pUrl;
               if (slug) vaultMap[slug] = pUrl;
             }
-            const jsonPayload = JSON.stringify(vaultMap);
-            const ciphertext = hasV2Key
-              ? (await encryptAesGcmV2(jsonPayload, process.env as Record<string, string | undefined>)) || safeEncrypt(jsonPayload, AES_SECRET)
-              : safeEncrypt(jsonPayload, AES_SECRET);
-            if (ciphertext) {
-              const vaultFilePath = path.join(process.cwd(), 'src/lib/secureVault.ts');
-              fs.writeFileSync(vaultFilePath, generateSecureVaultFile(ciphertext), 'utf8');
+            if (Object.keys(vaultMap).length > 0) {
+              const jsonPayload = JSON.stringify(vaultMap);
+              const ciphertext = hasV2Key
+                ? (await encryptAesGcmV2(jsonPayload, process.env as Record<string, string | undefined>)) || safeEncrypt(jsonPayload, AES_SECRET)
+                : safeEncrypt(jsonPayload, AES_SECRET);
+              if (ciphertext) {
+                const vaultFilePath = path.join(process.cwd(), 'src/lib/secureVault.ts');
+                writeFileAtomic(vaultFilePath, generateSecureVaultFile(ciphertext));
+              }
             }
           } catch (_) {}
         });
@@ -412,9 +428,10 @@ adminVaultRouter.post('/api/v1/admin/app/delete', (req, res) => {
 adminVaultRouter.post('/api/v1/admin/save-settings', (req, res) => {
   try {
     const { settings } = req.body || {};
-    if (settings) {
+    if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
       const current = getMergedData();
-      current.settings = { ...current.settings, ...settings, last_updated: new Date().toISOString() };
+      const safeSettings = sanitizePlainRecord(settings);
+      current.settings = { ...current.settings, ...safeSettings, last_updated: new Date().toISOString() };
       writeMergedData(current, { background: true });
       return res.json({ success: true, settings: current.settings });
     }
@@ -428,13 +445,19 @@ adminVaultRouter.post('/api/v1/admin/settings/save-section', (req, res) => {
   try {
     const { section, data, settings } = req.body || {};
     const current = getMergedData();
-    if (settings && typeof settings === 'object') {
-      current.settings = { ...current.settings, ...settings, last_updated: new Date().toISOString() };
-    } else if (section) {
-      if (section === 'general' || section === 'seo') {
-        current.settings = { ...current.settings, ...(data || {}), last_updated: new Date().toISOString() };
+    if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
+      const safeSettings = sanitizePlainRecord(settings);
+      current.settings = { ...current.settings, ...safeSettings, last_updated: new Date().toISOString() };
+    } else if (typeof section === 'string' && section.trim()) {
+      const cleanSection = section.trim();
+      if (FORBIDDEN_RECORD_KEYS.has(cleanSection)) {
+        return res.status(400).json({ success: false, error: 'Invalid settings section name.' });
+      }
+      if (cleanSection === 'general' || cleanSection === 'seo') {
+        const safeData = sanitizePlainRecord(data);
+        current.settings = { ...current.settings, ...safeData, last_updated: new Date().toISOString() };
       } else {
-        current.settings = { ...current.settings, [section]: data, last_updated: new Date().toISOString() };
+        current.settings = { ...current.settings, [cleanSection]: data, last_updated: new Date().toISOString() };
       }
     }
     writeMergedData(current, { background: true });
@@ -551,7 +574,9 @@ adminVaultRouter.post('/api/v1/admin/save-data', (req, res) => {
     const { apps, settings, news, videos } = req.body || {};
     const current = getMergedData();
     if (Array.isArray(apps)) current.apps = apps;
-    if (settings && typeof settings === 'object') current.settings = { ...current.settings, ...settings };
+    if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
+      current.settings = { ...current.settings, ...sanitizePlainRecord(settings) };
+    }
     if (Array.isArray(news)) current.news = news;
     if (Array.isArray(videos)) current.videos = videos;
     writeMergedData(current);
@@ -806,7 +831,9 @@ adminVaultRouter.post('/api/v1/admin/sync-local', (req, res) => {
     const { apps, settings, news, videos, catalogStats, staticReviews } = req.body || {};
     const current = getMergedData();
     if (Array.isArray(apps) && apps.length > 0) current.apps = apps;
-    if (settings && Object.keys(settings).length > 0) current.settings = { ...(current.settings || {}), ...settings };
+    if (settings && typeof settings === 'object' && !Array.isArray(settings) && Object.keys(settings).length > 0) {
+      current.settings = { ...(current.settings || {}), ...sanitizePlainRecord(settings) };
+    }
     if (Array.isArray(news) && news.length > 0) current.news = news;
     if (Array.isArray(videos) && videos.length > 0) current.videos = videos;
     writeMergedData(current);

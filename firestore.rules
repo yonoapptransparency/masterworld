@@ -4,28 +4,75 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // ID checking helpers
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function isValidAdminId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-@.]+$');
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-@.]+$');
     }
 
-    // Helper to verify if user is authorized as an admin (via database index lookup)
+    // Helper to verify if user is authorized as an admin (null-safe)
     function isAdmin() {
-      return request.auth != null && 
-             (request.auth.token.email.lower() == 'defentechscholar@gmail.com' ||
-              exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || 
-              (request.auth.token.email != null && exists(/databases/$(database)/documents/admins/$(request.auth.token.email))));
+      return request.auth != null && (
+        (request.auth.token.email != null &&
+         request.auth.token.email.lower() == 'defentechscholar@gmail.com') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email != null &&
+         exists(/databases/$(database)/documents/admins/$(request.auth.token.email)))
+      );
     }
 
-    // Comprehensive payload validation for reviews
+    // Explicit allowlist of public catalog documents inside store_data
+    // Private documents (settings, secure_links, and any unknown doc) remain strictly admin-only
+    function isPublicStoreDoc(docId) {
+      return docId == 'public_settings' ||
+             docId == 'apps_meta' ||
+             docId == 'apps' ||
+             docId == 'faqs' ||
+             docId == 'developers' ||
+             docId == 'quick_links' ||
+             docId.matches('^apps_chunk_[0-9]+$') ||
+             docId.matches('^news(_meta|_chunk_[0-9]+)?$') ||
+             docId.matches('^videos(_meta|_chunk_[0-9]+)?$');
+    }
+
+    // Strict payload validation for public reviews (prevents oversized docs & privilege field injection)
     function isValidReview(data) {
-      return data.keys().hasAny(['appId', 'app_id']) &&
+      return data.keys().size() >= 4 &&
+             data.keys().size() <= 16 &&
+             data.keys().hasAny(['appId', 'app_id']) &&
              data.keys().hasAny(['userName', 'username']) &&
              data.keys().hasAny(['rating']) &&
              data.keys().hasAny(['reviewText', 'comment']) &&
-             data.rating is number && data.rating >= 1 && data.rating <= 5;
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             (!('reviewText' in data) || (data.reviewText is string && data.reviewText.size() <= 2000)) &&
+             (!('comment' in data) || (data.comment is string && data.comment.size() <= 2000)) &&
+             (!('userName' in data) || (data.userName is string && data.userName.size() <= 100)) &&
+             (!('username' in data) || (data.username is string && data.username.size() <= 100)) &&
+             (!('appId' in data) || (data.appId is string && data.appId.size() <= 128)) &&
+             (!('app_id' in data) || (data.app_id is string && data.app_id.size() <= 128)) &&
+             (!('isPinned' in data) || data.isPinned == false) &&
+             (!('adminReply' in data) || data.adminReply == null) &&
+             (!('helpful_count' in data) || data.helpful_count == 0);
+    }
+
+    // Strict payload validation for public reports (prevents junk/oversized writes & status spoofing)
+    function isValidReport(data) {
+      return data.keys().size() >= 1 &&
+             data.keys().size() <= 12 &&
+             data.keys().hasAny(['appId', 'app_id', 'type', 'reason']) &&
+             (!('type' in data) || (data.type is string && data.type.size() <= 40)) &&
+             (!('appId' in data) || (data.appId is string && data.appId.size() <= 128)) &&
+             (!('app_id' in data) || (data.app_id is string && data.app_id.size() <= 128)) &&
+             (!('appSlug' in data) || (data.appSlug is string && data.appSlug.size() <= 128)) &&
+             (!('appName' in data) || (data.appName is string && data.appName.size() <= 160)) &&
+             (!('reviewId' in data) || (data.reviewId is string && data.reviewId.size() <= 128)) &&
+             (!('reason' in data) || (data.reason is string && data.reason.size() <= 300)) &&
+             (!('details' in data) || (data.details is string && data.details.size() <= 1500)) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1500)) &&
+             (!('reporterEmail' in data) || (data.reporterEmail is string && data.reporterEmail.size() <= 160)) &&
+             (!('status' in data) || data.status == 'pending') &&
+             !('adminNotes' in data);
     }
 
     // Comprehensive payload validation for website feedback
@@ -47,7 +94,7 @@ service cloud.firestore {
              data.email is string && data.email.size() <= 200 &&
              data.comment is string && data.comment.size() <= 3000 &&
              data.created_at is string && data.created_at.size() <= 64 &&
-             data.status is string && data.status.size() <= 64 &&
+             data.status is string && data.status == 'open' &&
              data.source is string && data.source.size() <= 128;
     }
 
@@ -96,13 +143,21 @@ service cloud.firestore {
     // 5b. Reports collection
     match /reports/{reportId} {
       allow read: if isAdmin();
-      allow create: if request.resource.data.keys().hasAny(['appId', 'app_id', 'type', 'reason']);
+      allow create: if isValidReport(request.resource.data);
       allow update, delete: if isAdmin();
     }
 
-    // 5. Store data collection (app catalog, public settings, news, videos, secure links vault)
+    // 5. Store data collection — strictly isolate private admin docs (settings, secure_links)
+    match /store_data/settings {
+      allow read, write: if isAdmin();
+    }
+
+    match /store_data/secure_links {
+      allow read, write: if isAdmin();
+    }
+
     match /store_data/{docId} {
-      allow read: if true;
+      allow read: if isPublicStoreDoc(docId) || isAdmin();
       allow write: if isAdmin();
     }
 
@@ -116,12 +171,15 @@ service cloud.firestore {
       allow read, write: if false; // Server-side only via Admin SDK
     }
 
-    // 7. Spent Tokens collection (Token replay protection)
+    // 7. Spent Tokens collection (Token replay protection — no public collection listing)
     match /spent_tokens/{tokenId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['usedAt']) &&
+      allow get: if isValidId(tokenId);
+      allow list: if isAdmin();
+      allow create: if isValidId(tokenId) &&
+                    request.resource.data.keys().hasAll(['usedAt']) &&
                     request.resource.data.keys().size() == 1 &&
-                    request.resource.data.usedAt is string;
+                    request.resource.data.usedAt is string &&
+                    request.resource.data.usedAt.size() <= 64;
       allow update, delete: if false;
     }
 

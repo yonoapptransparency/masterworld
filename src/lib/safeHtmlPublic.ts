@@ -2,10 +2,11 @@ import DOMPurify from 'dompurify';
 
 const DOMPURIFY_CONFIG = {
   USE_PROFILES: { html: true, svg: true, svgFilters: true },
+  ALLOW_UNKNOWN_PROTOCOLS: false,
   ADD_TAGS: [
     'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse',
     'g', 'defs', 'linearGradient', 'radialGradient', 'stop', 'clipPath', 'mask',
-    'pattern', 'text', 'tspan', 'use', 'symbol', 'title', 'desc',
+    'pattern', 'text', 'tspan', 'symbol', 'title', 'desc',
     'section', 'article', 'header', 'footer', 'nav', 'aside', 'figure', 'figcaption',
     'details', 'summary', 'mark', 'time', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'
   ],
@@ -18,7 +19,9 @@ const DOMPURIFY_CONFIG = {
     'gradientUnits', 'gradientTransform', 'spreadMethod', 'offset', 'stop-color', 'stop-opacity',
     'clip-path', 'mask', 'text-anchor', 'dominant-baseline', 'font-size', 'font-weight', 'font-family',
     'preserveAspectRatio', 'role', 'aria-label', 'aria-hidden', 'focusable', 'colspan', 'rowspan', 'scope'
-  ]
+  ],
+  FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'applet', 'form', 'base', 'meta', 'link', 'style', 'foreignObject', 'animate', 'set', 'handler'],
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'srcdoc', 'style']
 };
 
 function normalizeEmbeddedHtmlHygiene(html: string): string {
@@ -53,6 +56,13 @@ function normalizeEmbeddedHtmlHygiene(html: string): string {
       }
       if (!/\brel\s*=/i.test(nextAttrs)) {
         nextAttrs += ' rel="noopener noreferrer"';
+      } else {
+        nextAttrs = nextAttrs.replace(/\brel\s*=\s*(["'])([^"']*)\1/i, (_m, q, val) => {
+          const tokens = new Set(String(val).split(/\s+/).filter(Boolean));
+          tokens.add('noopener');
+          tokens.add('noreferrer');
+          return `rel=${q}${Array.from(tokens).join(' ')}${q}`;
+        });
       }
       return `<a${nextAttrs}>`;
     });
@@ -93,9 +103,9 @@ function serverSanitize(html: string): string {
   if (!html || typeof html !== 'string') return '';
   let clean = normalizeEmbeddedHtmlHygiene(html)
     .replace(/\s+srcdoc\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/<(script|style|iframe|object|embed|applet|form|base|meta|link)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
-    .replace(/<\/?(script|style|iframe|object|embed|applet|form|base|meta|link)\b[^>]*>/gi, '')
-    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+    .replace(/<(script|style|iframe|object|embed|applet|form|base|meta|link|foreignObject|animate|set|handler)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<\/?(script|style|iframe|object|embed|applet|form|base|meta|link|foreignObject|animate|set|handler|use)\b[^>]*>/gi, '')
+    .replace(/\s+on[a-z0-9_-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
   clean = neutralizeDangerousUrls(clean)
     .replace(/javascript:/gi, 'blocked-scheme:')
     .replace(/vbscript:/gi, 'blocked-scheme:')

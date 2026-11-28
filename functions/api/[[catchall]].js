@@ -1,7 +1,18 @@
 import { handleSessionInit, handleSessionClearance } from '../../src/server/security/gateCore';
+import {
+  checkAdminLoginLock,
+  recordAdminLoginFailure,
+  clearAdminLoginFailures,
+  formatLockoutMessage,
+  revokeAdminToken,
+  isAdminTokenRevoked,
+  verifyTotpWebCrypto,
+  generateRandomJti,
+} from '../../src/server/security/adminLoginGuard';
 import { HARD_RESPONSE_STATUS, HARD_RESPONSE_BODY } from '../../src/lib/gateConfig';
 import { resolveAppSlug } from '../../src/lib/slugResolver';
 import staticData from '../../src/lib/staticData.json';
+import appletConfig from '../../firebase-applet-config.json';
 
 async function sha256Hex(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -61,7 +72,13 @@ function parseAdminConfig(env) {
     ''
   ).trim();
 
-  return { configuredEmail, configuredPassword };
+  const totpSecret = (
+    env?.ADMIN_TOTP_SECRET ||
+    env?.TOTP_SECRET ||
+    ''
+  ).trim();
+
+  return { configuredEmail, configuredPassword, totpSecret };
 }
 
 async function getAdminSessionSecret(env, configuredPassword) {
@@ -76,6 +93,7 @@ async function getAdminSessionSecret(env, configuredPassword) {
 
 async function generateAdminToken(email, sessionSecret) {
   const payload = {
+    jti: generateRandomJti(),
     email,
     role: 'admin',
     iat: Date.now(),
@@ -90,8 +108,44 @@ async function generateAdminToken(email, sessionSecret) {
   return `adm_v1.${payloadB64}.${signature}`;
 }
 
+async function verifyFirebaseIdTokenEdge(idToken, env, configuredEmail, requireEmailVerified = false) {
+  if (!idToken || !configuredEmail) return { valid: false };
+  const raw = idToken.startsWith('Bearer ') ? idToken.slice(7).trim() : idToken.trim();
+  if (!raw.startsWith('eyJ') || raw.split('.').length !== 3) return { valid: false };
+  const apiKey = (
+    env?.FIREBASE_API_KEY ||
+    env?.VITE_FIREBASE_API_KEY ||
+    appletConfig?.apiKey ||
+    ''
+  ).trim();
+  if (!apiKey) return { valid: false };
+
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: raw }),
+      }
+    );
+    if (!res.ok) return { valid: false };
+    const data = await res.json();
+    const user = Array.isArray(data?.users) ? data.users[0] : null;
+    if (!user || user.disabled) return { valid: false };
+    if (requireEmailVerified && user.emailVerified !== true) return { valid: false };
+    const verifiedEmail = String(user.email || '').toLowerCase().trim();
+    if (!verifiedEmail || !timingSafeEqualStr(verifiedEmail, configuredEmail)) {
+      return { valid: false };
+    }
+    return { valid: true, email: verifiedEmail };
+  } catch (_) {
+    return { valid: false };
+  }
+}
+
 async function verifyAdminToken(token, sessionSecret, configuredEmail) {
-  if (!token) return { valid: false };
+  if (!token || !sessionSecret || !configuredEmail) return { valid: false };
   try {
     const raw = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
     if (raw.startsWith('adm_v1.')) {
@@ -103,8 +157,16 @@ async function verifyAdminToken(token, sessionSecret, configuredEmail) {
           const binary = atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/'));
           const payload = JSON.parse(decodeURIComponent(escape(binary)));
           if (payload && payload.exp > Date.now() && payload.role === 'admin') {
-            if (!configuredEmail || payload.email.toLowerCase() === configuredEmail) {
-              return { valid: true, email: payload.email };
+            if (payload.jti && (await isAdminTokenRevoked(payload.jti))) {
+              return { valid: false };
+            }
+            if (timingSafeEqualStr(String(payload.email || '').toLowerCase().trim(), configuredEmail)) {
+              return {
+                valid: true,
+                email: payload.email,
+                jti: typeof payload.jti === 'string' ? payload.jti : undefined,
+                exp: payload.exp,
+              };
             }
           }
         }
@@ -146,30 +208,91 @@ export async function onRequest(context) {
     return new Response(out.body, { status: out.status, headers: out.headers });
   }
 
-  // 2. Admin Authentication - Login (/api/v1/admin/login & /api/v1/admin/auth/login)
+  const adminNoIndexHeaders = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+    'Pragma': 'no-cache',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet',
+  };
+
+  // 2a. Admin Lock Status (/api/v1/admin/login-status) — lets login UI display live cooldown timer across refreshes
+  if (url.pathname === '/api/v1/admin/login-status') {
+    const status = await checkAdminLoginLock(ctx.ip);
+    return new Response(JSON.stringify({
+      ok: true,
+      locked: status.locked,
+      retryAfterSeconds: status.retryAfterSeconds,
+      lockedUntil: status.lockedUntil,
+      failures: status.failures,
+      remainingAttempts: status.remainingAttempts,
+      maxAttempts: status.maxAttempts,
+    }), {
+      status: 200,
+      headers: status.locked
+        ? { ...adminNoIndexHeaders, 'Retry-After': String(status.retryAfterSeconds) }
+        : adminNoIndexHeaders,
+    });
+  }
+
+  // 2b. Admin Authentication - Login (/api/v1/admin/login & /api/v1/admin/auth/login)
   if (url.pathname === '/api/v1/admin/login' || url.pathname === '/api/v1/admin/auth/login') {
     if (request.method !== 'POST') {
       return new Response(JSON.stringify({ ok: false, error: 'Method Not Allowed' }), {
         status: 405,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        headers: adminNoIndexHeaders,
+      });
+    }
+
+    if (rawBody.length > 16384) {
+      return new Response(JSON.stringify({ ok: false, error: 'Request payload too large.' }), {
+        status: 413,
+        headers: adminNoIndexHeaders,
       });
     }
 
     let body = {};
     try { body = JSON.parse(rawBody || '{}'); } catch (_) {}
-    const { email, password } = body;
-    const { configuredEmail, configuredPassword } = parseAdminConfig(env);
+    const { email, password, code } = body;
+    const { configuredEmail, configuredPassword, totpSecret } = parseAdminConfig(env);
     const sessionSecret = await getAdminSessionSecret(env, configuredPassword);
 
     if (!email || !password) {
       return new Response(JSON.stringify({ ok: false, error: 'Email and password are required.' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        headers: adminNoIndexHeaders,
       });
     }
 
     const normalizedEmail = String(email).toLowerCase().trim();
     const inputPass = String(password).trim();
+
+    if (normalizedEmail.length > 254 || inputPass.length > 512) {
+      return new Response(JSON.stringify({ ok: false, error: 'Invalid credential input length.' }), {
+        status: 400,
+        headers: adminNoIndexHeaders,
+      });
+    }
+
+    // Check active brute-force lockout before validating credentials
+    const preLock = await checkAdminLoginLock(ctx.ip, normalizedEmail);
+    if (preLock.locked) {
+      return new Response(JSON.stringify({
+        ok: false,
+        locked: true,
+        retryAfterSeconds: preLock.retryAfterSeconds,
+        lockedUntil: preLock.lockedUntil,
+        remainingAttempts: 0,
+        maxAttempts: preLock.maxAttempts,
+        error: formatLockoutMessage(preLock.retryAfterSeconds),
+      }), {
+        status: 429,
+        headers: {
+          ...adminNoIndexHeaders,
+          'Retry-After': String(preLock.retryAfterSeconds),
+        },
+      });
+    }
 
     if (!configuredEmail) {
       return new Response(JSON.stringify({
@@ -177,7 +300,7 @@ export async function onRequest(context) {
         error: 'ADMIN_EMAIL is not configured in Cloudflare environment variables.',
       }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        headers: adminNoIndexHeaders,
       });
     }
 
@@ -187,27 +310,93 @@ export async function onRequest(context) {
         error: 'ADMIN_PASSWORD is not configured in Cloudflare environment variables.',
       }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        headers: adminNoIndexHeaders,
       });
     }
 
-    if (!timingSafeEqualStr(normalizedEmail, configuredEmail)) {
-      return new Response(JSON.stringify({ ok: false, error: 'Invalid administrator credentials.' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      });
-    }
-
+    // Constant-time evaluation for both email and password (no early return timing leak)
     const inputHash = await sha256Hex(inputPass);
+    const isEmailMatch = timingSafeEqualStr(normalizedEmail, configuredEmail);
     const isDirectMatch = timingSafeEqualStr(inputPass, configuredPassword);
     const isHashMatch = timingSafeEqualStr(inputHash, configuredPassword.toLowerCase());
 
-    if (!isDirectMatch && !isHashMatch) {
-      return new Response(JSON.stringify({ ok: false, error: 'Invalid administrator credentials.' }), {
+    if (!isEmailMatch || (!isDirectMatch && !isHashMatch)) {
+      const lockState = await recordAdminLoginFailure(ctx.ip, normalizedEmail);
+      if (lockState.locked) {
+        return new Response(JSON.stringify({
+          ok: false,
+          locked: true,
+          retryAfterSeconds: lockState.retryAfterSeconds,
+          lockedUntil: lockState.lockedUntil,
+          remainingAttempts: 0,
+          maxAttempts: lockState.maxAttempts,
+          error: formatLockoutMessage(lockState.retryAfterSeconds),
+        }), {
+          status: 429,
+          headers: {
+            ...adminNoIndexHeaders,
+            'Retry-After': String(lockState.retryAfterSeconds),
+          },
+        });
+      }
+
+      const warnSuffix = lockState.remainingAttempts <= 3
+        ? ` (${lockState.remainingAttempts} attempt${lockState.remainingAttempts === 1 ? '' : 's'} remaining before temporary lockout.)`
+        : '';
+      return new Response(JSON.stringify({
+        ok: false,
+        locked: false,
+        remainingAttempts: lockState.remainingAttempts,
+        maxAttempts: lockState.maxAttempts,
+        error: `Invalid administrator credentials.${warnSuffix}`,
+      }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        headers: adminNoIndexHeaders,
       });
     }
+
+    // Verify RFC 6238 TOTP 2FA if configured on Cloudflare environment
+    if (totpSecret) {
+      if (!code) {
+        return new Response(JSON.stringify({ ok: true, mfaRequired: true }), {
+          status: 200,
+          headers: adminNoIndexHeaders,
+        });
+      }
+      const isValidTotp = await verifyTotpWebCrypto(String(code).trim(), totpSecret);
+      if (!isValidTotp) {
+        const lockState = await recordAdminLoginFailure(ctx.ip, normalizedEmail);
+        if (lockState.locked) {
+          return new Response(JSON.stringify({
+            ok: false,
+            locked: true,
+            retryAfterSeconds: lockState.retryAfterSeconds,
+            lockedUntil: lockState.lockedUntil,
+            remainingAttempts: 0,
+            maxAttempts: lockState.maxAttempts,
+            error: formatLockoutMessage(lockState.retryAfterSeconds),
+          }), {
+            status: 429,
+            headers: {
+              ...adminNoIndexHeaders,
+              'Retry-After': String(lockState.retryAfterSeconds),
+            },
+          });
+        }
+        return new Response(JSON.stringify({
+          ok: false,
+          locked: false,
+          remainingAttempts: lockState.remainingAttempts,
+          maxAttempts: lockState.maxAttempts,
+          error: 'Invalid 2FA verification code.',
+        }), {
+          status: 401,
+          headers: adminNoIndexHeaders,
+        });
+      }
+    }
+
+    await clearAdminLoginFailures(ctx.ip, normalizedEmail);
 
     const token = await generateAdminToken(normalizedEmail, sessionSecret);
     return new Response(JSON.stringify({
@@ -222,10 +411,124 @@ export async function onRequest(context) {
       },
     }), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
-      },
+      headers: adminNoIndexHeaders,
+    });
+  }
+
+  // 2c. Admin Google Auth Verification (/api/v1/admin/google-login)
+  if (url.pathname === '/api/v1/admin/google-login') {
+    if (request.method !== 'POST') {
+      return new Response(JSON.stringify({ ok: false, error: 'Method Not Allowed' }), {
+        status: 405,
+        headers: adminNoIndexHeaders,
+      });
+    }
+    const preLock = await checkAdminLoginLock(ctx.ip);
+    if (preLock.locked) {
+      return new Response(JSON.stringify({
+        ok: false,
+        locked: true,
+        retryAfterSeconds: preLock.retryAfterSeconds,
+        lockedUntil: preLock.lockedUntil,
+        remainingAttempts: 0,
+        maxAttempts: preLock.maxAttempts,
+        error: formatLockoutMessage(preLock.retryAfterSeconds),
+      }), {
+        status: 429,
+        headers: { ...adminNoIndexHeaders, 'Retry-After': String(preLock.retryAfterSeconds) },
+      });
+    }
+
+    let body = {};
+    try { body = JSON.parse(rawBody || '{}'); } catch (_) {}
+    const idToken = String(body?.idToken || '').trim();
+    const code = body?.code;
+    const { configuredEmail, configuredPassword, totpSecret } = parseAdminConfig(env);
+    const sessionSecret = await getAdminSessionSecret(env, configuredPassword);
+
+    if (!configuredEmail || !sessionSecret) {
+      return new Response(JSON.stringify({ ok: false, error: 'Administrator authentication is not configured.' }), {
+        status: 500,
+        headers: adminNoIndexHeaders,
+      });
+    }
+
+    const fbCheck = await verifyFirebaseIdTokenEdge(idToken, env, configuredEmail, true);
+    if (!fbCheck.valid || !fbCheck.email) {
+      const lockState = await recordAdminLoginFailure(ctx.ip);
+      if (lockState.locked) {
+        return new Response(JSON.stringify({
+          ok: false,
+          locked: true,
+          retryAfterSeconds: lockState.retryAfterSeconds,
+          lockedUntil: lockState.lockedUntil,
+          remainingAttempts: 0,
+          maxAttempts: lockState.maxAttempts,
+          error: formatLockoutMessage(lockState.retryAfterSeconds),
+        }), {
+          status: 429,
+          headers: { ...adminNoIndexHeaders, 'Retry-After': String(lockState.retryAfterSeconds) },
+        });
+      }
+      return new Response(JSON.stringify({
+        ok: false,
+        locked: false,
+        remainingAttempts: lockState.remainingAttempts,
+        maxAttempts: lockState.maxAttempts,
+        error: 'Access denied: Google account could not be verified as administrator.',
+      }), {
+        status: 401,
+        headers: adminNoIndexHeaders,
+      });
+    }
+
+    if (totpSecret) {
+      if (!code) {
+        return new Response(JSON.stringify({ ok: true, mfaRequired: true, email: fbCheck.email }), {
+          status: 200,
+          headers: adminNoIndexHeaders,
+        });
+      }
+      const isValidTotp = await verifyTotpWebCrypto(String(code).trim(), totpSecret);
+      if (!isValidTotp) {
+        const lockState = await recordAdminLoginFailure(ctx.ip, fbCheck.email);
+        if (lockState.locked) {
+          return new Response(JSON.stringify({
+            ok: false,
+            locked: true,
+            retryAfterSeconds: lockState.retryAfterSeconds,
+            lockedUntil: lockState.lockedUntil,
+            remainingAttempts: 0,
+            maxAttempts: lockState.maxAttempts,
+            error: formatLockoutMessage(lockState.retryAfterSeconds),
+          }), {
+            status: 429,
+            headers: { ...adminNoIndexHeaders, 'Retry-After': String(lockState.retryAfterSeconds) },
+          });
+        }
+        return new Response(JSON.stringify({
+          ok: false,
+          locked: false,
+          remainingAttempts: lockState.remainingAttempts,
+          maxAttempts: lockState.maxAttempts,
+          error: 'Invalid 2FA verification code.',
+        }), {
+          status: 401,
+          headers: adminNoIndexHeaders,
+        });
+      }
+    }
+
+    await clearAdminLoginFailures(ctx.ip, fbCheck.email);
+    const token = await generateAdminToken(fbCheck.email, sessionSecret);
+    return new Response(JSON.stringify({
+      ok: true,
+      success: true,
+      token,
+      email: fbCheck.email,
+    }), {
+      status: 200,
+      headers: adminNoIndexHeaders,
     });
   }
 
@@ -238,13 +541,93 @@ export async function onRequest(context) {
   ) {
     let body = {};
     try { body = JSON.parse(rawBody || '{}'); } catch (_) {}
+
+    const isLoginHandshake = url.pathname === '/api/v1/admin/verify-session';
+    if (isLoginHandshake) {
+      const preLock = await checkAdminLoginLock(ctx.ip, body?.email);
+      if (preLock.locked) {
+        return new Response(JSON.stringify({
+          authorized: false,
+          valid: false,
+          locked: true,
+          retryAfterSeconds: preLock.retryAfterSeconds,
+          lockedUntil: preLock.lockedUntil,
+          remainingAttempts: 0,
+          maxAttempts: preLock.maxAttempts,
+          error: formatLockoutMessage(preLock.retryAfterSeconds),
+        }), {
+          status: 429,
+          headers: { ...adminNoIndexHeaders, 'Retry-After': String(preLock.retryAfterSeconds) },
+        });
+      }
+    }
+
     const authHeader = headers['authorization'] || '';
     const token = authHeader.replace(/^Bearer\s+/i, '') || body?.idToken || body?.token;
-    const { configuredEmail, configuredPassword } = parseAdminConfig(env);
+    const { configuredEmail, configuredPassword, totpSecret } = parseAdminConfig(env);
     const sessionSecret = await getAdminSessionSecret(env, configuredPassword);
-    const { valid, email } = await verifyAdminToken(token, sessionSecret, configuredEmail);
+    let verification = await verifyAdminToken(token, sessionSecret, configuredEmail);
+    if (!verification.valid && isLoginHandshake && token && String(token).trim().startsWith('eyJ')) {
+      verification = await verifyFirebaseIdTokenEdge(token, env, configuredEmail, false);
+    }
+    const { valid, email } = verification;
 
-    if (valid) {
+    if (valid && email) {
+      if (isLoginHandshake) {
+        if (totpSecret) {
+          const code = body?.code;
+          if (!code) {
+            return new Response(JSON.stringify({ ok: true, mfaRequired: true }), {
+              status: 200,
+              headers: adminNoIndexHeaders,
+            });
+          }
+          const isValidTotp = await verifyTotpWebCrypto(String(code).trim(), totpSecret);
+          if (!isValidTotp) {
+            const lockState = await recordAdminLoginFailure(ctx.ip, email);
+            if (lockState.locked) {
+              return new Response(JSON.stringify({
+                authorized: false,
+                valid: false,
+                locked: true,
+                retryAfterSeconds: lockState.retryAfterSeconds,
+                lockedUntil: lockState.lockedUntil,
+                remainingAttempts: 0,
+                maxAttempts: lockState.maxAttempts,
+                error: formatLockoutMessage(lockState.retryAfterSeconds),
+              }), {
+                status: 429,
+                headers: { ...adminNoIndexHeaders, 'Retry-After': String(lockState.retryAfterSeconds) },
+              });
+            }
+            return new Response(JSON.stringify({
+              authorized: false,
+              valid: false,
+              locked: false,
+              remainingAttempts: lockState.remainingAttempts,
+              maxAttempts: lockState.maxAttempts,
+              error: 'Invalid 2FA verification code.',
+            }), {
+              status: 401,
+              headers: adminNoIndexHeaders,
+            });
+          }
+        }
+        await clearAdminLoginFailures(ctx.ip, email);
+        const sessionToken = await generateAdminToken(email, sessionSecret);
+        return new Response(JSON.stringify({
+          authorized: true,
+          valid: true,
+          authenticated: true,
+          role: 'admin',
+          email,
+          token: sessionToken,
+        }), {
+          status: 200,
+          headers: adminNoIndexHeaders,
+        });
+      }
+
       return new Response(JSON.stringify({
         authorized: true,
         valid: true,
@@ -253,48 +636,94 @@ export async function onRequest(context) {
         email,
       }), {
         status: 200,
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-        },
+        headers: adminNoIndexHeaders,
+      });
+    }
+
+    if (isLoginHandshake) {
+      const lockState = await recordAdminLoginFailure(ctx.ip, body?.email);
+      if (lockState.locked) {
+        return new Response(JSON.stringify({
+          authorized: false,
+          valid: false,
+          locked: true,
+          retryAfterSeconds: lockState.retryAfterSeconds,
+          lockedUntil: lockState.lockedUntil,
+          remainingAttempts: 0,
+          maxAttempts: lockState.maxAttempts,
+          error: formatLockoutMessage(lockState.retryAfterSeconds),
+        }), {
+          status: 429,
+          headers: { ...adminNoIndexHeaders, 'Retry-After': String(lockState.retryAfterSeconds) },
+        });
+      }
+      return new Response(JSON.stringify({
+        authorized: false,
+        valid: false,
+        locked: false,
+        remainingAttempts: lockState.remainingAttempts,
+        maxAttempts: lockState.maxAttempts,
+        error: 'Unauthorized session.',
+      }), {
+        status: 401,
+        headers: adminNoIndexHeaders,
       });
     }
 
     return new Response(JSON.stringify({ authorized: false, valid: false, error: 'Unauthorized session.' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store, private' },
+      headers: adminNoIndexHeaders,
     });
   }
 
-  // 4. Admin Authentication - Refresh Token
+  // 4. Admin Authentication - Refresh Token (with immediate rotation & revocation of old jti)
   if (url.pathname === '/api/v1/admin/refresh-token') {
+    if (request.method !== 'POST') {
+      return new Response(JSON.stringify({ ok: false, error: 'Method Not Allowed' }), {
+        status: 405,
+        headers: adminNoIndexHeaders,
+      });
+    }
     let body = {};
     try { body = JSON.parse(rawBody || '{}'); } catch (_) {}
     const authHeader = headers['authorization'] || '';
     const token = authHeader.replace(/^Bearer\s+/i, '') || body?.idToken || body?.token;
     const { configuredEmail, configuredPassword } = parseAdminConfig(env);
     const sessionSecret = await getAdminSessionSecret(env, configuredPassword);
-    const { valid, email } = await verifyAdminToken(token, sessionSecret, configuredEmail);
+    const verification = await verifyAdminToken(token, sessionSecret, configuredEmail, env);
 
-    if (valid && email) {
-      const newToken = await generateAdminToken(email, sessionSecret);
-      return new Response(JSON.stringify({ token: newToken, expiresAt: Date.now() + 55 * 60 * 1000 }), {
+    if (verification.valid && verification.email) {
+      if (verification.jti) {
+        await revokeAdminToken(verification.jti, verification.exp);
+      }
+      const newToken = await generateAdminToken(verification.email, sessionSecret);
+      return new Response(JSON.stringify({ ok: true, token: newToken, expiresAt: Date.now() + 55 * 60 * 1000 }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        headers: adminNoIndexHeaders,
       });
     }
 
-    return new Response(JSON.stringify({ error: 'Invalid or expired token.' }), {
+    return new Response(JSON.stringify({ ok: false, error: 'Invalid or expired token.' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: adminNoIndexHeaders,
     });
   }
 
-  // 5. Admin Authentication - Logout
+  // 5. Admin Authentication - Logout (immediately revokes caller token jti)
   if (url.pathname === '/api/v1/admin/logout' || url.pathname === '/api/v1/admin/auth/logout') {
+    let body = {};
+    try { body = JSON.parse(rawBody || '{}'); } catch (_) {}
+    const authHeader = headers['authorization'] || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '') || body?.idToken || body?.token;
+    const { configuredEmail, configuredPassword } = parseAdminConfig(env);
+    const sessionSecret = await getAdminSessionSecret(env, configuredPassword);
+    const verification = await verifyAdminToken(token, sessionSecret, configuredEmail, env);
+    if (verification.valid && verification.jti) {
+      await revokeAdminToken(verification.jti, verification.exp);
+    }
     return new Response(JSON.stringify({ ok: true, success: true }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: adminNoIndexHeaders,
     });
   }
 
@@ -307,7 +736,7 @@ export async function onRequest(context) {
     const token = authHeader.replace(/^Bearer\s+/i, '').trim();
     const { configuredEmail, configuredPassword } = parseAdminConfig(env);
     const sessionSecret = await getAdminSessionSecret(env, configuredPassword);
-    const authCheck = await verifyAdminToken(token, sessionSecret, configuredEmail);
+    const authCheck = await verifyAdminToken(token, sessionSecret, configuredEmail, env);
     if (!authCheck.valid) {
       return new Response(JSON.stringify({
         success: false,
@@ -315,7 +744,7 @@ export async function onRequest(context) {
         error: 'Administrator authentication required.'
       }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
+        headers: adminNoIndexHeaders
       });
     }
   }
@@ -473,8 +902,7 @@ export async function onRequest(context) {
       new Response(JSON.stringify(payload), {
         status,
         headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Cache-Control': 'no-store, private',
+          ...adminNoIndexHeaders,
         },
       });
 
@@ -486,7 +914,7 @@ export async function onRequest(context) {
     const adminToken = authHeader.replace(/^Bearer\s+/i, '').trim();
     const { configuredEmail, configuredPassword } = parseAdminConfig(env);
     const sessionSecret = await getAdminSessionSecret(env, configuredPassword);
-    const authCheck = await verifyAdminToken(adminToken, sessionSecret, configuredEmail);
+    const authCheck = await verifyAdminToken(adminToken, sessionSecret, configuredEmail, env);
     if (!authCheck.valid) {
       return jsonNoStore({ success: false, error: 'Administrator authentication required.' }, 401);
     }

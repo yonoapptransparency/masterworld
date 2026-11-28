@@ -1084,6 +1084,300 @@ async function verifyModulesAndLiveServer() {
       coreCandidatesCleanOk && firewallOk && gitShaOk && preflightAndAtomicOk && manifestBuilderOk && edgeSyncProxyOk,
       `CoreFiles(0 missing, +_middleware, -dup vault/robots): ${coreCandidatesCleanOk}, PathFirewall: ${firewallOk}, GitBlobSHA1(ce013625...): ${gitShaOk}, PreFlight+NonForce422+AtomicDisk+SplitSync: ${preflightAndAtomicOk}, EdgeManifestDraftFilter: ${manifestBuilderOk}, EdgeSyncProxy(Unauth=${unauthBlobRes.status}, Masterworld=${masterworldBlockRes.status}, .env=${envBlockRes.status}): ${edgeSyncProxyOk}`
     );
+
+    // 12. Admin Anti-Indexing & Deep Login Security Verification (ADMIN-SEC-1..8)
+    const appAdminSrc = fs.readFileSync(path.join(process.cwd(), 'src/AppAdmin.tsx'), 'utf8');
+    const adminAuthSvcSrc = fs.readFileSync(path.join(process.cwd(), 'src/services/adminAuthService.ts'), 'utf8');
+    const useAdminAuthSrc = fs.readFileSync(path.join(process.cwd(), 'src/hooks/useAdminAuth.ts'), 'utf8');
+    const adminLoginSrc = fs.readFileSync(path.join(process.cwd(), 'src/components/AdminLogin.tsx'), 'utf8');
+
+    const adminSplitNoIndexOk =
+      splitSyncYml.includes('Disallow: /') &&
+      splitSyncYml.includes('X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex') &&
+      splitSyncYml.includes('rm -f public/sitemap*.xml') &&
+      splitSyncYml.includes('<title>Admin Portal</title>') &&
+      appAdminSrc.includes('noindex, nofollow, noarchive, nosnippet, noimageindex');
+
+    const bareAdminHeadersOk =
+      (headerBlocks.get('/admin') || []).some(l => l.includes('noindex')) &&
+      (headerBlocks.get('/login') || []).some(l => l.includes('noindex')) &&
+      (headerBlocks.get('/masterworld') || []).some(l => l.includes('noindex'));
+
+    // Client-side fail-closed hardening & Lockout Pop-Up Modal checks
+    const clientSecurityOk =
+      !adminAuthSvcSrc.includes('OFFLINE_ADMIN_SESSION') &&
+      !adminAuthSvcSrc.includes('VITE_ADMIN_PASSWORD') &&
+      adminAuthSvcSrc.includes('sessionStorage.setItem(SESSION_KEY') &&
+      adminAuthSvcSrc.includes('/api/v1/admin/login-status') &&
+      !useAdminAuthSrc.includes('userEmail === configuredEmail') &&
+      !adminLoginSrc.includes('userEmail === configuredEmail') &&
+      adminLoginSrc.includes('fetchAdminLoginStatus') &&
+      adminLoginSrc.includes('role="alertdialog"') &&
+      adminLoginSrc.includes('Sign-In Temporarily Locked');
+
+    // Live 7-attempt brute-force lockout + GET /api/v1/admin/login-status simulation
+    const bruteEnv = { ADMIN_EMAIL: 'owner@test.local', ADMIN_PASSWORD: 'Correct-Password-123!' };
+    const attackerIp = '203.0.113.77';
+    const legitIp = '198.51.100.42';
+    const attemptStatuses: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      const r = await edgeApiHandler({
+        request: new Request('https://masterworld.pages.dev/api/v1/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': attackerIp },
+          body: JSON.stringify({ email: 'owner@test.local', password: `wrong-pass-${i}` })
+        }),
+        env: bruteEnv
+      });
+      attemptStatuses.push(r.status);
+    }
+    const eighthAttempt = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': attackerIp },
+        body: JSON.stringify({ email: 'owner@test.local', password: 'Correct-Password-123!' })
+      }),
+      env: bruteEnv
+    });
+    const eighthBody: any = await eighthAttempt.json();
+
+    const lockedStatusRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/login-status', {
+        method: 'GET',
+        headers: { 'cf-connecting-ip': attackerIp }
+      }),
+      env: bruteEnv
+    });
+    const lockedStatusJson: any = await lockedStatusRes.json();
+
+    const cleanStatusRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/login-status', {
+        method: 'GET',
+        headers: { 'cf-connecting-ip': legitIp }
+      }),
+      env: bruteEnv
+    });
+    const cleanStatusJson: any = await cleanStatusRes.json();
+
+    const legitLoginRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': legitIp },
+        body: JSON.stringify({ email: 'owner@test.local', password: 'Correct-Password-123!' })
+      }),
+      env: bruteEnv
+    });
+    const legitLoginJson: any = await legitLoginRes.json();
+    const initialToken = String(legitLoginJson?.token || '');
+
+    const bruteForceLockOk =
+      attemptStatuses.slice(0, 6).every(s => s === 401) &&
+      attemptStatuses[6] === 429 &&
+      eighthAttempt.status === 429 &&
+      Boolean(eighthAttempt.headers.get('retry-after')) &&
+      eighthBody?.locked === true &&
+      (eighthAttempt.headers.get('x-robots-tag') || '').includes('noindex') &&
+      lockedStatusRes.status === 200 &&
+      lockedStatusJson?.locked === true &&
+      Number(lockedStatusJson?.retryAfterSeconds) > 0 &&
+      cleanStatusRes.status === 200 &&
+      cleanStatusJson?.locked === false &&
+      legitLoginRes.status === 200 &&
+      Boolean(initialToken) &&
+      (legitLoginRes.headers.get('x-robots-tag') || '').includes('noindex');
+
+    // Token Rotation (refresh revokes old jti) + Logout Revocation (logout revokes active jti)
+    const verifyBeforeRefresh = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/verify', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${initialToken}`, 'cf-connecting-ip': legitIp }
+      }),
+      env: bruteEnv
+    });
+    const refreshRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/refresh-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${initialToken}`, 'cf-connecting-ip': legitIp },
+        body: JSON.stringify({ idToken: initialToken })
+      }),
+      env: bruteEnv
+    });
+    const refreshJson: any = await refreshRes.json();
+    const rotatedToken = String(refreshJson?.token || '');
+    const verifyOldAfterRefresh = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/verify', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${initialToken}`, 'cf-connecting-ip': legitIp }
+      }),
+      env: bruteEnv
+    });
+    const verifyNewAfterRefresh = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/verify', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${rotatedToken}`, 'cf-connecting-ip': legitIp }
+      }),
+      env: bruteEnv
+    });
+    const logoutRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rotatedToken}`, 'cf-connecting-ip': legitIp },
+        body: JSON.stringify({ idToken: rotatedToken })
+      }),
+      env: bruteEnv
+    });
+    const verifyAfterLogout = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/verify', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${rotatedToken}`, 'cf-connecting-ip': legitIp }
+      }),
+      env: bruteEnv
+    });
+
+    const tokenLifecycleOk =
+      verifyBeforeRefresh.status === 200 &&
+      refreshRes.status === 200 &&
+      Boolean(rotatedToken) &&
+      rotatedToken !== initialToken &&
+      verifyOldAfterRefresh.status === 401 &&
+      verifyNewAfterRefresh.status === 200 &&
+      logoutRes.status === 200 &&
+      verifyAfterLogout.status === 401;
+
+    // Web Crypto RFC 6238 TOTP 2FA enforcement on Cloudflare Pages login (cross-verified against OTPAuth)
+    const OTPAuth = await import('otpauth');
+    const totpTestSecret = 'JBSWY3DPEHPK3PXP';
+    const totpEnv = { ...bruteEnv, ADMIN_TOTP_SECRET: totpTestSecret };
+    const totpIp = '198.51.100.88';
+    const mfaChallengeRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': totpIp },
+        body: JSON.stringify({ email: 'owner@test.local', password: 'Correct-Password-123!' })
+      }),
+      env: totpEnv
+    });
+    const mfaChallengeJson: any = await mfaChallengeRes.json();
+    const mfaBadRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': totpIp },
+        body: JSON.stringify({ email: 'owner@test.local', password: 'Correct-Password-123!', code: '000000' })
+      }),
+      env: totpEnv
+    });
+    const validTotpCode = new OTPAuth.TOTP({
+      issuer: 'AdminVault',
+      algorithm: 'SHA1',
+      digits: 6,
+      period: 30,
+      secret: totpTestSecret,
+    }).generate();
+    const mfaGoodRes = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': totpIp },
+        body: JSON.stringify({ email: 'owner@test.local', password: 'Correct-Password-123!', code: validTotpCode })
+      }),
+      env: totpEnv
+    });
+    const mfaGoodJson: any = await mfaGoodRes.json();
+    // Verify /api/v1/admin/verify-session also enforces 2FA (no bypass) & failure lockout
+    const verifySessChallenge = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/verify-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${mfaGoodJson?.token || ''}`, 'cf-connecting-ip': totpIp },
+        body: JSON.stringify({ email: 'owner@test.local' })
+      }),
+      env: totpEnv
+    });
+    const verifySessChallengeJson: any = await verifySessChallenge.json();
+    const verifySessGood = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/verify-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${mfaGoodJson?.token || ''}`, 'cf-connecting-ip': totpIp },
+        body: JSON.stringify({ email: 'owner@test.local', code: validTotpCode })
+      }),
+      env: totpEnv
+    });
+    const verifySessGoodJson: any = await verifySessGood.json();
+    // Verify raw Firebase JWTs cannot bypass /api/v1/admin/verify (must hold server-issued revocable adm_v1 token)
+    const rawFbBypassAttempt = await edgeApiHandler({
+      request: new Request('https://masterworld.pages.dev/api/v1/admin/verify', {
+        method: 'GET',
+        headers: { Authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.eyJlbWFpbCI6Im93bmVyQHRlc3QubG9jYWwifQ.fake', 'cf-connecting-ip': totpIp }
+      }),
+      env: totpEnv
+    });
+    const adminAuthMwSrc = fs.readFileSync(path.join(process.cwd(), 'src/server/middleware/adminAuth.ts'), 'utf8');
+    const authRouteSrc = fs.readFileSync(path.join(process.cwd(), 'src/server/routes/adminAuthRoutes.ts'), 'utf8');
+    const edgeApiSrc = fs.readFileSync(path.join(process.cwd(), 'functions/api/[[catchall]].js'), 'utf8');
+    const unbypassableLoginOk =
+      rawFbBypassAttempt.status === 401 &&
+      !useAdminAuthSrc.includes('currentUser.getIdToken') &&
+      useAdminAuthSrc.includes("token.startsWith('adm_v1.')") &&
+      adminAuthMwSrc.includes('verifyLoginHandshakeToken') &&
+      adminAuthMwSrc.includes('requireEmailVerified') &&
+      authRouteSrc.includes('requireEmailVerified: true') &&
+      edgeApiSrc.includes('verifyFirebaseIdTokenEdge(idToken, env, configuredEmail, true)') &&
+      adminLoginSrc.includes('verifyGoogleAdminLogin') &&
+      adminLoginSrc.includes('CapsLock') &&
+      adminLoginSrc.includes('Verification code') &&
+      !adminLoginSrc.includes('Automatic Lockout Protection') &&
+      !adminLoginSrc.includes('Server-Verified Sessions') &&
+      !adminLoginSrc.includes('Tab-scoped session');
+
+    const totp2faOk =
+      mfaChallengeRes.status === 200 &&
+      mfaChallengeJson?.mfaRequired === true &&
+      mfaBadRes.status === 401 &&
+      mfaGoodRes.status === 200 &&
+      Boolean(mfaGoodJson?.token) &&
+      verifySessChallenge.status === 200 &&
+      verifySessChallengeJson?.mfaRequired === true &&
+      verifySessGood.status === 200 &&
+      verifySessGoodJson?.authorized === true &&
+      Boolean(verifySessGoodJson?.token) &&
+      unbypassableLoginOk;
+
+    // Backend route & inner-layer hardening checks: no mass-assignment ...body on public writes, atomic writes, upload allowlist, anti-IP-spoof, Firestore isolation, HTML sanitizer, DOM sink removal, prototype-pollution guards, v2 encrypted storage
+    const reportRouteSrc = fs.readFileSync(path.join(process.cwd(), 'src/server/routes/reportRoutes.ts'), 'utf8');
+    const communityRouteSrc = fs.readFileSync(path.join(process.cwd(), 'src/server/routes/communityRoutes.ts'), 'utf8');
+    const uploadRouteSrc = fs.readFileSync(path.join(process.cwd(), 'src/server/routes/uploadRoutes.ts'), 'utf8');
+    const firestoreRulesSrc = fs.readFileSync(path.join(process.cwd(), 'firestore.rules'), 'utf8');
+    const safeHtmlSrc = fs.readFileSync(path.join(process.cwd(), 'src/lib/safeHtmlPublic.ts'), 'utf8');
+    const pdfExportSrc = fs.readFileSync(path.join(process.cwd(), 'src/lib/appPdfExport.ts'), 'utf8');
+    const secureStorageSrc = fs.readFileSync(path.join(process.cwd(), 'src/lib/secureStorage.ts'), 'utf8');
+    const communityFirebaseSrc = fs.readFileSync(path.join(process.cwd(), 'src/lib/communityFirebase.ts'), 'utf8');
+    const backendHardeningOk =
+      !reportRouteSrc.includes('...body') &&
+      !communityRouteSrc.includes('...body') &&
+      communityRouteSrc.includes('writeFileAtomicSync(') &&
+      uploadRouteSrc.includes('ALLOWED_RASTER_MIMES') &&
+      uploadRouteSrc.includes('::ffff:') &&
+      authRouteSrc.includes("req.headers?.['cf-ray']");
+    const innerSecurityOk =
+      firestoreRulesSrc.includes('match /store_data/settings') &&
+      firestoreRulesSrc.includes('match /store_data/secure_links') &&
+      firestoreRulesSrc.includes('function isPublicStoreDoc(') &&
+      firestoreRulesSrc.includes('function isValidReport(') &&
+      firestoreRulesSrc.includes('allow list: if isAdmin();') &&
+      safeHtmlSrc.includes('FORBID_TAGS') &&
+      safeHtmlSrc.includes('ALLOW_UNKNOWN_PROTOCOLS: false') &&
+      safeHtmlSrc.includes('foreignObject') &&
+      !pdfExportSrc.includes('.innerHTML =') &&
+      vaultRouteSrc.includes('FORBIDDEN_RECORD_KEYS') &&
+      secureStorageSrc.includes('v2:') &&
+      secureStorageSrc.includes('150000') &&
+      secureStorageSrc.includes('sessionStorage') &&
+      !communityFirebaseSrc.includes("localStorage.getItem('__adm_session')");
+
+    record(
+      'ADMIN-SEC-1..8',
+      'Admin Anti-Indexing, 7-Attempt Lockout + Timer Status, Token Rotation/Revocation, Unbypassable TOTP 2FA & Inner/Backend Hardening',
+      adminSplitNoIndexOk && bareAdminHeadersOk && clientSecurityOk && bruteForceLockOk && tokenLifecycleOk && totp2faOk && backendHardeningOk && innerSecurityOk,
+      `NoIndex: ${adminSplitNoIndexOk && bareAdminHeadersOk}, ClientFailClosed+Modal: ${clientSecurityOk}, BruteForce7Lock+Status(7th=${attemptStatuses[6]}, 8th=${eighthAttempt.status}, StatusLocked=${lockedStatusJson?.locked}, CleanLocked=${cleanStatusJson?.locked}, LegitIP=${legitLoginRes.status}): ${bruteForceLockOk}, TokenRotate+LogoutRevoke(Old=${verifyOldAfterRefresh.status}, New=${verifyNewAfterRefresh.status}, PostLogout=${verifyAfterLogout.status}): ${tokenLifecycleOk}, UnbypassableTOTP+Google2FA(RawFbVerify=${rawFbBypassAttempt.status}, VerifySess2FA=${verifySessChallengeJson?.mfaRequired}, Good=${verifySessGood.status}): ${totp2faOk}, BackendRoutesHardened: ${backendHardeningOk}, InnerHardening(FirestoreRules+Sanitizer+NoDomSink+ProtoGuard+V2Crypto): ${innerSecurityOk}`
+    );
   } catch (isoErr: any) {
     record('SEO-ISOLATION-1..8', 'Zero /moreinfo Leak & Attribution Isolation', false, isoErr?.message || String(isoErr));
   }

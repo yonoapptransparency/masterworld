@@ -978,7 +978,7 @@ async function safeAdminFetch(url: string, opts?: any): Promise<Response> {
   const headers: Record<string, string> = { ...(opts?.headers || {}) };
   if (typeof window !== 'undefined') {
     try {
-      const rawSession = localStorage.getItem('__adm_session') || sessionStorage.getItem('__adm_session');
+      const rawSession = sessionStorage.getItem('__adm_session');
       if (rawSession) {
         const parsed = JSON.parse(rawSession);
         if (parsed?.idToken && !headers['Authorization']) {
@@ -987,7 +987,7 @@ async function safeAdminFetch(url: string, opts?: any): Promise<Response> {
       }
     } catch (_) {}
   }
-  return fetch(url, { ...opts, headers, credentials: 'include' });
+  return fetch(url, { ...opts, headers, credentials: 'include', cache: 'no-store' });
 }
 
 export interface AdminReviewItem {

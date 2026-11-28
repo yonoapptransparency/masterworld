@@ -1,7 +1,7 @@
 /**
  * adminAuthService.ts
- * Handles Firebase admin authentication, token refresh, and session management.
- * Drop this file into src/services/ in your project.
+ * Handles server-verified admin authentication, token refresh/rotation,
+ * tab-scoped session storage, lockout status lookup, and clean revocation on sign-out.
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18,6 +18,21 @@ export interface AuthResult {
   ok: boolean;
   session?: AdminSession;
   error?: string;
+  locked?: boolean;
+  retryAfterSeconds?: number;
+  lockedUntil?: number;
+  remainingAttempts?: number;
+  maxAttempts?: number;
+}
+
+export interface AdminLoginStatus {
+  ok: boolean;
+  locked: boolean;
+  retryAfterSeconds: number;
+  lockedUntil: number;
+  failures: number;
+  remainingAttempts: number;
+  maxAttempts: number;
 }
 
 let appletConfig: any = {};
@@ -25,13 +40,12 @@ try {
   // @ts-ignore
   appletConfig = require('../../firebase-applet-config.json');
 } catch (_) {}
-import { safeEncrypt, getFallbackAes } from "../lib/cryptoUtils";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 const SESSION_KEY = "__adm_session";
-const TOKEN_LIFETIME_MS = 55 * 60 * 1000; // 55 minutes (Firebase tokens last 60m)
+const TOKEN_LIFETIME_MS = 55 * 60 * 1000; // 55 minutes (server tokens expire at 60m)
 const B64_FALLBACK = "ewogICJwcm9qZWN0SWQiOiAiZ2VuLWxhbmctY2xpZW50LTA4MjU4MzI0OTMiLAogICJhcHBJZCI6ICIxOjEwMzk3Mzk4OTg3NDp3ZWI6NzMzYTZhZmQ4ZTgzNzIyNDkwMGY2YiIsCiAgImFwaUtleSI6ICJBSXphU3lCZXk5c1ViZVdscmNYUzJrbDRld096a1R5NGFyZzAzT2siLAogICJhdXRoRG9tYWluIjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlYXBwLmNvbSIsCiAgImZpcmVzdG9yZURhdGFiYXNlSWQiOiAiYWktc3R1ZGlvLXlvbm9zdG9yZS04ODYzMTVhNC04YjlmLTRmZjYtODk4Ni1hOTBhZDE3MjIxMGEiLAogICJzdG9yYWdlQnVja2V0IjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlc3RvcmFnZS5hcHAiLAogICJtZXNzYWdpbmdTZW5kZXJJZCI6ICIxMDM5NzM5ODk4NzQiLAogICJtZWFzdXJlbWVudElkIjogIiIsCiAgIm9BdXRoQ2xpZW50SWQiOiAiMTAzOTczOTg5ODc0LXQ0N252ODdrNTMycHQ4NHMyaTF0a2wwdmttYmloOWs2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwKICAicmVjYXB0Y2hhU2l0ZUtleSI6ICIiCn0=";
 
 const isRealValue = (key: string | undefined): boolean => {
@@ -59,8 +73,8 @@ const getResolvedApiKey = (): string => {
   if (isRealValue(cfgKey)) return cfgKey;
 
   try {
-    const decoded = typeof atob === 'function' 
-      ? atob(B64_FALLBACK) 
+    const decoded = typeof atob === 'function'
+      ? atob(B64_FALLBACK)
       : Buffer.from(B64_FALLBACK, 'base64').toString('utf8');
     const fallbackObj = JSON.parse(decoded);
     if (fallbackObj && isRealValue(fallbackObj.apiKey)) {
@@ -72,31 +86,32 @@ const getResolvedApiKey = (): string => {
 };
 
 const FIREBASE_API_KEY = getResolvedApiKey();
-
-const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
-  return isRealValue(key);
-};
-
-const IS_API_KEY_REAL = isFirebaseApiKeyReal(FIREBASE_API_KEY);
+const IS_API_KEY_REAL = isRealValue(FIREBASE_API_KEY);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SESSION STORAGE (localStorage — cleared when tab closes)
+// TAB-SCOPED SESSION STORAGE (sessionStorage — cleared when browser tab closes)
 // ─────────────────────────────────────────────────────────────────────────────
 export function saveSession(session: AdminSession): void {
   try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    // Always purge any legacy persistent localStorage token
+    localStorage.removeItem(SESSION_KEY);
   } catch (_) {}
 }
 
 export function loadSession(): AdminSession | null {
   try {
-    let raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) {
-      raw = sessionStorage.getItem(SESSION_KEY);
-    }
+    // Purge legacy localStorage session if present so tokens never survive browser restart
+    try {
+      if (localStorage.getItem(SESSION_KEY)) {
+        localStorage.removeItem(SESSION_KEY);
+      }
+    } catch (_) {}
+
+    const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const parsed: AdminSession = JSON.parse(raw);
-    if (!parsed.idToken) return null;
+    if (!parsed || typeof parsed.idToken !== 'string' || !parsed.idToken) return null;
     if (parsed.expiresAt && Date.now() >= parsed.expiresAt) {
       clearSession();
       return null;
@@ -109,8 +124,8 @@ export function loadSession(): AdminSession | null {
 
 export function clearSession(): void {
   try {
-    localStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
   } catch (_) {}
 }
 
@@ -120,35 +135,71 @@ export function isSessionExpired(session: AdminSession): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TOKEN REFRESH
+// LOGIN LOCKOUT STATUS CHECK (persists countdown across page reloads)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function fetchAdminLoginStatus(): Promise<AdminLoginStatus | null> {
+  try {
+    const res = await fetch('/api/v1/admin/login-status', {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    });
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok || !contentType.includes('application/json')) return null;
+    const data = await res.json().catch(() => null);
+    if (!data || typeof data.locked !== 'boolean') return null;
+    return {
+      ok: Boolean(data.ok),
+      locked: Boolean(data.locked),
+      retryAfterSeconds: Math.max(0, Number(data.retryAfterSeconds) || 0),
+      lockedUntil: Number(data.lockedUntil) || 0,
+      failures: Math.max(0, Number(data.failures) || 0),
+      remainingAttempts: Math.max(0, Number(data.remainingAttempts ?? 7)),
+      maxAttempts: Math.max(1, Number(data.maxAttempts) || 7),
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOKEN REFRESH (with server-side rotation)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function refreshIdToken(
   refreshToken: string
 ): Promise<{ idToken: string; expiresAt: number } | null> {
   const session = loadSession();
-  if (refreshToken === 'MOCK_ADMIN_REFRESH' || refreshToken === 'SERVER_SESSION' || !refreshToken || !IS_API_KEY_REAL) {
+  if (refreshToken === 'SERVER_SESSION' || !refreshToken || !IS_API_KEY_REAL) {
     if (session && session.idToken) {
       try {
         const res = await fetch("/api/v1/admin/refresh-token", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.idToken}` },
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.idToken}`,
+          },
           body: JSON.stringify({ idToken: session.idToken }),
         });
         if (res.ok) {
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
           if (data.token) {
             return {
               idToken: data.token,
-              expiresAt: Date.now() + TOKEN_LIFETIME_MS,
+              expiresAt: Number(data.expiresAt) || (Date.now() + TOKEN_LIFETIME_MS),
             };
           }
         }
+        if (res.status === 401 || res.status === 403) {
+          clearSession();
+          return null;
+        }
       } catch (_) {}
-      return {
-        idToken: session.idToken,
-        expiresAt: Date.now() + TOKEN_LIFETIME_MS,
-      };
     }
+    return null;
   }
 
   try {
@@ -161,26 +212,15 @@ export async function refreshIdToken(
       }
     );
     if (!res.ok) {
-      if (session && session.idToken) {
-        return {
-          idToken: session.idToken,
-          expiresAt: Date.now() + TOKEN_LIFETIME_MS,
-        };
-      }
       return null;
     }
     const data = await res.json();
+    if (!data?.id_token) return null;
     return {
       idToken: data.id_token,
       expiresAt: Date.now() + TOKEN_LIFETIME_MS,
     };
   } catch (_) {
-    if (session && session.idToken) {
-      return {
-        idToken: session.idToken,
-        expiresAt: Date.now() + TOKEN_LIFETIME_MS,
-      };
-    }
     return null;
   }
 }
@@ -190,53 +230,50 @@ export async function refreshIdToken(
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getValidAdminToken(): Promise<string | null> {
   const session = loadSession();
-  if (session && session.idToken) {
-    // If still in standard validity window
-    if (!session.expiresAt || Date.now() < session.expiresAt - 2 * 60 * 1000) {
-      return session.idToken;
-    }
+  if (!session || !session.idToken) {
+    return null;
+  }
 
-    // Attempt refresh
-    try {
-      const refreshed = await refreshIdToken(session.refreshToken);
-      if (refreshed?.idToken) {
-        const updated: AdminSession = {
-          ...session,
-          idToken: refreshed.idToken,
-          expiresAt: refreshed.expiresAt,
-        };
-        saveSession(updated);
-        return updated.idToken;
-      }
-    } catch (_) {}
-    
-    // Always fall back to existing token rather than dropping authorization prematurely
+  // Still inside normal validity window
+  if (!session.expiresAt || Date.now() < session.expiresAt - 2 * 60 * 1000) {
     return session.idToken;
   }
 
-  // Fallback: Check Firebase Auth client SDK
+  // Attempt rotation/refresh
   try {
-    const { getAuth } = await import('firebase/auth');
-    const auth = getAuth();
-    if (auth && auth.currentUser) {
-      const idToken = await auth.currentUser.getIdToken();
-      if (idToken) {
-        saveSession({
-          idToken,
-          refreshToken: auth.currentUser.refreshToken || 'FIREBASE_CLIENT',
-          email: auth.currentUser.email || 'admin',
-          expiresAt: Date.now() + TOKEN_LIFETIME_MS
-        });
-        return idToken;
-      }
+    const refreshed = await refreshIdToken(session.refreshToken);
+    if (refreshed?.idToken) {
+      const updated: AdminSession = {
+        ...session,
+        idToken: refreshed.idToken,
+        expiresAt: refreshed.expiresAt,
+      };
+      saveSession(updated);
+      return updated.idToken;
     }
   } catch (_) {}
 
+  // Keep existing token only if it has not yet expired
+  if (session.expiresAt && Date.now() < session.expiresAt) {
+    return session.idToken;
+  }
+
+  clearSession();
   return null;
 }
 
+const signOutClientFirebaseQuietly = async () => {
+  try {
+    const { getAuth, signOut } = await import('firebase/auth');
+    const clientAuth = getAuth();
+    if (clientAuth?.currentUser) {
+      await signOut(clientAuth).catch(() => {});
+    }
+  } catch (_) {}
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
-// SIGN IN — Firebase REST + backend admin verify
+// SIGN IN — Strictly Server-Verified (Fail-Closed, Brute-Force Protected)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function signInAdmin(
   email: string,
@@ -245,15 +282,16 @@ export async function signInAdmin(
   code?: string
 ): Promise<AuthResult & { mfaRequired?: boolean }> {
   try {
+    const normalizedEmail = email.toLowerCase().trim();
     let idToken = "";
     let refreshToken = "SERVER_SESSION";
 
-    // Step 0: Try Firebase Client SDK directly first if available
+    // Step 0: Check Firebase Client SDK if available
     try {
       const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
       const clientAuth = getAuth();
       if (clientAuth) {
-        const userCred = await signInWithEmailAndPassword(clientAuth, email, password);
+        const userCred = await signInWithEmailAndPassword(clientAuth, normalizedEmail, password);
         if (userCred?.user) {
           idToken = await userCred.user.getIdToken();
           refreshToken = userCred.user.refreshToken || 'FIREBASE_CLIENT';
@@ -269,86 +307,93 @@ export async function signInAdmin(
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password, returnSecureToken: true }),
+            body: JSON.stringify({ email: normalizedEmail, password, returnSecureToken: true }),
           }
         );
         if (res.ok) {
           const data = await res.json();
-          idToken = data.idToken;
-          refreshToken = data.refreshToken;
+          idToken = data.idToken || "";
+          refreshToken = data.refreshToken || "FIREBASE_CLIENT";
         }
-      } catch (fbErr) {
-        console.warn("Firebase REST sign-in failed, trying backend direct login fallback:", fbErr);
-      }
+      } catch (_) {}
     }
 
-    // Step 2: If Firebase authentication succeeded
+    // Step 2: If Firebase produced an ID token, server MUST cryptographically verify & authorize it
     if (idToken) {
-      let isVerifiedOnServer = false;
       try {
         const verifyRes = await fetch("/api/v1/admin/verify-session", {
           method: "POST",
+          cache: "no-store",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
           },
-          body: JSON.stringify({ email, cfToken, code }),
+          body: JSON.stringify({ email: normalizedEmail, cfToken, code }),
         });
 
-        if (verifyRes.ok) {
-          const verifyData = await verifyRes.json().catch(() => ({}));
-          if (verifyData?.mfaRequired) {
-            return { ok: true, mfaRequired: true };
-          }
-          isVerifiedOnServer = true;
+        const verifyData = await verifyRes.json().catch(() => ({}));
+
+        if (verifyRes.status === 429 || verifyData?.locked) {
+          await signOutClientFirebaseQuietly();
+          const retrySec = Number(verifyData?.retryAfterSeconds) || Number(verifyRes.headers.get('Retry-After')) || 900;
+          const lockedUntil = Number(verifyData?.lockedUntil) || (Date.now() + retrySec * 1000);
+          return {
+            ok: false,
+            locked: true,
+            retryAfterSeconds: retrySec,
+            lockedUntil,
+            remainingAttempts: 0,
+            maxAttempts: Number(verifyData?.maxAttempts) || 7,
+            error: verifyData?.error || 'Too many failed login attempts. Sign-in is temporarily locked.',
+          };
         }
-      } catch (_) {}
 
-      const configuredAdminEmail = (
-        (typeof process !== 'undefined' && process.env?.VITE_ADMIN_EMAIL) ||
-        (typeof process !== 'undefined' && process.env?.ADMIN_EMAIL) ||
-        import.meta.env?.VITE_ADMIN_EMAIL ||
-        import.meta.env?.ADMIN_EMAIL ||
-        ""
-      ).toLowerCase().trim();
-      const userEmail = email.toLowerCase().trim();
+        if (verifyRes.ok && verifyData?.mfaRequired) {
+          return { ok: true, mfaRequired: true };
+        }
 
-      // Authorize if server verified OR matches configured admin email from environment
-      if (isVerifiedOnServer || (configuredAdminEmail && userEmail === configuredAdminEmail)) {
-        // Synchronize client-side Firebase Auth state if not already logged in
-        try {
-          const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
-          const clientAuth = getAuth();
-          if (clientAuth && !clientAuth.currentUser) {
-            await signInWithEmailAndPassword(clientAuth, email, password);
-          }
-        } catch (_) {}
+        if (verifyRes.ok && (verifyData?.authorized || verifyData?.valid) && typeof verifyData?.token === 'string' && verifyData.token.startsWith('adm_v1.')) {
+          const session: AdminSession = {
+            idToken: verifyData.token,
+            refreshToken: 'SERVER_SESSION',
+            email: (verifyData.email || normalizedEmail).toLowerCase().trim(),
+            expiresAt: Date.now() + TOKEN_LIFETIME_MS,
+          };
+          saveSession(session);
+          return { ok: true, session };
+        }
 
-        const session: AdminSession = {
-          idToken,
-          refreshToken,
-          email: userEmail,
-          expiresAt: Date.now() + TOKEN_LIFETIME_MS,
+        // Server rejected this Firebase account — fail closed and sign out Firebase client
+        await signOutClientFirebaseQuietly();
+        return {
+          ok: false,
+          locked: false,
+          remainingAttempts: typeof verifyData?.remainingAttempts === 'number' ? verifyData.remainingAttempts : undefined,
+          maxAttempts: typeof verifyData?.maxAttempts === 'number' ? verifyData.maxAttempts : undefined,
+          error: verifyData?.error || 'Access denied: administrator verification failed.',
         };
-        saveSession(session);
-        return { ok: true, session };
+      } catch (_) {
+        await signOutClientFirebaseQuietly();
+        return {
+          ok: false,
+          error: 'Unable to verify administrator session with the security server. Please try again.',
+        };
       }
-
-      return { ok: false, error: "ADMIN_ACCESS_DENIED" };
     }
 
-    // Step 3: Backend Direct Login (/api/v1/admin/login)
+    // Step 3: Backend Direct Login (/api/v1/admin/login) — Express & Cloudflare Pages Functions
     try {
       const directRes = await fetch("/api/v1/admin/login", {
         method: "POST",
+        cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, code }),
+        body: JSON.stringify({ email: normalizedEmail, password, code }),
       });
 
       const contentType = directRes.headers.get("content-type") || "";
       if (contentType.includes("application/json")) {
         const directData = await directRes.json().catch(() => ({}));
-        
+
         if (directData?.mfaRequired) {
           return { ok: true, mfaRequired: true };
         }
@@ -357,61 +402,39 @@ export async function signInAdmin(
           const session: AdminSession = {
             idToken: directData.token,
             refreshToken: directData.session?.refreshToken || "SERVER_SESSION",
-            email: email.toLowerCase().trim(),
-            expiresAt: Date.now() + TOKEN_LIFETIME_MS,
+            email: normalizedEmail,
+            expiresAt: Number(directData.session?.expiresAt) || (Date.now() + TOKEN_LIFETIME_MS),
           };
           saveSession(session);
           return { ok: true, session };
         }
 
-        if (directData?.error) {
-          if (directRes.status !== 404 && directData.error !== 'Not Found') {
-            return { ok: false, error: directData.error };
-          }
+        if (directRes.status === 429 || directData?.locked) {
+          const retrySec = Number(directData?.retryAfterSeconds) || Number(directRes.headers.get('Retry-After')) || 900;
+          const lockedUntil = Number(directData?.lockedUntil) || (Date.now() + retrySec * 1000);
+          return {
+            ok: false,
+            locked: true,
+            retryAfterSeconds: retrySec,
+            lockedUntil,
+            remainingAttempts: 0,
+            maxAttempts: Number(directData?.maxAttempts) || 7,
+            error: directData?.error || 'Too many failed login attempts. Sign-in is temporarily locked.',
+          };
+        }
+
+        if (directData?.error && directRes.status !== 404 && directData.error !== 'Not Found') {
+          return {
+            ok: false,
+            locked: false,
+            remainingAttempts: typeof directData.remainingAttempts === 'number' ? directData.remainingAttempts : undefined,
+            maxAttempts: typeof directData.maxAttempts === 'number' ? directData.maxAttempts : 7,
+            error: directData.error,
+          };
         }
       }
-    } catch (directErr) {
-      console.warn("Direct login request failed:", directErr);
-    }
-
-    // Step 4: Build-time / Static Hosting Direct Verification Fallback
-    const configuredAdminEmail = (
-      (typeof process !== 'undefined' && process.env?.VITE_ADMIN_EMAIL) ||
-      (typeof process !== 'undefined' && process.env?.ADMIN_EMAIL) ||
-      import.meta.env?.VITE_ADMIN_EMAIL ||
-      import.meta.env?.ADMIN_EMAIL ||
-      ""
-    ).toLowerCase().trim();
-
-    const configuredAdminPass = (
-      (typeof process !== 'undefined' && process.env?.VITE_ADMIN_PASSWORD) ||
-      (typeof process !== 'undefined' && process.env?.ADMIN_PASSWORD) ||
-      import.meta.env?.VITE_ADMIN_PASSWORD ||
-      import.meta.env?.ADMIN_PASSWORD ||
-      ""
-    ).trim();
-
-    const inputEmail = email.toLowerCase().trim();
-    const inputPass = password.trim();
-
-    const isEmailValid = configuredAdminEmail && inputEmail === configuredAdminEmail;
-    const isPassValid = configuredAdminPass && inputPass === configuredAdminPass;
-
-    if (isEmailValid && isPassValid) {
-      try {
-        const payload = JSON.stringify({ admin: true, email: configuredAdminEmail, exp: Date.now() + TOKEN_LIFETIME_MS });
-        const token = safeEncrypt(payload, getFallbackAes());
-        const session: AdminSession = {
-          idToken: token,
-          refreshToken: "OFFLINE_ADMIN_SESSION",
-          email: configuredAdminEmail,
-          expiresAt: Date.now() + TOKEN_LIFETIME_MS,
-        };
-        saveSession(session);
-        return { ok: true, session };
-      } catch (encErr) {
-        console.error("Offline admin session creation error:", encErr);
-      }
+    } catch (_) {
+      return { ok: false, error: "Unable to reach the authentication server. Please check your connection." };
     }
 
     return { ok: false, error: "Invalid administrator email or password." };
@@ -421,20 +444,99 @@ export async function signInAdmin(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SIGN OUT
+// GOOGLE AUTH VERIFICATION — Strictly Server-Verified (+ Optional 2FA & Lockout)
 // ─────────────────────────────────────────────────────────────────────────────
-export function signOutAdmin(): void {
-  clearSession();
+export async function verifyGoogleAdminLogin(
+  idToken: string,
+  email: string,
+  code?: string
+): Promise<AuthResult & { mfaRequired?: boolean; email?: string }> {
   try {
-    import('firebase/auth').then(({ getAuth, signOut }) => {
-      const a = getAuth();
-      if (a) signOut(a).catch(() => {});
-    }).catch(() => {});
-  } catch (_) {}
+    const res = await fetch("/api/v1/admin/google-login", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        idToken,
+        email: email.toLowerCase().trim(),
+        ...(code ? { code: code.trim() } : {}),
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 429 || data?.locked) {
+      await signOutClientFirebaseQuietly();
+      const retrySec = Number(data?.retryAfterSeconds) || Number(res.headers.get('Retry-After')) || 900;
+      const lockedUntil = Number(data?.lockedUntil) || (Date.now() + retrySec * 1000);
+      return {
+        ok: false,
+        locked: true,
+        retryAfterSeconds: retrySec,
+        lockedUntil,
+        remainingAttempts: 0,
+        maxAttempts: Number(data?.maxAttempts) || 7,
+        error: data?.error || 'Too many failed login attempts. Sign-in is temporarily locked.',
+      };
+    }
+
+    if (res.ok && data?.mfaRequired) {
+      return { ok: true, mfaRequired: true, email: data.email || email };
+    }
+
+    if (res.ok && typeof data?.token === 'string' && data.token.startsWith('adm_v1.')) {
+      const resolvedEmail = (data.email || email).toLowerCase().trim();
+      const session: AdminSession = {
+        idToken: data.token,
+        refreshToken: 'SERVER_SESSION',
+        email: resolvedEmail,
+        expiresAt: Date.now() + TOKEN_LIFETIME_MS,
+      };
+      saveSession(session);
+      return { ok: true, session, email: resolvedEmail };
+    }
+
+    // Fail closed if server rejected Google credential or 2FA code
+    if (!code) {
+      await signOutClientFirebaseQuietly();
+    }
+    return {
+      ok: false,
+      locked: false,
+      remainingAttempts: typeof data?.remainingAttempts === 'number' ? data.remainingAttempts : undefined,
+      maxAttempts: typeof data?.maxAttempts === 'number' ? data.maxAttempts : 7,
+      error: data?.error || `Access denied: ${email || 'This account'} is not authorized as an administrator.`,
+    };
+  } catch (_) {
+    await signOutClientFirebaseQuietly();
+    return { ok: false, error: 'Unable to reach the authentication server. Please try again.' };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADMIN API FETCH — wrapper that auto-injects auth header + refresh
+// SIGN OUT (immediately revokes token on server + wipes local/tab session)
+// ─────────────────────────────────────────────────────────────────────────────
+export function signOutAdmin(): void {
+  const existing = loadSession();
+  clearSession();
+  if (existing?.idToken) {
+    try {
+      fetch('/api/v1/admin/logout', {
+        method: 'POST',
+        keepalive: true,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${existing.idToken}`,
+        },
+        body: JSON.stringify({ idToken: existing.idToken }),
+      }).catch(() => {});
+    } catch (_) {}
+  }
+  signOutClientFirebaseQuietly();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN API FETCH — wrapper that auto-injects auth header + token rotation
 // ─────────────────────────────────────────────────────────────────────────────
 export async function adminFetch(
   url: string,
@@ -445,22 +547,10 @@ export async function adminFetch(
   const existingAuth = (rawExistingAuth && !rawExistingAuth.includes('undefined') && !rawExistingAuth.includes('null') && rawExistingAuth.trim() !== 'Bearer') ? rawExistingAuth : null;
 
   if (!token && !existingAuth) {
-    const rawSession = loadSession();
-    if (rawSession?.idToken) {
-      const refreshed = await refreshIdToken(rawSession.refreshToken);
-      if (refreshed?.idToken) {
-        token = refreshed.idToken;
-        saveSession({ ...rawSession, idToken: refreshed.idToken, expiresAt: refreshed.expiresAt });
-      } else {
-        token = rawSession.idToken;
-      }
-    }
-    if (!token && !existingAuth) {
-      return new Response(JSON.stringify({ error: "Unauthorized: Session expired. Please log in again." }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    return new Response(JSON.stringify({ error: "Unauthorized: Session expired. Please log in again." }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const finalHeaders = {
@@ -491,23 +581,24 @@ export async function adminFetch(
     }
   }
 
-  // If 401 Session expired received, attempt automatic single token refresh and retry
+  // If 401 Session expired received, attempt a single server token refresh and retry
   if (res.status === 401) {
     const curSession = loadSession();
     if (curSession?.idToken) {
       try {
         const refreshRes = await fetch("/api/v1/admin/refresh-token", {
           method: "POST",
+          cache: "no-store",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${curSession.idToken}` },
           body: JSON.stringify({ idToken: curSession.idToken }),
         });
         if (refreshRes.ok) {
-          const refreshData = await refreshRes.json();
+          const refreshData = await refreshRes.json().catch(() => ({}));
           if (refreshData.token) {
             saveSession({
               ...curSession,
               idToken: refreshData.token,
-              expiresAt: Date.now() + TOKEN_LIFETIME_MS
+              expiresAt: Number(refreshData.expiresAt) || (Date.now() + TOKEN_LIFETIME_MS)
             });
             finalHeaders.Authorization = `Bearer ${refreshData.token}`;
             res = await fetch(url, { ...options, headers: finalHeaders, cache: 'no-store' });

@@ -1,7 +1,4 @@
-import { useState, useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { useState, useEffect, useCallback } from 'react';
 import { adminFetch, loadSession, clearSession } from '../services/adminAuthService';
 import { getAdminPath } from '../lib/utils';
 
@@ -11,92 +8,93 @@ export const useAdminAuth = () => {
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
   const [sessionTimeLeft, setSessionTimeLeft] = useState(15 * 60);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async (reason: 'logout' | 'expired' = 'logout') => {
     try {
       await adminFetch('/api/v1/admin/logout', { method: 'POST' });
-    } catch (e) {}
+    } catch (_) {}
     try {
       const { getAuth, signOut } = await import('firebase/auth');
       const authInstance = getAuth();
-      if (authInstance) {
+      if (authInstance?.currentUser) {
         await signOut(authInstance);
       }
-    } catch (e) {}
+    } catch (_) {}
     clearSession();
-    const currentBase = window.location.pathname.toLowerCase().startsWith('/masterworld') 
-      ? 'masterworld' 
+    const currentBase = window.location.pathname.toLowerCase().startsWith('/masterworld')
+      ? 'masterworld'
       : getAdminPath();
-    window.location.href = `/${currentBase}/login?logout=1`;
-  };
+    const query = reason === 'expired' ? 'reason=expired' : 'logout=1';
+    window.location.href = `/${currentBase}/login?${query}`;
+  }, []);
 
   useEffect(() => {
-    const session = loadSession();
-    if (!auth && (!session || !session.idToken)) {
-      setIsAdminUser(false);
-      setUser(null);
-      setCheckingAuth(false);
-      return;
-    }
+    let active = true;
 
-    const unsubscribe = onAuthStateChanged(auth!, async (currentUser) => {
+    const verifyServerSession = async (isInitialCheck: boolean) => {
       const currentSession = loadSession();
-      let token = currentSession?.idToken;
-      if (!token && currentUser) {
-        try {
-          token = await currentUser.getIdToken();
-        } catch (_) {}
-      }
-      const effectiveUser = currentUser || (token ? { email: currentSession?.email, uid: 'local', getIdToken: async () => token } : null);
-        
-      if (effectiveUser && token) {
-        let adminVerified = false;
-        try {
-          const idToken = await effectiveUser.getIdToken();
-          const verifyRes = await adminFetch('/api/v1/admin/verify', {
-            headers: { 'Authorization': `Bearer ${idToken}` }
-          });
-          if (verifyRes.ok) {
-            const verifyData = await verifyRes.json();
-            if (verifyData.authorized) adminVerified = true;
-          }
-        } catch (e) {
-          adminVerified = false;
-        }
-          
-        if (adminVerified) {
-          setUser(effectiveUser);
-          setIsAdminUser(true);
-        } else {
-          // Static host fallback (e.g. Cloudflare Pages / Vercel without active Node.js server):
-          // Authorize if user's authenticated email matches configured admin email from environment
-          const userEmail = (effectiveUser.email || currentSession?.email || '').toLowerCase().trim();
-          const configuredEmail = (
-            (typeof process !== 'undefined' && process.env?.VITE_ADMIN_EMAIL) ||
-            (typeof process !== 'undefined' && process.env?.ADMIN_EMAIL) ||
-            import.meta.env?.VITE_ADMIN_EMAIL ||
-            import.meta.env?.ADMIN_EMAIL ||
-            ''
-          ).toLowerCase().trim();
+      const token = currentSession?.idToken || '';
 
-          if (configuredEmail && userEmail && userEmail === configuredEmail) {
-            setUser(effectiveUser);
-            setIsAdminUser(true);
-          } else {
-            clearSession();
-            setUser(null);
-            setIsAdminUser(false);
+      // Fail closed: strictly require a server-issued revocable adm_v1.* session token.
+      // Never accept raw Firebase client tokens directly here (prevents 2FA & revocation bypass).
+      if (!token || !token.startsWith('adm_v1.')) {
+        if (!active) return;
+        clearSession();
+        setUser(null);
+        setIsAdminUser(false);
+        if (isInitialCheck) setCheckingAuth(false);
+        return;
+      }
+
+      let adminVerified = false;
+      let verifiedEmail = currentSession?.email || '';
+      try {
+        const verifyRes = await adminFetch('/api/v1/admin/verify', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json().catch(() => ({}));
+          if (verifyData?.authorized === true) {
+            adminVerified = true;
+            if (typeof verifyData.email === 'string' && verifyData.email) {
+              verifiedEmail = verifyData.email;
+            }
           }
         }
-        setCheckingAuth(false);
+      } catch (_) {
+        adminVerified = false;
+      }
+
+      if (!active) return;
+
+      if (adminVerified) {
+        setUser({
+          email: verifiedEmail,
+          uid: 'server-session',
+          getIdToken: async () => loadSession()?.idToken || token,
+        });
+        setIsAdminUser(true);
       } else {
         clearSession();
         setUser(null);
         setIsAdminUser(false);
-        setCheckingAuth(false);
       }
-    });
+      if (isInitialCheck) setCheckingAuth(false);
+    };
 
-    return unsubscribe;
+    verifyServerSession(true);
+
+    // Re-verify session silently whenever the admin tab becomes visible again
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        verifyServerSession(false);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      active = false;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -115,7 +113,7 @@ export const useAdminAuth = () => {
     const timerId = setInterval(() => {
       const remainingSec = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
       if (remainingSec <= 0) {
-        handleLogout();
+        handleLogout('expired');
         return;
       }
       // Only trigger a React state update when the minute changes (or every 5s in the final minute)
@@ -135,13 +133,13 @@ export const useAdminAuth = () => {
       window.removeEventListener('click', resetActivity);
       window.removeEventListener('touchstart', resetActivity);
     };
-  }, [user, isAdminUser]);
+  }, [user, isAdminUser, handleLogout]);
 
   return {
     user,
     checkingAuth,
     isAdminUser,
     sessionTimeLeft,
-    handleLogout
+    handleLogout: () => handleLogout('logout'),
   };
 };

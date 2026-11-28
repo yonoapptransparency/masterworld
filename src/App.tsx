@@ -95,11 +95,27 @@ function AppContent() {
   const adminPath = getAdminPath();
   const isAdminPath = location.pathname.startsWith(`/${adminPath}`);
 
-  // Dynamic SEO meta tag manager that reacts to the current page state, keeping it strictly in sync with the database settings
+  // Enforce strict non-indexing directives on all admin views so crawlers never index the control portal
+  useEffect(() => {
+    const upsertMeta = (name: string, content: string) => {
+      let tag = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
+      if (!tag) {
+        tag = document.createElement('meta');
+        tag.name = name;
+        document.head.appendChild(tag);
+      }
+      tag.content = content;
+    };
+    const noIndexDirectives = 'noindex, nofollow, noarchive, nosnippet, noimageindex';
+    upsertMeta('robots', noIndexDirectives);
+    upsertMeta('googlebot', noIndexDirectives);
+    document.title = 'Admin Portal';
+  }, [location.pathname]);
+
+  // Synchronize favicon with settings while keeping admin document title strictly private
   useEffect(() => {
     if (!settings) return;
-    const siteTitle = settings.site_title || '';
-    document.title = `Admin Dashboard - ${siteTitle}`;
+    document.title = 'Admin Portal';
 
     // Dynamically synchronize favicon with firebase database changes live
     const targetUrl = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png";

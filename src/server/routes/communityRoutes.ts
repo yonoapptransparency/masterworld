@@ -54,6 +54,23 @@ function readBackupGeminiSettings(): { apiKey: string; model: string } {
   return { apiKey: '', model: '' };
 }
 
+function writeFileAtomicSync(targetPath: string, content: string): void {
+  const dir = path.dirname(targetPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  const tmpPath = `${targetPath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 7)}.tmp`;
+  try {
+    fs.writeFileSync(tmpPath, content, 'utf8');
+    fs.renameSync(tmpPath, targetPath);
+  } catch (err) {
+    try {
+      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+    } catch (_) {}
+    throw err;
+  }
+}
+
 function writeBackupGeminiSettings(apiKey?: string, model?: string): void {
   try {
     if (fs.existsSync(PUBLIC_BACKUP_FILE)) {
@@ -66,7 +83,7 @@ function writeBackupGeminiSettings(apiKey?: string, model?: string): void {
         if (model !== undefined && model.trim()) {
           parsed.settings.gemini_model = normalizeGeminiModel(model.trim());
         }
-        fs.writeFileSync(PUBLIC_BACKUP_FILE, JSON.stringify(parsed), 'utf8');
+        writeFileAtomicSync(PUBLIC_BACKUP_FILE, JSON.stringify(parsed));
       }
     }
   } catch (_) {}
@@ -134,10 +151,7 @@ function ensureBrainLoaded(): any {
 
 function persistBrainToDisk(brainData: any): void {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    fs.writeFileSync(PERSISTENT_BRAIN_FILE, JSON.stringify(brainData, null, 2), 'utf8');
+    writeFileAtomicSync(PERSISTENT_BRAIN_FILE, JSON.stringify(brainData, null, 2));
   } catch (_) {}
 }
 
@@ -563,7 +577,7 @@ function recomputeServerAtomicStats(persistToDisk = false): {
 
   if (persistToDisk) {
     try {
-      fs.writeFileSync(STATIC_REVIEWS_FILE, JSON.stringify(compactedMap, null, 2), 'utf8');
+      writeFileAtomicSync(STATIC_REVIEWS_FILE, JSON.stringify(compactedMap, null, 2));
     } catch (e) {
       console.warn('[communityRoutes] Failed writing communityStaticReviews.json:', e);
     }
@@ -578,7 +592,7 @@ function recomputeServerAtomicStats(persistToDisk = false): {
         ratingDistribution: result.globalStats.ratingDistribution,
         appCounts: result.appCounts
       };
-      fs.writeFileSync(CATALOG_STATS_FILE, JSON.stringify(catalogStatsPayload, null, 2), 'utf8');
+      writeFileAtomicSync(CATALOG_STATS_FILE, JSON.stringify(catalogStatsPayload, null, 2));
     } catch (e) {
       console.warn('[communityRoutes] Failed writing communityCatalogStats.json:', e);
     }
@@ -643,7 +657,7 @@ communityRouter.get('/api/v1/public/community/reviews', async (req, res) => {
   try {
     const appId = String(req.query.appId || req.query.id || '');
     const appSlug = String(req.query.appSlug || req.query.slug || '');
-    const limit = Number(req.query.limit) || 15;
+    const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 15));
     const cursor = req.query.cursor ? String(req.query.cursor) : undefined;
     const filter = String(req.query.filter || 'all');
     const sortBy = String(req.query.sortBy || 'recent');
@@ -763,13 +777,13 @@ communityRouter.post('/api/v1/public/community/reviews', async (req, res) => {
     }
 
     const result = await submitLiveReview({
-      ...body,
       appId: appId || appSlug,
       appSlug: appSlug || appId,
       appName: typeof body.appName === 'string' ? body.appName.trim().slice(0, 160) : undefined,
       userName: userName || 'Anonymous User',
       rating: Math.round(rating),
-      reviewText
+      reviewText,
+      turnstileToken: typeof body.turnstileToken === 'string' ? body.turnstileToken.trim().slice(0, 2048) : undefined
     });
     res.json(result);
   } catch (err: any) {
@@ -802,10 +816,10 @@ communityRouter.post('/api/v1/public/community/reviews/report', async (req, res)
       return res.status(400).json({ success: false, error: 'Valid reviewId is required.' });
     }
     const success = await reportLiveReview({
-      ...body,
       reviewId,
       appId: typeof body.appId === 'string' ? body.appId.trim().slice(0, 128) : undefined,
-      reason: typeof body.reason === 'string' ? body.reason.trim().slice(0, 300) : 'Flagged by user'
+      reason: typeof body.reason === 'string' ? body.reason.trim().slice(0, 300) : 'Flagged by user',
+      details: typeof body.details === 'string' ? body.details.trim().slice(0, 1000) : undefined
     });
     res.json({ success });
   } catch (err: any) {

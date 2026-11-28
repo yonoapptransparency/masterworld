@@ -18,9 +18,12 @@ reportRouter.post('/api/v1/public/reports', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Report reason or details are required.' });
     }
 
+    const allowedTypes = new Set(['app_flag', 'review_flag', 'broken_link', 'copyright', 'safety', 'other']);
+    const rawType = typeof body.type === 'string' ? body.type.trim().toLowerCase().slice(0, 40) : 'app_flag';
+    const safeType = allowedTypes.has(rawType) ? rawType : 'app_flag';
+
     const sanitizedPayload = {
-      ...body,
-      type: typeof body.type === 'string' ? body.type.trim().slice(0, 40) : 'app_flag',
+      type: safeType,
       appId: typeof body.appId === 'string' ? body.appId.trim().slice(0, 128) : undefined,
       appSlug: typeof body.appSlug === 'string' ? body.appSlug.trim().slice(0, 128) : undefined,
       appName: typeof body.appName === 'string' ? body.appName.trim().slice(0, 160) : undefined,
@@ -28,13 +31,14 @@ reportRouter.post('/api/v1/public/reports', async (req, res) => {
       reason,
       details,
       description,
-      reporterEmail: typeof body.reporterEmail === 'string' ? body.reporterEmail.trim().slice(0, 160) : undefined
+      reporterEmail: typeof body.reporterEmail === 'string' ? body.reporterEmail.trim().slice(0, 160) : undefined,
+      pageUrl: typeof body.pageUrl === 'string' ? body.pageUrl.trim().slice(0, 300) : undefined
     };
 
     const success = await submitLiveReport(sanitizedPayload);
     res.json({ success });
   } catch (e: any) {
-    res.status(500).json({ success: false, error: e?.message });
+    res.status(500).json({ success: false, error: 'Failed to submit report.' });
   }
 });
 

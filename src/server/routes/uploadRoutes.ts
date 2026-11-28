@@ -12,8 +12,24 @@ function getCloudinaryCredentials() {
   return { cloudName, apiKey, apiSecret, folder };
 }
 
+const ALLOWED_RASTER_MIMES = new Set(['png', 'jpeg', 'jpg', 'webp', 'gif', 'avif']);
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+
+function isPrivateIpv4(a: number, b: number): boolean {
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 100 && b >= 64 && b <= 127)
+  );
+}
+
 function isSafeExternalImageUrl(rawUrl: string): boolean {
   try {
+    if (rawUrl.length > 2048) return false;
     const parsed = new URL(rawUrl);
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
     if (parsed.username || parsed.password) return false;
@@ -21,34 +37,31 @@ function isSafeExternalImageUrl(rawUrl: string): boolean {
     const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
     if (!host) return false;
 
-    // Block loopback, link-local, cloud metadata, and local network hostnames
+    // Block loopback, link-local, cloud metadata, IPv6 private/mapped ranges, and local hostnames
     if (
       host === 'localhost' ||
+      host === '::' ||
       host === '::1' ||
       host === '0.0.0.0' ||
       host.endsWith('.local') ||
       host.endsWith('.internal') ||
       host === 'metadata.google.internal' ||
+      host.startsWith('::ffff:') ||
       host.startsWith('fe80:') ||
       host.startsWith('fc') ||
-      host.startsWith('fd')
+      host.startsWith('fd') ||
+      /^\d+$/.test(host) ||
+      /^0x[0-9a-f]+$/i.test(host)
     ) {
       return false;
     }
 
-    // Block private/reserved IPv4 literals
+    // Block private/reserved IPv4 literals (including octal/hex octet bypasses)
     const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
     if (ipv4) {
-      const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
-      if (
-        a === 0 ||
-        a === 10 ||
-        a === 127 ||
-        (a === 169 && b === 254) ||
-        (a === 172 && b >= 16 && b <= 31) ||
-        (a === 192 && b === 168) ||
-        (a === 100 && b >= 64 && b <= 127)
-      ) {
+      const octets = [Number(ipv4[1]), Number(ipv4[2]), Number(ipv4[3]), Number(ipv4[4])];
+      if (octets.some((n) => n < 0 || n > 255)) return false;
+      if (isPrivateIpv4(octets[0], octets[1])) {
         return false;
       }
     }
@@ -115,12 +128,19 @@ uploadRouter.post('/api/v1/admin/upload', async (req, res) => {
     let fileName = `upload_${Date.now()}`;
 
     if (imagePayload.startsWith('data:image/')) {
-      const match = imagePayload.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+      const match = imagePayload.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/);
       if (match) {
-        const mimeType = match[1];
+        const mimeType = match[1].toLowerCase();
+        if (!ALLOWED_RASTER_MIMES.has(mimeType)) {
+          return res.status(400).json({ status: 'ERROR', error: 'Unsupported image format. Use PNG, JPG, WEBP, GIF, or AVIF.' });
+        }
         const buffer = Buffer.from(match[2], 'base64');
-        fileBlob = new Blob([buffer], { type: `image/${mimeType}` });
-        fileName = `upload_${Date.now()}.${mimeType === 'jpeg' ? 'jpg' : mimeType}`;
+        if (buffer.byteLength === 0 || buffer.byteLength > MAX_UPLOAD_BYTES) {
+          return res.status(413).json({ status: 'ERROR', error: 'Image file must be non-empty and under 10 MB.' });
+        }
+        const normalizedMime = mimeType === 'jpg' ? 'jpeg' : mimeType;
+        fileBlob = new Blob([buffer], { type: `image/${normalizedMime}` });
+        fileName = `upload_${Date.now()}.${normalizedMime === 'jpeg' ? 'jpg' : normalizedMime}`;
       } else {
         return res.status(400).json({ status: 'ERROR', error: 'Invalid base64 image format' });
       }
@@ -138,7 +158,8 @@ uploadRouter.post('/api/v1/admin/upload', async (req, res) => {
 
       const cRes = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: AbortSignal.timeout(15000)
       });
 
       const cData = await cRes.json();
@@ -172,7 +193,8 @@ uploadRouter.post('/api/v1/admin/upload', async (req, res) => {
 
     const cRes = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, {
       method: 'POST',
-      body: formData
+      body: formData,
+      signal: AbortSignal.timeout(15000)
     });
 
     const cData = await cRes.json();
